@@ -23,15 +23,26 @@ const UPLOAD_DIR = path.join(__dirname, "uploads");
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 const upload = multer({ dest: UPLOAD_DIR });
 
-// Google Credential Base64 → write temporary file
-const tmpCredentialPath = path.join(__dirname, "config", "credentials.json");
+const fs = require("fs");
+const path = require("path");
+
+// ===== Ensure config directory exists =====
+const configDir = path.join(__dirname, "config");
+if (!fs.existsSync(configDir)) {
+  fs.mkdirSync(configDir, { recursive: true });
+}
+
+// ===== Write Google credential from Base64 =====
+const credentialPath = path.join(configDir, "credentials.json");
+
 if (process.env.GOOGLE_CREDENTIAL_BASE64) {
   fs.writeFileSync(
-    tmpCredentialPath,
+    credentialPath,
     Buffer.from(process.env.GOOGLE_CREDENTIAL_BASE64, "base64")
   );
-  process.env.GOOGLE_APPLICATION_CREDENTIALS = tmpCredentialPath;
+  process.env.GOOGLE_APPLICATION_CREDENTIALS = credentialPath;
 }
+
 
 app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev"));
 app.use(express.static(path.join(__dirname, "public")));
