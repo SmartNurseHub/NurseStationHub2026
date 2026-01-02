@@ -148,11 +148,17 @@ router.get("/new/nsr", async (req, res) => {
 
 router.get("/Patients", async (req, res) => {
   try {
-    res.json({ success: true, data: await readSheet(SHEET_PATIENTS) });
+    const data = await readSheet(SHEET_PATIENTS);
+    res.json({ success: true, data });
   } catch (err) {
-    res.status(500).json({ success: false });
+    console.error("❌ /Patients error:", err.message);
+    res.status(500).json({
+      success: false,
+      error: err.message
+    });
   }
 });
+
 
 router.get("/NursingRecords", async (req, res) => {
   try {
