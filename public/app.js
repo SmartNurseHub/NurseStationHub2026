@@ -471,11 +471,23 @@ function setupNursingUploadForm() {
     const fd = new FormData(form);
 
     try {
-      const res = await fetch(`${API_BASE}/upload`, { method: "POST", body: fd });
-      const json = await res.json();
+      const res = await fetch(`${API_BASE}/patients/upload`, {   // ✅ FIX
+        method: "POST",
+        body: fd
+      });
 
+      if (!res.ok) {
+        const t = await res.text();
+        throw new Error("HTTP " + res.status + ": " + t.slice(0,100));
+      }
+
+      const json = await res.json();
       alert(json.success ? "อัปโหลดสำเร็จ" : "อัปโหลดล้มเหลว");
-      if (json.success) form.reset();
+
+      if (json.success) {
+        form.reset();
+        loadPatients(); // รีโหลดข้อมูล
+      }
 
     } catch (err) {
       console.error(err);
@@ -544,7 +556,8 @@ document.addEventListener('click', (e) => {
     fd.append("file", file);
 
     const xhr = new XMLHttpRequest();
-    xhr.open("POST", `${API_BASE}/upload`, true); // server.js → POST /upload
+    xhr.open("POST", "/api/sheet/patients/upload", true); // server.js → POST /api/sheet/patients/upload
+
 
     // แสดงเปอร์เซ็นต์อัปโหลดแบบเรียลไทม์
     xhr.upload.addEventListener("progress", (ev) => {
