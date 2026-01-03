@@ -179,6 +179,11 @@ router.get("/NursingRecords/:nsr", async (req, res) => {
   }
 });
 
+// เพิ่ม route ชั่วคราว
+app.get("/test-logo", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "image", "logo.png"));
+});
+
 /********************************************************************
  * SECTION 5 — ROUTER + SPA
  ********************************************************************/
