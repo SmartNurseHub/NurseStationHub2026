@@ -1,5 +1,6 @@
 // ======================================================================
 // app.js — Front-end Controller (FIXED & PRODUCTION READY)
+// NurseStationHub2026
 // ======================================================================
 
 // =======================
@@ -34,15 +35,19 @@ function escapeHtml(str) {
 // =======================
 function navTo(view) {
   const container = $id("view-container");
+  if (!container) return;
 
   fetch(`views/${view}.html`)
-    .then(r => r.text())
+    .then(r => {
+      if (!r.ok) throw new Error("view not found");
+      return r.text();
+    })
     .then(html => {
       container.innerHTML = html;
 
       if (view === "patients") {
         loadPatients();
-        setupPatientUpload(); // ⭐ FIX
+        setupPatientUpload();
       }
 
       if (view === "nursingRecords") {
@@ -57,16 +62,16 @@ function navTo(view) {
 }
 
 // =======================
-// LOAD PATIENTS
+// LOAD PATIENTS  ✅ FIXED (lowercase)
 // =======================
 async function loadPatients() {
   try {
-    const res = await fetch(`${API_BASE}/Patients`);
+    const res = await fetch(`${API_BASE}/patients`);
     const json = await res.json();
 
     if (!json.success) throw new Error("API error");
 
-    patientsData = json.data;
+    patientsData = json.data || [];
     patientIndex = patientsData.map((p, i) => ({
       i,
       text: `${p.HN || ""} ${p.NAME || ""} ${p.LNAME || ""} ${p.CID || ""}`.toLowerCase()
@@ -76,6 +81,8 @@ async function loadPatients() {
 
   } catch (err) {
     console.error("loadPatients failed", err);
+    patientsData = [];
+    patientIndex = [];
   }
 }
 
@@ -92,12 +99,16 @@ function setupPatientSearch() {
     list.innerHTML = "";
     if (!q) return;
 
-    const hits = patientIndex.filter(x => x.text.includes(q)).slice(0, 10);
+    const hits = patientIndex
+      .filter(x => x.text.includes(q))
+      .slice(0, 10);
+
     hits.forEach(h => {
       const p = patientsData[h.i];
       const div = document.createElement("div");
-      div.className = "list-group-item";
-      div.textContent = `${p.NAME} ${p.LNAME} (${p.HN})`;
+      div.className = "list-group-item list-group-item-action";
+      div.textContent = `${p.NAME || ""} ${p.LNAME || ""} (${p.HN || "-"})`;
+
       div.onclick = () => {
         $id("HN").value = p.HN || "";
         $id("CID").value = p.CID || "";
@@ -105,6 +116,7 @@ function setupPatientSearch() {
         $id("LNAME").value = p.LNAME || "";
         list.innerHTML = "";
       };
+
       list.appendChild(div);
     });
   };
@@ -115,16 +127,16 @@ function setupPatientSearch() {
 // =======================
 async function loadNursingRecords() {
   try {
-    const res = await fetch(`${API_BASE}/NursingRecords`);
+    const res = await fetch(`${API_BASE}/nursingRecords`);
     const json = await res.json();
 
     if (!json.success) throw new Error("API error");
 
-    nursingRecordsCache = json.data;
-    renderNursingRecords(json.data);
+    nursingRecordsCache = json.data || [];
+    renderNursingRecords(nursingRecordsCache);
 
   } catch (err) {
-    console.error(err);
+    console.error("loadNursingRecords failed", err);
   }
 }
 
@@ -133,16 +145,19 @@ function renderNursingRecords(records) {
   if (!tbody) return;
 
   tbody.innerHTML = "";
+
   records.forEach(r => {
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td>${r.NSR}</td>
-      <td>${r.DateService}</td>
-      <td>${r.HN}</td>
+      <td>${r.NSR || ""}</td>
+      <td>${r.DateService || ""}</td>
+      <td>${r.HN || ""}</td>
       <td>${escapeHtml(r.NAME)} ${escapeHtml(r.LNAME)}</td>
-      <td>${escapeHtml(r.Activity)}</td>
+      <td>${escapeHtml(r.Activity || "")}</td>
       <td>
-        <button class="btn btn-sm btn-warning" data-nsr="${r.NSR}">✏️</button>
+        <button class="btn btn-sm btn-warning edit-nsr" data-nsr="${r.NSR}">
+          ✏️
+        </button>
       </td>
     `;
     tbody.appendChild(tr);
@@ -161,13 +176,13 @@ function setupNursingForm() {
 
     const data = Object.fromEntries(new FormData(form).entries());
 
-    if (nursingFormMode === "edit") {
+    if (nursingFormMode === "edit" && editingNSR) {
       data._mode = "edit";
       data._key = editingNSR;
     }
 
     try {
-      const res = await fetch(`${API_BASE}/NursingRecords`, {
+      const res = await fetch(`${API_BASE}/nursingRecords`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data)
@@ -186,7 +201,7 @@ function setupNursingForm() {
 }
 
 // =======================
-// PATIENT UPLOAD (XMLHttpRequest ONLY)
+// PATIENT UPLOAD (XMLHttpRequest)
 // =======================
 function setupPatientUpload() {
   const btn = $id("submitFile");
