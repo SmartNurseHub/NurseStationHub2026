@@ -117,11 +117,12 @@ exports.uploadPatients = async (req, res) => {
     );
 
     res.json({
-      success: true,
-      total: newRows + updatedRows,
-      newRows,
-      updatedRows,
-    });
+  success: true,
+  totalInFile: rows.length,          // จำนวนข้อมูลในไฟล์
+  processed: processedRows,          // จำนวนที่นำไปประมวลผล
+  newRows,                           // เพิ่มใหม่
+  updatedRows,                       // อัปเดต
+});
 
   } catch (err) {
     console.error("🔥 uploadPatients error:", err);
