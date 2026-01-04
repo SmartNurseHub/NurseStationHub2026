@@ -1,5 +1,5 @@
 // =======================================================
-// Upload Controller — Render Safe (No file storage)
+// Upload Controller — Render Production Safe
 // =======================================================
 
 const { google } = require("googleapis");
@@ -16,56 +16,84 @@ exports.uploadPatients = async (req, res) => {
       return res.json({ success: false, message: "No data" });
     }
 
+    /* ================= GOOGLE AUTH ================= */
+    const credentials = JSON.parse(
+      Buffer.from(
+        process.env.GOOGLE_CREDENTIAL_BASE64,
+        "base64"
+      ).toString()
+    );
+
     const auth = new google.auth.GoogleAuth({
-      credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS),
-      scopes: ["https://www.googleapis.com/auth/spreadsheets"]
+      credentials,
+      scopes: ["https://www.googleapis.com/auth/spreadsheets"],
     });
 
     const sheets = google.sheets({ version: "v4", auth });
 
-    const sheetId = process.env.SPREADSHEET_ID;
-    const range = "Patients!A1";
+    /* ================= SHEET CONFIG ================= */
+    const spreadsheetId = process.env.SPREADSHEET_ID;
+    const sheetName = process.env.SHEET_PATIENTS || "Patients";
 
-    const resSheet = await sheets.spreadsheets.values.get({
-      spreadsheetId: sheetId,
-      range
+    /* ================= READ EXISTING ================= */
+    const readResp = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: sheetName,
     });
 
-    const existing = resSheet.data.values || [];
-    const header = existing.shift() || [];
+    const values = readResp.data.values || [];
+    if (!values.length) {
+      return res.status(500).json({
+        success: false,
+        message: "Sheet has no header",
+      });
+    }
+
+    const header = values[0];
+    const existing = values.slice(1);
 
     let newRows = 0;
     let updatedRows = 0;
 
     rows.forEach(row => {
-      const index = existing.findIndex(r => r[0] === row.HN);
-      const values = header.map(h => row[h] || "");
+      const hnIndex = header.indexOf("HN");
+      const foundIndex = existing.findIndex(
+        r => r[hnIndex] === row.HN
+      );
 
-      if (index === -1) {
-        existing.push(values);
+      const rowValues = header.map(h => row[h] || "");
+
+      if (foundIndex === -1) {
+        existing.push(rowValues);
         newRows++;
       } else {
-        existing[index] = values;
+        existing[foundIndex] = rowValues;
         updatedRows++;
       }
     });
 
+    /* ================= WRITE BACK ================= */
     await sheets.spreadsheets.values.update({
-      spreadsheetId: sheetId,
-      range: "Patients!A2",
+      spreadsheetId,
+      range: `${sheetName}!A2`,
       valueInputOption: "RAW",
-      requestBody: { values: existing }
+      requestBody: {
+        values: existing,
+      },
     });
 
     res.json({
       success: true,
       totalRows: existing.length,
       newRows,
-      updatedRows
+      updatedRows,
     });
 
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false });
+    console.error("Upload patients error:", err);
+    res.status(500).json({
+      success: false,
+      message: "Upload failed",
+    });
   }
 };
