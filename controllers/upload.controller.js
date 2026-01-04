@@ -2,9 +2,14 @@ const { google } = require("googleapis");
 
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
 const SHEET_PATIENTS = process.env.SHEET_PATIENTS || "Patients";
+const BATCH_SIZE = 1000;
 
+// ---------------------------------------------------------------------
+// Google Auth
+// ---------------------------------------------------------------------
 const credentials = JSON.parse(
-  Buffer.from(process.env.GOOGLE_CREDENTIAL_BASE64, "base64").toString("utf-8")
+  Buffer.from(process.env.GOOGLE_CREDENTIAL_BASE64, "base64")
+    .toString("utf-8")
 );
 
 const auth = new google.auth.GoogleAuth({
@@ -17,8 +22,9 @@ async function getSheets() {
   return google.sheets({ version: "v4", auth: client });
 }
 
-const BATCH_SIZE = 1000;
-
+// ---------------------------------------------------------------------
+// Upload PERSON
+// ---------------------------------------------------------------------
 exports.uploadPatients = async (req, res) => {
   try {
     if (!req.file) {
@@ -32,106 +38,128 @@ exports.uploadPatients = async (req, res) => {
 
     const sheets = await getSheets();
 
-    // ------------------------------------------------------------------
-    // 1) อ่านไฟล์
-    // ------------------------------------------------------------------
+    // -----------------------------------------------------------------
+    // 1) Read file
+    // -----------------------------------------------------------------
     const content = req.file.buffer.toString("utf-8");
-    const lines = content.split(/\r?\n/).filter(l => l.trim());
+    const rawLines = content.split(/\r?\n/).filter(l => l.trim());
 
-    if (lines.length < 2) {
+    if (rawLines.length < 2) {
       return res.status(400).json({
         success: false,
         message: "File has no data rows",
       });
     }
 
-    // ------------------------------------------------------------------
-    // 2) แยก header
-    // ------------------------------------------------------------------
-    const headerLine = lines.shift(); // เอาบรรทัดแรกออก
-    const headers = headerLine.split("|");
-
-    console.log("Columns:", headers.length);
-    console.log("Data rows:", lines.length);
-
-    // ------------------------------------------------------------------
-    // 3) โหลด HN เดิมจาก Sheet (ใช้เป็น key)
-    // ------------------------------------------------------------------
-    // สมมติว่า HN อยู่ column H (ตามไฟล์คุณ)
-    const hnColIndex = headers.indexOf("HN");
-    if (hnColIndex === -1) {
-      throw new Error("HN column not found in header");
+    // -----------------------------------------------------------------
+    // 2) Find REAL header (pipe-delimited)
+    // -----------------------------------------------------------------
+    const headerIndex = rawLines.findIndex(l => l.includes("|"));
+    if (headerIndex === -1) {
+      throw new Error("Pipe-delimited header not found");
     }
 
-    const sheetHN = await sheets.spreadsheets.values.get({
+    const headerLine = rawLines[headerIndex];
+    const headers = headerLine.split("|");
+    const dataLines = rawLines.slice(headerIndex + 1);
+
+    console.log("Columns:", headers.length);
+    console.log("Data rows:", dataLines.length);
+
+    // -----------------------------------------------------------------
+    // 3) Use CID as KEY (HDC standard)
+    // -----------------------------------------------------------------
+    const KEY_NAME = "CID";
+    const keyColIndex = headers.indexOf(KEY_NAME);
+    if (keyColIndex === -1) {
+      throw new Error(`${KEY_NAME} column not found`);
+    }
+
+    const keyColLetter = String.fromCharCode(65 + keyColIndex);
+
+    // -----------------------------------------------------------------
+    // 4) Load existing CID from Sheet
+    // -----------------------------------------------------------------
+    const sheetKey = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${SHEET_PATIENTS}!H:H`,
+      range: `${SHEET_PATIENTS}!${keyColLetter}:${keyColLetter}`,
     });
 
-    const existingHNSet = new Set(
-      (sheetHN.data.values || []).flat().filter(Boolean)
+    const existingKeySet = new Set(
+      (sheetKey.data.values || []).flat().filter(Boolean)
     );
 
-    console.log("Existing HN:", existingHNSet.size);
+    console.log("Existing CID:", existingKeySet.size);
 
-    // ------------------------------------------------------------------
-    // 4) แปลงไฟล์ → rows
-    // ------------------------------------------------------------------
-    let newRows = 0;
-    let skippedRows = 0;
+    // -----------------------------------------------------------------
+    // 5) Insert header if sheet empty
+    // -----------------------------------------------------------------
+    if (existingKeySet.size === 0) {
+      await sheets.spreadsheets.values.append({
+        spreadsheetId: SPREADSHEET_ID,
+        range: SHEET_PATIENTS,
+        valueInputOption: "RAW",
+        resource: { values: [headers] },
+      });
+      console.log("Header inserted");
+    }
+
+    // -----------------------------------------------------------------
+    // 6) Parse rows
+    // -----------------------------------------------------------------
+    let inserted = 0;
+    let skipped = 0;
     const toAppend = [];
 
-    for (const line of lines) {
+    for (const line of dataLines) {
       const values = line.split("|");
-
-      // map เป็น row เต็มตาม header
       const row = headers.map((_, i) => values[i] ?? "");
 
-      const hn = row[hnColIndex];
+      const cid = row[keyColIndex];
 
-      if (!hn) {
-        skippedRows++;
+      // CID validation
+      if (!cid || cid.length !== 13) {
+        skipped++;
         continue;
       }
 
-      if (existingHNSet.has(hn)) {
-        skippedRows++;
+      if (existingKeySet.has(cid)) {
+        skipped++;
         continue;
       }
 
       toAppend.push(row);
-      existingHNSet.add(hn);
-      newRows++;
+      existingKeySet.add(cid);
+      inserted++;
     }
 
-    console.log(`New: ${newRows}, Skipped: ${skippedRows}`);
+    console.log(`Inserted: ${inserted}, Skipped: ${skipped}`);
 
-    // ------------------------------------------------------------------
-    // 5) Append แบบ batch
-    // ------------------------------------------------------------------
+    // -----------------------------------------------------------------
+    // 7) Batch append
+    // -----------------------------------------------------------------
     for (let i = 0; i < toAppend.length; i += BATCH_SIZE) {
       const batch = toAppend.slice(i, i + BATCH_SIZE);
-
-      console.log(`Appending ${i + 1} - ${i + batch.length}`);
 
       await sheets.spreadsheets.values.append({
         spreadsheetId: SPREADSHEET_ID,
         range: SHEET_PATIENTS,
         valueInputOption: "RAW",
-        resource: {
-          values: batch,
-        },
+        resource: { values: batch },
       });
+
+      console.log(`Append ${i + 1}-${i + batch.length}`);
     }
 
-    // ------------------------------------------------------------------
-    // 6) Response
-    // ------------------------------------------------------------------
+    // -----------------------------------------------------------------
+    // 8) Response
+    // -----------------------------------------------------------------
     res.json({
       success: true,
-      totalInFile: lines.length,
-      inserted: newRows,
-      skipped: skippedRows,
+      totalInFile: dataLines.length,
+      inserted,
+      skipped,
+      key: KEY_NAME,
     });
 
   } catch (err) {
