@@ -79,6 +79,9 @@ async function readSheet(sheetName) {
 /* ===================== HEALTH CHECK ===================== */
 app.get("/health", (_, res) => res.json({ ok: true }));
 
+const sheetsRouter = require("./routes/sheets");
+app.use("/api/sheet", sheetsRouter);
+
 /* ===================== SPA FALLBACK ===================== */
 app.get("*", (req, res) => {
   if (req.path.startsWith("/api")) {
@@ -92,8 +95,7 @@ app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
-const sheetsRouter = require("./routes/sheets");
-app.use("/api/sheet", sheetsRouter);
+
 
 /* ===================== ERROR HANDLER ===================== */
 app.use((err, req, res, _next) => {
