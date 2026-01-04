@@ -69,17 +69,20 @@ exports.uploadPatients = async (req, res) => {
       });
     }
 
+    let processedRows = 0;
     let newRows = 0;
     let updatedRows = 0;
 
     /* ---------- 5. process rows ---------- */
     for (const row of rows) {
       if (!row.HN) continue;
+       processedRows++;
 
       const rowValues = header.map(h => row[h] || "");
       const foundIndex = dataRows.findIndex(
         r => r[hnIndex] === row.HN
       );
+      
 
       // ---- ADD NEW ----
       if (foundIndex === -1) {
