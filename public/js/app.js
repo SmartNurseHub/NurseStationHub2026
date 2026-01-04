@@ -183,136 +183,49 @@ function setupNursingForm() {
   };
 }
 /* ======================= PATIENT UPLOAD ======================= */
-function initPatientUpload() {
+function initPatientUploadSSE() {
   const fileInput = $id("fileInput");
   const submitBtn = $id("submitFile");
-
-  const progressContainer = $id("uploadProgressContainer");
   const progressBar = $id("uploadProgress");
-
-  const totalRowsEl   = $id("totalRows");
-  const newRowsEl     = $id("newRows");
+  const totalRowsEl = $id("totalRows");
+  const newRowsEl = $id("newRows");
   const updatedRowsEl = $id("updatedRows");
-  const statusEl      = $id("uploadStatus");
-  const fileNameEl    = $id("fileName");
+  const statusEl = $id("uploadStatus");
 
-  if (!fileInput || !submitBtn) return;
+  submitBtn.onclick = () => {
+    if (!fileInput.files.length) return alert("กรุณาเลือกไฟล์");
 
-  // แสดงชื่อไฟล์
-  fileInput.onchange = () => {
-    fileNameEl.textContent = fileInput.files[0]
-      ? fileInput.files[0].name
-      : "ยังไม่ได้เลือกไฟล์";
-    console.log("Selected file:", fileInput.files[0]);
-  };
-
-  submitBtn.onclick = async () => {
-    if (!fileInput.files.length) {
-      alert("กรุณาเลือกไฟล์");
-      return;
-    }
-
+    const file = fileInput.files[0];
     const formData = new FormData();
-    formData.append("file", fileInput.files[0]);
+    formData.append("file", file);
 
-    // รีเซ็ต progress bar และ status
-    progressContainer.style.display = "block";
-    progressBar.style.width = "0%";
-    progressBar.textContent = "0%";
-    statusEl.textContent = "กำลังอัปโหลด...";
-    totalRowsEl.textContent   = 0;
-    newRowsEl.textContent     = 0;
-    updatedRowsEl.textContent = 0;
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", "/api/sheet/patients/upload-sse");
+    xhr.send(formData);
 
-    console.log("Starting upload for file:", fileInput.files[0].name);
+    const evtSource = new EventSource("/api/sheet/patients/upload-sse");
+    
+    evtSource.onmessage = (e) => {
+      const data = JSON.parse(e.data);
+      const percent = Math.round((data.processed / data.total) * 100);
+      progressBar.style.width = percent + "%";
+      progressBar.textContent = percent + "%";
 
-    try {
-      const xhr = new XMLHttpRequest();
-      xhr.open("POST", "/api/sheet/patients/upload");
+      newRowsEl.textContent = data.newRows;
+      updatedRowsEl.textContent = data.updatedRows;
+      totalRowsEl.textContent = data.total; // provisional
+      statusEl.textContent = `Uploading... ${percent}%`;
+    };
 
-      // อัปเดต progress bar realtime
-      xhr.upload.onprogress = (event) => {
-        if (event.lengthComputable) {
-          const percent = Math.round((event.loaded / event.total) * 100);
-          progressBar.style.width = percent + "%";
-          progressBar.textContent = percent + "%";
-          console.log("Upload progress:", percent + "%");
-        }
-      };
-
-      xhr.onload = async () => {
-        console.log("XHR load event, status:", xhr.status);
-        if (xhr.status >= 200 && xhr.status < 300) {
-          let json;
-          try {
-            json = JSON.parse(xhr.responseText);
-            console.log("Upload response JSON:", json);
-          } catch (err) {
-            console.error("Invalid JSON response:", xhr.responseText);
-            statusEl.textContent = "อัปโหลดไม่สำเร็จ (Response ไม่ถูกต้อง)";
-            return;
-          }
-
-          if (!json.success) {
-            console.warn("Upload response success=false:", json.message);
-            statusEl.textContent = "อัปโหลดไม่สำเร็จ: " + (json.message || "");
-            return;
-          }
-
-          // อัปเดตแถวใหม่ / อัปเดตแถว
-          console.log("Updating DOM counts:", {
-            processed: json.processed,
-            newRows: json.newRows,
-            updatedRows: json.updatedRows
-          });
-          totalRowsEl.textContent   = json.processed ?? 0;
-          newRowsEl.textContent     = json.newRows ?? 0;
-          updatedRowsEl.textContent = json.updatedRows ?? 0;
-
-          // progress bar เต็ม 100%
-          progressBar.style.width = "100%";
-          progressBar.textContent = "100%";
-          statusEl.textContent = "อัปโหลดสำเร็จ";
-
-          // โหลด patients cache ใหม่
-          if (typeof loadPatients === "function") {
-            console.log("Calling loadPatients() to refresh cache");
-            loadPatients();
-          }
-
-          // ดึงจำนวนทั้งหมดจาก Sheet จริง
-          try {
-            console.log("Fetching totalRows from Sheet...");
-            const res = await fetch("/api/sheet/patients/count"); // API ต้องคืนค่า { totalRows: number }
-            const data = await res.json();
-            console.log("Total rows from Sheet API:", data.totalRows);
-            totalRowsEl.textContent = data.totalRows ?? ( (json.newRows??0) + (json.updatedRows??0) );
-          } catch (err) {
-            console.error("Error fetching totalRows:", err);
-            // fallback ถ้า API ล้มเหลว
-            totalRowsEl.textContent = (json.newRows??0) + (json.updatedRows??0);
-          }
-
-        } else {
-          console.error("Upload failed:", xhr.status, xhr.statusText);
-          statusEl.textContent = "อัปโหลดไม่สำเร็จ (HTTP Error)";
-        }
-      };
-
-      xhr.onerror = () => {
-        console.error("Upload network error");
-        statusEl.textContent = "อัปโหลดไม่สำเร็จ (Network Error)";
-      };
-
-      console.log("Sending FormData to server...");
-      xhr.send(formData);
-
-    } catch (err) {
-      console.error("Exception during upload:", err);
-      statusEl.textContent = "อัปโหลดไม่สำเร็จ (Exception)";
-    }
+    evtSource.addEventListener("done", () => {
+      progressBar.style.width = "100%";
+      progressBar.textContent = "100%";
+      statusEl.textContent = "Upload completed!";
+      evtSource.close();
+    });
   };
 }
+
 
 
 

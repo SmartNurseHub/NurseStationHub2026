@@ -1,134 +1,87 @@
-// =======================================================
-// Upload Controller — Production Ready (Append + Update)
-// =======================================================
-
 const { google } = require("googleapis");
-const parseTxt = require("../helpers/parseTxt");
 
-/* ================= GOOGLE CLIENT ================= */
-function getSheetsClient() {
-  const credentials = JSON.parse(
-    Buffer.from(process.env.GOOGLE_CREDENTIAL_BASE64, "base64").toString()
-  );
+const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
+const SHEET_PATIENTS = process.env.SHEET_PATIENTS || "Patients";
+const credentials = JSON.parse(
+  Buffer.from(process.env.GOOGLE_CREDENTIAL_BASE64, "base64").toString()
+);
 
-  const auth = new google.auth.GoogleAuth({
-    credentials,
-    scopes: ["https://www.googleapis.com/auth/spreadsheets"],
-  });
-
-  return google.sheets({ version: "v4", auth });
-}
-
-/* ================= CONTROLLER ================= */
-exports.uploadPatients = async (req, res) => {
-  try {
-    /* ---------- 1. validate file ---------- */
-    if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        message: "No file uploaded",
-      });
-    }
-
-    const rows = parseTxt(req.file.buffer.toString("utf8"));
-    if (!rows.length) {
-      return res.json({
-        success: false,
-        message: "No valid data",
-      });
-    }
-
-    /* ---------- 2. sheet config ---------- */
-    const spreadsheetId = process.env.SPREADSHEET_ID;
-    const sheetName = process.env.SHEET_PATIENTS || "Patients";
-    const sheets = getSheetsClient();
-
-    /* ---------- 3. read sheet ---------- */
-    const readResp = await sheets.spreadsheets.values.get({
-      spreadsheetId,
-      range: sheetName,
-    });
-
-    const values = readResp.data.values || [];
-    if (!values.length) {
-      return res.status(500).json({
-        success: false,
-        message: "Sheet header not found",
-      });
-    }
-
-    const header = values[0];
-    const dataRows = values.slice(1);
-
-    /* ---------- 4. find HN column ---------- */
-    const hnIndex = header.indexOf("HN");
-    if (hnIndex === -1) {
-      return res.status(500).json({
-        success: false,
-        message: "HN column not found in sheet",
-      });
-    }
-
-    let processedRows = 0;
-    let newRows = 0;
-    let updatedRows = 0;
-
-    /* ---------- 5. process rows ---------- */
-    for (const row of rows) {
-      if (!row.HN) continue;
-       processedRows++;
-
-      const rowValues = header.map(h => row[h] || "");
-      const foundIndex = dataRows.findIndex(
-        r => r[hnIndex] === row.HN
-      );
-      
-
-      // ---- ADD NEW ----
-      if (foundIndex === -1) {
-        await sheets.spreadsheets.values.append({
-          spreadsheetId,
-          range: sheetName,
-          valueInputOption: "USER_ENTERED",
-          requestBody: {
-            values: [rowValues],
-          },
-        });
-        newRows++;
-      }
-      // ---- UPDATE EXISTING ----
-      else {
-        const rowNumber = foundIndex + 2; // + header
-        await sheets.spreadsheets.values.update({
-          spreadsheetId,
-          range: `${sheetName}!A${rowNumber}`,
-          valueInputOption: "USER_ENTERED",
-          requestBody: {
-            values: [rowValues],
-          },
-        });
-        updatedRows++;
-      }
-    }
-
-    /* ---------- 6. response ---------- */
-    console.log(
-      `✅ Upload Patients: new=${newRows}, updated=${updatedRows}`
-    );
-
-    res.json({
-  success: true,
-  totalInFile: rows.length,          // จำนวนข้อมูลในไฟล์
-  processed: processedRows,          // จำนวนที่นำไปประมวลผล
-  newRows,                           // เพิ่มใหม่
-  updatedRows,                       // อัปเดต
+const auth = new google.auth.GoogleAuth({
+  credentials,
+  scopes: ["https://www.googleapis.com/auth/spreadsheets"],
 });
 
-  } catch (err) {
-    console.error("🔥 uploadPatients error:", err);
-    res.status(500).json({
-      success: false,
-      message: "Upload failed",
+async function getSheets() {
+  const client = await auth.getClient();
+  return google.sheets({ version: "v4", auth: client });
+}
+
+const BATCH_SIZE = 1000; // 50k แถว → 50 batches
+
+exports.uploadPatients = async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ success: false, message: "No file uploaded" });
+
+    console.log("Upload file received:", req.file.originalname, "size:", req.file.size);
+
+    const sheets = await getSheets();
+
+    // อ่านไฟล์เป็น text
+    const content = req.file.buffer.toString("utf-8");
+    const lines = content.split(/\r?\n/).filter(l => l.trim());
+    console.log("Total lines in file:", lines.length);
+
+    // โหลดข้อมูลเดิมจาก Sheet
+    const sheetData = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEET_PATIENTS}!A:A`,
     });
+    const existingRows = sheetData.data.values?.flat() || [];
+    console.log("Existing rows in Sheet:", existingRows.length);
+
+    let newRows = 0;
+    let updatedRows = 0;
+    const toAppend = [];
+
+    // แยก newRows vs updatedRows
+    lines.forEach(line => {
+      if (!existingRows.includes(line)) {
+        toAppend.push([line]);
+        newRows++;
+      } else {
+        updatedRows++;
+      }
+    });
+
+    console.log(`New rows: ${newRows}, Updated rows: ${updatedRows}`);
+
+    // Append แบบ batch
+    for (let i = 0; i < toAppend.length; i += BATCH_SIZE) {
+      const batch = toAppend.slice(i, i + BATCH_SIZE);
+      console.log(`Appending batch rows ${i + 1} - ${i + batch.length}...`);
+
+      await sheets.spreadsheets.values.append({
+        spreadsheetId: SPREADSHEET_ID,
+        range: SHEET_PATIENTS,
+        valueInputOption: "RAW",
+        resource: { values: batch },
+      });
+
+      // ส่ง progress กลับ frontend แบบ chunked
+      if (res.writableEnded) break; // ตรวจสอบ connection
+    }
+
+    console.log("Upload completed successfully");
+    res.json({
+      success: true,
+      totalInFile: lines.length,
+      processed: lines.length,
+      newRows,
+      updatedRows,
+    });
+
+  } catch (err) {
+    console.error("UploadPatients exception:", err);
+    res.status(500).json({ success: false, message: err.message });
   }
 };

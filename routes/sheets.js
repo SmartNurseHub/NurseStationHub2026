@@ -1,14 +1,12 @@
 /********************************************************************
- * routes/sheets.js — Render Production Safe
+ * routes/sheets.js — Render Production Safe + SSE Upload
  ********************************************************************/
 
 const express = require("express");
 const { google } = require("googleapis");
 const multer = require("multer");
-const upload = multer();
+const upload = multer({ limits: { fileSize: 50 * 1024 * 1024 } }); // 50MB
 const router = express.Router();
-
-const { uploadPatients } = require("../controllers/upload.controller");
 
 /* ===================== ENV ===================== */
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
@@ -19,7 +17,6 @@ const SHEET_NURSING = process.env.SHEET_NURSING || "NursingRecords";
 const credentials = JSON.parse(
   Buffer.from(process.env.GOOGLE_CREDENTIAL_BASE64, "base64").toString()
 );
-
 const auth = new google.auth.GoogleAuth({
   credentials,
   scopes: ["https://www.googleapis.com/auth/spreadsheets"],
@@ -85,35 +82,89 @@ router.get("/nursing-records/:nsr", async (req, res) => {
   }
 });
 
-// ===================== Upload Patients =====================
-router.post(
-  "/patients/upload",
-  upload.single("file"),
-  uploadPatients // controller แยกสำหรับ logic upload
-);
+/* ===================== SSE Upload Patients ===================== */
+const BATCH_SIZE = 1000; // batch append 1000 rows
 
-// ===================== Count Patients =====================
+router.post("/patients/upload-sse", upload.single("file"), async (req, res) => {
+  if (!req.file) return res.status(400).json({ success: false, message: "No file uploaded" });
+
+  // ตั้งค่า SSE
+  res.writeHead(200, {
+    Connection: "keep-alive",
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+  });
+
+  try {
+    const sheets = await getSheets();
+    const content = req.file.buffer.toString("utf-8");
+    const lines = content.split(/\r?\n/).filter(l => l.trim());
+    let total = lines.length;
+    let newRows = 0;
+    let updatedRows = 0;
+
+    // โหลดข้อมูลเดิม
+    const sheetData = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEET_PATIENTS}!A:A`,
+    });
+    const existingRows = sheetData.data.values?.flat() || [];
+
+    const toAppend = [];
+    lines.forEach(line => {
+      if (!existingRows.includes(line)) {
+        toAppend.push([line]);
+        newRows++;
+      } else {
+        updatedRows++;
+      }
+    });
+
+    // Append แบบ batch + ส่ง progress
+    for (let i = 0; i < toAppend.length; i += BATCH_SIZE) {
+      const batch = toAppend.slice(i, i + BATCH_SIZE);
+      await sheets.spreadsheets.values.append({
+        spreadsheetId: SPREADSHEET_ID,
+        range: SHEET_PATIENTS,
+        valueInputOption: "RAW",
+        resource: { values: batch },
+      });
+
+      // ส่ง progress กลับ frontend
+      const processed = Math.min(i + batch.length, toAppend.length);
+      res.write(`data: ${JSON.stringify({
+        processed,
+        total,
+        newRows,
+        updatedRows,
+      })}\n\n`);
+    }
+
+    // เสร็จแล้วปิด SSE
+    res.write("event: done\ndata: {}\n\n");
+    res.end();
+    console.log("Upload SSE completed successfully");
+  } catch (err) {
+    console.error("SSE upload exception:", err);
+    res.write(`data: ${JSON.stringify({ success: false, message: err.message })}\n\n`);
+    res.end();
+  }
+});
+
+/* ===================== Count Patients ===================== */
 router.get("/patients/count", async (req, res) => {
   try {
     const sheets = await getSheets();
     const sheetData = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${SHEET_PATIENTS}!A:A`, // เช็คแถวจากคอลัมน์แรก
+      range: `${SHEET_PATIENTS}!A:A`,
     });
-
     const totalRows = sheetData.data.values?.length || 0;
-    console.log("Total rows in Sheet:", totalRows);
     res.json({ totalRows });
   } catch (err) {
     console.error("Error in /patients/count:", err);
     res.status(500).json({ error: "Failed to get totalRows" });
   }
-});
-
-// ===================== Update nursing record =====================
-router.put("/nursing-records/:nsr", async (req, res) => {
-  // โค้ด update ของคุณใช้ต่อได้เหมือนเดิม
-  res.json({ success: true, message: "Update route placeholder" });
 });
 
 module.exports = router;
