@@ -110,9 +110,18 @@ app.use("/api/sheet", router);
 app.get("/health", (_, res) => res.json({ ok: true }));
 
 /* ===================== SPA FALLBACK ===================== */
-app.get("*", (_, res) => {
+app.get("*", (req, res) => {
+  if (req.path.startsWith("/api")) {
+    return res.status(404).json({ error: "API not found" });
+  }
+
+  if (req.path.includes(".")) {
+    return res.status(404).end();
+  }
+
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
+
 
 /* ===================== ERROR HANDLER ===================== */
 app.use((err, req, res, _next) => {
