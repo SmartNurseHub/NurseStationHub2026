@@ -50,28 +50,70 @@ async function readSheet(sheetName) {
 }
 
 /* ===================== ROUTES ===================== */
+
+// ดึงข้อมูลผู้ป่วยทั้งหมด
 router.get("/patients", async (_, res) => {
-  res.json({ success: true, data: await readSheet(SHEET_PATIENTS) });
+  try {
+    const data = await readSheet(SHEET_PATIENTS);
+    res.json({ success: true, data });
+  } catch (err) {
+    console.error("Error /patients:", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
 });
 
+// ดึงข้อมูล nursing records
 router.get("/nursing-records", async (_, res) => {
-  res.json({ success: true, data: await readSheet(SHEET_NURSING) });
+  try {
+    const data = await readSheet(SHEET_NURSING);
+    res.json({ success: true, data });
+  } catch (err) {
+    console.error("Error /nursing-records:", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
 });
 
+// ดึง nursing record ตาม NSR
 router.get("/nursing-records/:nsr", async (req, res) => {
-  const data = await readSheet(SHEET_NURSING);
-  const record = data.find(r => r.NSR === req.params.nsr);
-  res.json(record ? { success: true, data: record } : { success: false });
+  try {
+    const data = await readSheet(SHEET_NURSING);
+    const record = data.find(r => r.NSR === req.params.nsr);
+    res.json(record ? { success: true, data: record } : { success: false });
+  } catch (err) {
+    console.error("Error /nursing-records/:nsr", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
 });
 
+// ===================== Upload Patients =====================
 router.post(
   "/patients/upload",
   upload.single("file"),
-  uploadPatients
+  uploadPatients // controller แยกสำหรับ logic upload
 );
 
+// ===================== Count Patients =====================
+router.get("/patients/count", async (req, res) => {
+  try {
+    const sheets = await getSheets();
+    const sheetData = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEET_PATIENTS}!A:A`, // เช็คแถวจากคอลัมน์แรก
+    });
+
+    const totalRows = sheetData.data.values?.length || 0;
+    console.log("Total rows in Sheet:", totalRows);
+    res.json({ totalRows });
+  } catch (err) {
+    console.error("Error in /patients/count:", err);
+    res.status(500).json({ error: "Failed to get totalRows" });
+  }
+});
+
+// ===================== Update nursing record =====================
 router.put("/nursing-records/:nsr", async (req, res) => {
-  // (โค้ด update ของคุณ ใช้ต่อได้เหมือนเดิม)
+  // โค้ด update ของคุณใช้ต่อได้เหมือนเดิม
+  res.json({ success: true, message: "Update route placeholder" });
 });
 
 module.exports = router;
