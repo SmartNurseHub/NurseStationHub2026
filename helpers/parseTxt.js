@@ -1,11 +1,14 @@
 // =======================================================
 // parseTxt — PIPE (|) delimited text → array of objects
+// (production-safe)
 // =======================================================
 
 module.exports = function parseTxt(text) {
-  if (!text) return [];
+  if (!text || typeof text !== "string") return [];
 
-  // แยกบรรทัด + ตัดบรรทัดว่าง
+  // -------------------------------------------------------
+  // 1) split lines + trim + remove empty
+  // -------------------------------------------------------
   const lines = text
     .split(/\r?\n/)
     .map(l => l.trim())
@@ -13,20 +16,31 @@ module.exports = function parseTxt(text) {
 
   if (lines.length < 2) return [];
 
-  // header (บรรทัดแรก)
-  const headers = lines[0].split("|").map(h => h.trim());
+  // -------------------------------------------------------
+  // 2) header (remove BOM)
+  // -------------------------------------------------------
+  const headers = lines[0]
+    .replace(/^\uFEFF/, "")   // 🔥 ตัด BOM
+    .split("|")
+    .map(h => h.trim());
 
-  // data rows
-  const rows = lines.slice(1).map(line => {
-    const cols = line.split("|");
+  const colCount = headers.length;
+
+  // -------------------------------------------------------
+  // 3) data rows
+  // -------------------------------------------------------
+  const rows = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const cols = lines[i].split("|");
     const obj = {};
 
-    headers.forEach((h, i) => {
-      obj[h] = (cols[i] || "").trim();
-    });
+    for (let c = 0; c < colCount; c++) {
+      obj[headers[c]] = (cols[c] ?? "").trim();
+    }
 
-    return obj;
-  });
+    rows.push(obj);
+  }
 
   return rows;
 };

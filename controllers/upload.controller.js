@@ -2,8 +2,9 @@ const { google } = require("googleapis");
 
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
 const SHEET_PATIENTS = process.env.SHEET_PATIENTS || "Patients";
+
 const credentials = JSON.parse(
-  Buffer.from(process.env.GOOGLE_CREDENTIAL_BASE64, "base64").toString()
+  Buffer.from(process.env.GOOGLE_CREDENTIAL_BASE64, "base64").toString("utf-8")
 );
 
 const auth = new google.auth.GoogleAuth({
@@ -16,72 +17,128 @@ async function getSheets() {
   return google.sheets({ version: "v4", auth: client });
 }
 
-const BATCH_SIZE = 1000; // 50k แถว → 50 batches
+const BATCH_SIZE = 1000;
 
 exports.uploadPatients = async (req, res) => {
   try {
-    if (!req.file) return res.status(400).json({ success: false, message: "No file uploaded" });
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "No file uploaded",
+      });
+    }
 
-    console.log("Upload file received:", req.file.originalname, "size:", req.file.size);
+    console.log("Upload file:", req.file.originalname, req.file.size);
 
     const sheets = await getSheets();
 
-    // อ่านไฟล์เป็น text
+    // ------------------------------------------------------------------
+    // 1) อ่านไฟล์
+    // ------------------------------------------------------------------
     const content = req.file.buffer.toString("utf-8");
     const lines = content.split(/\r?\n/).filter(l => l.trim());
-    console.log("Total lines in file:", lines.length);
 
-    // โหลดข้อมูลเดิมจาก Sheet
-    const sheetData = await sheets.spreadsheets.values.get({
+    if (lines.length < 2) {
+      return res.status(400).json({
+        success: false,
+        message: "File has no data rows",
+      });
+    }
+
+    // ------------------------------------------------------------------
+    // 2) แยก header
+    // ------------------------------------------------------------------
+    const headerLine = lines.shift(); // เอาบรรทัดแรกออก
+    const headers = headerLine.split("|");
+
+    console.log("Columns:", headers.length);
+    console.log("Data rows:", lines.length);
+
+    // ------------------------------------------------------------------
+    // 3) โหลด HN เดิมจาก Sheet (ใช้เป็น key)
+    // ------------------------------------------------------------------
+    // สมมติว่า HN อยู่ column H (ตามไฟล์คุณ)
+    const hnColIndex = headers.indexOf("HN");
+    if (hnColIndex === -1) {
+      throw new Error("HN column not found in header");
+    }
+
+    const sheetHN = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${SHEET_PATIENTS}!A:A`,
+      range: `${SHEET_PATIENTS}!H:H`,
     });
-    const existingRows = sheetData.data.values?.flat() || [];
-    console.log("Existing rows in Sheet:", existingRows.length);
 
+    const existingHNSet = new Set(
+      (sheetHN.data.values || []).flat().filter(Boolean)
+    );
+
+    console.log("Existing HN:", existingHNSet.size);
+
+    // ------------------------------------------------------------------
+    // 4) แปลงไฟล์ → rows
+    // ------------------------------------------------------------------
     let newRows = 0;
-    let updatedRows = 0;
+    let skippedRows = 0;
     const toAppend = [];
 
-    // แยก newRows vs updatedRows
-    lines.forEach(line => {
-      if (!existingRows.includes(line)) {
-        toAppend.push([line]);
-        newRows++;
-      } else {
-        updatedRows++;
+    for (const line of lines) {
+      const values = line.split("|");
+
+      // map เป็น row เต็มตาม header
+      const row = headers.map((_, i) => values[i] ?? "");
+
+      const hn = row[hnColIndex];
+
+      if (!hn) {
+        skippedRows++;
+        continue;
       }
-    });
 
-    console.log(`New rows: ${newRows}, Updated rows: ${updatedRows}`);
+      if (existingHNSet.has(hn)) {
+        skippedRows++;
+        continue;
+      }
 
-    // Append แบบ batch
+      toAppend.push(row);
+      existingHNSet.add(hn);
+      newRows++;
+    }
+
+    console.log(`New: ${newRows}, Skipped: ${skippedRows}`);
+
+    // ------------------------------------------------------------------
+    // 5) Append แบบ batch
+    // ------------------------------------------------------------------
     for (let i = 0; i < toAppend.length; i += BATCH_SIZE) {
       const batch = toAppend.slice(i, i + BATCH_SIZE);
-      console.log(`Appending batch rows ${i + 1} - ${i + batch.length}...`);
+
+      console.log(`Appending ${i + 1} - ${i + batch.length}`);
 
       await sheets.spreadsheets.values.append({
         spreadsheetId: SPREADSHEET_ID,
         range: SHEET_PATIENTS,
         valueInputOption: "RAW",
-        resource: { values: batch },
+        resource: {
+          values: batch,
+        },
       });
-
-      // ส่ง progress กลับ frontend แบบ chunked
-      if (res.writableEnded) break; // ตรวจสอบ connection
     }
 
-    console.log("Upload completed successfully");
+    // ------------------------------------------------------------------
+    // 6) Response
+    // ------------------------------------------------------------------
     res.json({
       success: true,
       totalInFile: lines.length,
-      processed: lines.length,
-      newRows,
-      updatedRows,
+      inserted: newRows,
+      skipped: skippedRows,
     });
 
   } catch (err) {
-    console.error("UploadPatients exception:", err);
-    res.status(500).json({ success: false, message: err.message });
+    console.error("uploadPatients error:", err);
+    res.status(500).json({
+      success: false,
+      message: err.message,
+    });
   }
 };
