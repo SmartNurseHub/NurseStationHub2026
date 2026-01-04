@@ -49,7 +49,6 @@ document.addEventListener("DOMContentLoaded", () => {
       const header = lines[0];
       const dataRows = lines.slice(1); // ตัด header
       const total = dataRows.length;
-
       totalRowsEl.textContent = total;
 
       let newRows = 0;

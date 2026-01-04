@@ -198,6 +198,7 @@ function initPatientUpload() {
 
   if (!fileInput || !submitBtn) return;
 
+  // แสดงชื่อไฟล์
   fileInput.onchange = () => {
     fileNameEl.textContent = fileInput.files[0]
       ? fileInput.files[0].name
@@ -213,36 +214,78 @@ function initPatientUpload() {
     const formData = new FormData();
     formData.append("file", fileInput.files[0]);
 
+    // รีเซ็ต progress bar และ status
     progressContainer.style.display = "block";
     progressBar.style.width = "0%";
     progressBar.textContent = "0%";
     statusEl.textContent = "กำลังอัปโหลด...";
+    totalRowsEl.textContent   = 0;
+    newRowsEl.textContent     = 0;
+    updatedRowsEl.textContent = 0;
 
     try {
-      const res = await fetch("/api/sheet/patients/upload", {
-        method: "POST",
-        body: formData
-      });
+      // ใช้ fetch + ReadableStream เพื่ออัปเดต progress แบบ realtime
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", "/api/sheet/patients/upload");
 
-      const json = await res.json();
-      if (!json.success) throw new Error(json.message);
+      // อัปเดต progress bar
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) {
+          const percent = Math.round((event.loaded / event.total) * 100);
+          progressBar.style.width = percent + "%";
+          progressBar.textContent = percent + "%";
+        }
+      };
 
-      progressBar.style.width = "100%";
-      progressBar.textContent = "100%";
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          let json;
+          try {
+            json = JSON.parse(xhr.responseText);
+            console.log("Upload response:", json);
+          } catch (err) {
+            console.error("Invalid JSON response", xhr.responseText);
+            statusEl.textContent = "อัปโหลดไม่สำเร็จ (Response ไม่ถูกต้อง)";
+            return;
+          }
 
-      totalRowsEl.textContent   = json.totalRows ?? 0;
-      newRowsEl.textContent     = json.newRows ?? 0;
-      updatedRowsEl.textContent = json.updatedRows ?? 0;
+          if (!json.success) {
+            statusEl.textContent = "อัปโหลดไม่สำเร็จ: " + (json.message || "");
+            return;
+          }
 
-      statusEl.textContent = "อัปโหลดสำเร็จ";
-      loadPatients(); // refresh cache
+          // อัปเดตจำนวนแถว
+          totalRowsEl.textContent   = json.totalRows ?? 0;
+          newRowsEl.textContent     = json.newRows ?? 0;
+          updatedRowsEl.textContent = json.updatedRows ?? 0;
+
+          progressBar.style.width = "100%";
+          progressBar.textContent = "100%";
+          statusEl.textContent = "อัปโหลดสำเร็จ";
+
+          // โหลด patients cache ใหม่
+          loadPatients();
+
+        } else {
+          console.error("Upload failed:", xhr.status, xhr.statusText);
+          statusEl.textContent = "อัปโหลดไม่สำเร็จ (HTTP Error)";
+        }
+      };
+
+      xhr.onerror = () => {
+        console.error("Upload error");
+        statusEl.textContent = "อัปโหลดไม่สำเร็จ (Network Error)";
+      };
+
+      xhr.send(formData);
 
     } catch (err) {
       console.error(err);
-      statusEl.textContent = "อัปโหลดไม่สำเร็จ";
+      statusEl.textContent = "อัปโหลดไม่สำเร็จ (Exception)";
     }
   };
 }
 
+
 /* ======================= START ======================= */
-navTo("patients");
+navTo("index");
