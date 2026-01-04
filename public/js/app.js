@@ -219,7 +219,7 @@ function initPatientUpload() {
     statusEl.textContent = "กำลังอัปโหลด...";
 
     try {
-      const res = await fetch("/api/upload", {
+      const res = await fetch("/api/sheet/patients/upload", {
         method: "POST",
         body: formData
       });
