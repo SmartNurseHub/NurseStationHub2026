@@ -1,6 +1,5 @@
 // =======================================================
-// patients.js
-// จัดการอัปโหลดรายชื่อผู้รับบริการ (realtime progress)
+// patients.js (FIXED & SAFE)
 // =======================================================
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -26,7 +25,6 @@ document.addEventListener("DOMContentLoaded", () => {
       : "ยังไม่ได้เลือกไฟล์";
   });
 
-  // กดอัปโหลด
   submitBtn.addEventListener("click", async () => {
     if (!fileInput.files.length) {
       alert("กรุณาเลือกไฟล์ก่อนอัปโหลด");
@@ -40,24 +38,37 @@ document.addEventListener("DOMContentLoaded", () => {
 
     try {
       const text = await fileInput.files[0].text();
-      const lines = text.split(/\r?\n/).filter(Boolean);
+      const lines = text
+        .split(/\r?\n/)
+        .map(l => l.trim())
+        .filter(Boolean);
 
       if (lines.length < 2) {
         throw new Error("ไฟล์ไม่มีข้อมูล");
       }
 
       const header = lines[0];
-      const dataRows = lines.slice(1); // ตัด header
+      const dataRows = lines.slice(1);
       const total = dataRows.length;
+
       totalRowsEl.textContent = total;
 
       let newRows = 0;
       let updatedRows = 0;
-      const batchSize = 10; // ปรับได้ตามความเร็ว
+
+      const batchSize = 50; // แนะนำ 50–200
+      let processed = 0;
 
       for (let i = 0; i < dataRows.length; i += batchSize) {
-        const batch = dataRows.slice(i, i + batchSize).join("\n");
-        const blob = new Blob([header + "\n" + batch], { type: "text/plain" });
+        const batchRows = dataRows.slice(i, i + batchSize);
+
+        // 🔥 ส่ง header แค่ batch แรก
+        const payload =
+          i === 0
+            ? header + "\n" + batchRows.join("\n")
+            : batchRows.join("\n");
+
+        const blob = new Blob([payload], { type: "text/plain" });
         const formData = new FormData();
         formData.append("file", blob, fileInput.files[0].name);
 
@@ -71,13 +82,14 @@ document.addEventListener("DOMContentLoaded", () => {
           throw new Error(result.message || "Upload failed");
         }
 
-        // อัปเดต counters แบบ realtime
-        newRows += result.newRows;
-        updatedRows += result.updatedRows;
+        newRows += result.inserted || 0;
+        updatedRows += result.updated || 0;
 
-        const progress = Math.round(Math.min(((i + batch.length) / total) * 100, 100));
-        progressBar.style.width = progress + "%";
-        progressBar.textContent = progress + "%";
+        processed += batchRows.length;
+
+        const percent = Math.round((processed / total) * 100);
+        progressBar.style.width = percent + "%";
+        progressBar.textContent = percent + "%";
 
         newRowsEl.textContent = newRows;
         updatedRowsEl.textContent = updatedRows;
@@ -85,11 +97,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
       progressBar.style.width = "100%";
       progressBar.textContent = "100%";
-      statusEl.textContent = "อัปโหลดสำเร็จ";
+      statusEl.textContent = "อัปโหลดสำเร็จ ✅";
 
     } catch (err) {
       console.error(err);
-      statusEl.textContent = "เกิดข้อผิดพลาดในการอัปโหลด";
+      statusEl.textContent = "เกิดข้อผิดพลาดในการอัปโหลด ❌";
     }
   });
 

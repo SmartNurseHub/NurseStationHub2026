@@ -188,7 +188,8 @@ function initPatientUploadSSE() {
   if (!fileInput || !submitBtn) return;
 
   fileInput.onchange = () => {
-    fileNameEl.textContent = fileInput.files[0]?.name || "ยังไม่ได้เลือกไฟล์";
+    fileNameEl.textContent =
+      fileInput.files[0]?.name || "ยังไม่ได้เลือกไฟล์";
   };
 
   submitBtn.onclick = async () => {
@@ -204,14 +205,14 @@ function initPatientUploadSSE() {
     progressBar.style.width = "0%";
     progressBar.textContent = "0%";
     statusEl.textContent = "กำลังอัปโหลด...";
-    totalRowsEl.textContent = 0;
-    newRowsEl.textContent = 0;
-    updatedRowsEl.textContent = 0;
+    totalRowsEl.textContent = "0";
+    newRowsEl.textContent = "0";
+    updatedRowsEl.textContent = "0";
 
     try {
       const res = await fetch(`${API_BASE}/patients/upload-sse`, {
         method: "POST",
-        body: formData
+        body: formData,
       });
 
       if (!res.ok || !res.body) {
@@ -227,34 +228,47 @@ function initPatientUploadSSE() {
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
-        const events = buffer.split("\n\n");
-        buffer = events.pop();
 
-        for (const evt of events) {
-          if (!evt.startsWith("data:")) continue;
+        const chunks = buffer.split("\n\n");
+        buffer = chunks.pop(); // เก็บเศษไว้รอบหน้า
 
-          const data = JSON.parse(evt.replace(/^data:\s*/, ""));
-          const percent = Math.round((data.processed / data.total) * 100);
+        for (const chunk of chunks) {
+          if (!chunk.startsWith("data:")) continue;
+
+          const json = chunk.replace(/^data:\s*/, "").trim();
+          if (!json) continue;
+
+          const data = JSON.parse(json);
+
+          const total = Number(data.total) || 0;
+          const processed = Number(data.processed) || 0;
+          const percent = total
+            ? Math.min(100, Math.round((processed / total) * 100))
+            : 0;
 
           progressBar.style.width = percent + "%";
           progressBar.textContent = percent + "%";
-          totalRowsEl.textContent = data.total;
-          newRowsEl.textContent = data.newRows;
-          updatedRowsEl.textContent = data.updatedRows;
+
+          totalRowsEl.textContent = total;
+          newRowsEl.textContent = data.newRows ?? 0;
+          updatedRowsEl.textContent = data.updatedRows ?? 0;
+
           statusEl.textContent = `Uploading... ${percent}%`;
         }
       }
 
+      // complete
       progressBar.style.width = "100%";
       progressBar.textContent = "100%";
-      statusEl.textContent = "Upload completed!";
+      statusEl.textContent = "Upload completed ✅";
 
     } catch (err) {
       console.error("Upload SSE error", err);
-      statusEl.textContent = "Upload failed";
+      statusEl.textContent = "Upload failed ❌";
     }
   };
 }
+
 
 /* ======================= START ======================= */
 navTo("index");
