@@ -203,6 +203,7 @@ function initPatientUpload() {
     fileNameEl.textContent = fileInput.files[0]
       ? fileInput.files[0].name
       : "ยังไม่ได้เลือกไฟล์";
+    console.log("Selected file:", fileInput.files[0]);
   };
 
   submitBtn.onclick = async () => {
@@ -223,48 +224,74 @@ function initPatientUpload() {
     newRowsEl.textContent     = 0;
     updatedRowsEl.textContent = 0;
 
+    console.log("Starting upload for file:", fileInput.files[0].name);
+
     try {
-      // ใช้ fetch + ReadableStream เพื่ออัปเดต progress แบบ realtime
       const xhr = new XMLHttpRequest();
       xhr.open("POST", "/api/sheet/patients/upload");
 
-      // อัปเดต progress bar
+      // อัปเดต progress bar realtime
       xhr.upload.onprogress = (event) => {
         if (event.lengthComputable) {
           const percent = Math.round((event.loaded / event.total) * 100);
           progressBar.style.width = percent + "%";
           progressBar.textContent = percent + "%";
+          console.log("Upload progress:", percent + "%");
         }
       };
 
-      xhr.onload = () => {
+      xhr.onload = async () => {
+        console.log("XHR load event, status:", xhr.status);
         if (xhr.status >= 200 && xhr.status < 300) {
           let json;
           try {
             json = JSON.parse(xhr.responseText);
-            console.log("Upload response:", json);
+            console.log("Upload response JSON:", json);
           } catch (err) {
-            console.error("Invalid JSON response", xhr.responseText);
+            console.error("Invalid JSON response:", xhr.responseText);
             statusEl.textContent = "อัปโหลดไม่สำเร็จ (Response ไม่ถูกต้อง)";
             return;
           }
 
           if (!json.success) {
+            console.warn("Upload response success=false:", json.message);
             statusEl.textContent = "อัปโหลดไม่สำเร็จ: " + (json.message || "");
             return;
           }
 
-          // อัปเดตจำนวนแถว
-          totalRowsEl.textContent   = json.totalRows ?? 0;
+          // อัปเดตแถวใหม่ / อัปเดตแถว
+          console.log("Updating DOM counts:", {
+            processed: json.processed,
+            newRows: json.newRows,
+            updatedRows: json.updatedRows
+          });
+          totalRowsEl.textContent   = json.processed ?? 0;
           newRowsEl.textContent     = json.newRows ?? 0;
           updatedRowsEl.textContent = json.updatedRows ?? 0;
 
+          // progress bar เต็ม 100%
           progressBar.style.width = "100%";
           progressBar.textContent = "100%";
           statusEl.textContent = "อัปโหลดสำเร็จ";
 
           // โหลด patients cache ใหม่
-          loadPatients();
+          if (typeof loadPatients === "function") {
+            console.log("Calling loadPatients() to refresh cache");
+            loadPatients();
+          }
+
+          // ดึงจำนวนทั้งหมดจาก Sheet จริง
+          try {
+            console.log("Fetching totalRows from Sheet...");
+            const res = await fetch("/api/sheet/patients/count"); // API ต้องคืนค่า { totalRows: number }
+            const data = await res.json();
+            console.log("Total rows from Sheet API:", data.totalRows);
+            totalRowsEl.textContent = data.totalRows ?? ( (json.newRows??0) + (json.updatedRows??0) );
+          } catch (err) {
+            console.error("Error fetching totalRows:", err);
+            // fallback ถ้า API ล้มเหลว
+            totalRowsEl.textContent = (json.newRows??0) + (json.updatedRows??0);
+          }
 
         } else {
           console.error("Upload failed:", xhr.status, xhr.statusText);
@@ -273,18 +300,20 @@ function initPatientUpload() {
       };
 
       xhr.onerror = () => {
-        console.error("Upload error");
+        console.error("Upload network error");
         statusEl.textContent = "อัปโหลดไม่สำเร็จ (Network Error)";
       };
 
+      console.log("Sending FormData to server...");
       xhr.send(formData);
 
     } catch (err) {
-      console.error(err);
+      console.error("Exception during upload:", err);
       statusEl.textContent = "อัปโหลดไม่สำเร็จ (Exception)";
     }
   };
 }
+
 
 
 /* ======================= START ======================= */
