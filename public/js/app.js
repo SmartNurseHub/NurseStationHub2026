@@ -1,13 +1,13 @@
 // ======================================================================
-// app.js — Front-end Controller (Render Production Safe)
+// app.js — Front-end Controller (Render Production Safe + SSE Upload)
 // NurseStationHub2026
 // ======================================================================
 
 const API_BASE = "/api/sheet";
 
+/* ======================= GLOBAL STATE ======================= */
 let patientsData = [];
 let patientIndex = [];
-
 let nursingRecordsCache = [];
 let editingNSR = null;
 
@@ -32,9 +32,7 @@ function navTo(view) {
       container.innerHTML = html;
 
       if (view === "patients") {
-        loadPatients().then(() => {
-          initPatientUploadSSE();
-        });
+        loadPatients().then(initPatientUploadSSE);
       }
 
       if (view === "nursingRecords") {
@@ -47,7 +45,6 @@ function navTo(view) {
       container.innerHTML = `<p class="text-danger">โหลดหน้าไม่สำเร็จ</p>`;
     });
 }
-
 
 /* ======================= PATIENTS ======================= */
 async function loadPatients() {
@@ -176,7 +173,8 @@ function setupNursingForm() {
     }
   };
 }
-/* ======================= PATIENT UPLOAD ======================= */
+
+/* ======================= PATIENT UPLOAD SSE ======================= */
 function initPatientUploadSSE() {
   const fileInput = $id("fileInput");
   const submitBtn = $id("submitFile");
@@ -194,13 +192,15 @@ function initPatientUploadSSE() {
   };
 
   submitBtn.onclick = async () => {
-    if (!fileInput.files.length) return alert("กรุณาเลือกไฟล์");
+    if (!fileInput.files.length) {
+      alert("กรุณาเลือกไฟล์");
+      return;
+    }
 
-    const file = fileInput.files[0];
     const formData = new FormData();
-    formData.append("file", file);
+    formData.append("file", fileInput.files[0]);
 
-    // Reset progress bar
+    // reset UI
     progressBar.style.width = "0%";
     progressBar.textContent = "0%";
     statusEl.textContent = "กำลังอัปโหลด...";
@@ -209,51 +209,52 @@ function initPatientUploadSSE() {
     updatedRowsEl.textContent = 0;
 
     try {
-      // 1️⃣ POST เพื่อสร้าง uploadId
-      const res = await fetch(`${API_BASE}/patients/upload-temp`, {
+      const res = await fetch(`${API_BASE}/patients/upload-sse`, {
         method: "POST",
-        body: formData,
-      });
-      const { uploadId } = await res.json();
-
-      // 2️⃣ SSE stream รับ progress ตาม uploadId
-      const evtSource = new EventSource(`${API_BASE}/patients/upload-sse/${uploadId}`);
-
-      evtSource.onmessage = (e) => {
-        const data = JSON.parse(e.data);
-        const percent = Math.round((data.processed / data.total) * 100);
-
-        progressBar.style.width = percent + "%";
-        progressBar.textContent = percent + "%";
-
-        totalRowsEl.textContent = data.total;
-        newRowsEl.textContent = data.newRows;
-        updatedRowsEl.textContent = data.updatedRows;
-        statusEl.textContent = `Uploading... ${percent}%`;
-      };
-
-      evtSource.addEventListener("done", () => {
-        progressBar.style.width = "100%";
-        progressBar.textContent = "100%";
-        statusEl.textContent = "Upload completed!";
-        evtSource.close();
+        body: formData
       });
 
-      evtSource.onerror = (err) => {
-        console.error("SSE error", err);
-        statusEl.textContent = "Upload failed (SSE error)";
-        evtSource.close();
-      };
+      if (!res.ok || !res.body) {
+        throw new Error("Upload failed");
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder("utf-8");
+      let buffer = "";
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const events = buffer.split("\n\n");
+        buffer = events.pop();
+
+        for (const evt of events) {
+          if (!evt.startsWith("data:")) continue;
+
+          const data = JSON.parse(evt.replace(/^data:\s*/, ""));
+          const percent = Math.round((data.processed / data.total) * 100);
+
+          progressBar.style.width = percent + "%";
+          progressBar.textContent = percent + "%";
+          totalRowsEl.textContent = data.total;
+          newRowsEl.textContent = data.newRows;
+          updatedRowsEl.textContent = data.updatedRows;
+          statusEl.textContent = `Uploading... ${percent}%`;
+        }
+      }
+
+      progressBar.style.width = "100%";
+      progressBar.textContent = "100%";
+      statusEl.textContent = "Upload completed!";
+
     } catch (err) {
-      console.error("Upload error", err);
-      statusEl.textContent = "Upload failed (Exception)";
+      console.error("Upload SSE error", err);
+      statusEl.textContent = "Upload failed";
     }
   };
 }
-
-
-
-
 
 /* ======================= START ======================= */
 navTo("index");

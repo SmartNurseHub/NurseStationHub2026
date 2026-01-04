@@ -34,10 +34,8 @@ async function readSheet(sheetName) {
     spreadsheetId: SPREADSHEET_ID,
     range: sheetName,
   });
-
   const rows = res.data.values || [];
   if (!rows.length) return [];
-
   const header = rows[0];
   return rows.slice(1).map(r => {
     const obj = {};
@@ -83,23 +81,25 @@ router.get("/nursing-records/:nsr", async (req, res) => {
 });
 
 /* ===================== SSE Upload Patients ===================== */
-const BATCH_SIZE = 1000; // batch append 1000 rows
+const BATCH_SIZE = 1000; // batch append
 
 router.post("/patients/upload-sse", upload.single("file"), async (req, res) => {
   if (!req.file) return res.status(400).json({ success: false, message: "No file uploaded" });
 
   // ตั้งค่า SSE
   res.writeHead(200, {
-    Connection: "keep-alive",
-    "Content-Type": "text/event-stream",
-    "Cache-Control": "no-cache",
-  });
+  Connection: "keep-alive",
+  "Content-Type": "text/event-stream",
+  "Cache-Control": "no-cache",
+  "X-Accel-Buffering": "no", // ⭐ กัน Render / proxy buffer
+});
+
 
   try {
     const sheets = await getSheets();
     const content = req.file.buffer.toString("utf-8");
     const lines = content.split(/\r?\n/).filter(l => l.trim());
-    let total = lines.length;
+    const total = lines.length;
     let newRows = 0;
     let updatedRows = 0;
 
@@ -120,7 +120,6 @@ router.post("/patients/upload-sse", upload.single("file"), async (req, res) => {
       }
     });
 
-    // Append แบบ batch + ส่ง progress
     for (let i = 0; i < toAppend.length; i += BATCH_SIZE) {
       const batch = toAppend.slice(i, i + BATCH_SIZE);
       await sheets.spreadsheets.values.append({
@@ -129,8 +128,8 @@ router.post("/patients/upload-sse", upload.single("file"), async (req, res) => {
         valueInputOption: "RAW",
         resource: { values: batch },
       });
+      await new Promise(r => setTimeout(r, 120));
 
-      // ส่ง progress กลับ frontend
       const processed = Math.min(i + batch.length, toAppend.length);
       res.write(`data: ${JSON.stringify({
         processed,
@@ -140,15 +139,22 @@ router.post("/patients/upload-sse", upload.single("file"), async (req, res) => {
       })}\n\n`);
     }
 
-    // เสร็จแล้วปิด SSE
+    // ปิด SSE
     res.write("event: done\ndata: {}\n\n");
     res.end();
     console.log("Upload SSE completed successfully");
+
   } catch (err) {
-    console.error("SSE upload exception:", err);
-    res.write(`data: ${JSON.stringify({ success: false, message: err.message })}\n\n`);
-    res.end();
-  }
+  console.error("SSE upload exception:", err);
+
+  res.write(`event: error\ndata: ${JSON.stringify({
+    success: false,
+    message: err.message
+  })}\n\n`);
+
+  res.end();
+}
+
 });
 
 /* ===================== Count Patients ===================== */
@@ -164,6 +170,28 @@ router.get("/patients/count", async (req, res) => {
   } catch (err) {
     console.error("Error in /patients/count:", err);
     res.status(500).json({ error: "Failed to get totalRows" });
+  }
+});
+
+/**
+ * POST /api/sheet/patients/upload-temp
+ */
+router.post("/patients/upload-temp", async (req, res) => {
+  try {
+    const rows = req.body;
+
+    if (!Array.isArray(rows) || rows.length === 0) {
+  return res.status(400).json({ error: "Empty or invalid payload" });
+}
+
+
+    res.json({
+      success: true,
+      received: rows.length
+    });
+  } catch (err) {
+    console.error("upload-temp error:", err);
+    res.status(500).json({ error: err.message });
   }
 });
 
