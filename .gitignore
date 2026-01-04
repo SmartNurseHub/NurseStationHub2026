@@ -2,4 +2,24 @@ node_modules
 .env
 uploads/*
 config/credentials.json
-!/public/image/logo.png
+
+# ignore public by default
+public/*
+
+# allow folders
+!public/js/
+!public/image/
+
+# allow static assets
+!public/index.html
+!public/style.css
+
+# allow js files
+!public/js/app.js
+!public/js/nursingRecords.js
+
+# allow images
+!public/image/logo.png
+
+# allow view html files
+!public/*.html

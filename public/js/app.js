@@ -43,6 +43,12 @@ function navTo(view) {
         loadNursingRecords();
         setupNursingForm();
       }
+      if (view === "patients") {
+        loadPatients();
+        initPatientUpload();
+      }
+
+      
     })
     .catch(() => {
       container.innerHTML = `<p class="text-danger">โหลดหน้าไม่สำเร็จ</p>`;
@@ -173,6 +179,67 @@ function setupNursingForm() {
 
     } catch {
       alert("บันทึกไม่สำเร็จ");
+    }
+  };
+}
+/* ======================= PATIENT UPLOAD ======================= */
+function initPatientUpload() {
+  const fileInput = $id("fileInput");
+  const submitBtn = $id("submitFile");
+
+  const progressContainer = $id("uploadProgressContainer");
+  const progressBar = $id("uploadProgress");
+
+  const totalRowsEl   = $id("totalRows");
+  const newRowsEl     = $id("newRows");
+  const updatedRowsEl = $id("updatedRows");
+  const statusEl      = $id("uploadStatus");
+  const fileNameEl    = $id("fileName");
+
+  if (!fileInput || !submitBtn) return;
+
+  fileInput.onchange = () => {
+    fileNameEl.textContent = fileInput.files[0]
+      ? fileInput.files[0].name
+      : "ยังไม่ได้เลือกไฟล์";
+  };
+
+  submitBtn.onclick = async () => {
+    if (!fileInput.files.length) {
+      alert("กรุณาเลือกไฟล์");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", fileInput.files[0]);
+
+    progressContainer.style.display = "block";
+    progressBar.style.width = "0%";
+    progressBar.textContent = "0%";
+    statusEl.textContent = "กำลังอัปโหลด...";
+
+    try {
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData
+      });
+
+      const json = await res.json();
+      if (!json.success) throw new Error(json.message);
+
+      progressBar.style.width = "100%";
+      progressBar.textContent = "100%";
+
+      totalRowsEl.textContent   = json.totalRows ?? 0;
+      newRowsEl.textContent     = json.newRows ?? 0;
+      updatedRowsEl.textContent = json.updatedRows ?? 0;
+
+      statusEl.textContent = "อัปโหลดสำเร็จ";
+      loadPatients(); // refresh cache
+
+    } catch (err) {
+      console.error(err);
+      statusEl.textContent = "อัปโหลดไม่สำเร็จ";
     }
   };
 }
