@@ -7,15 +7,18 @@ require("dotenv").config();
 const express = require("express");
 const path = require("path");
 const morgan = require("morgan");
+const multer = require("multer");
 const { google } = require("googleapis");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-/* ===================== ENV VALIDATION ===================== */
+/* =========================================================
+ * ENV VALIDATION
+ * ========================================================= */
 const REQUIRED_ENVS = [
   "SPREADSHEET_ID",
-  "GOOGLE_CREDENTIAL_BASE64"
+  "GOOGLE_CREDENTIAL_BASE64",
 ];
 
 for (const key of REQUIRED_ENVS) {
@@ -27,19 +30,23 @@ for (const key of REQUIRED_ENVS) {
 
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
 const SHEET_PATIENTS = process.env.SHEET_PATIENTS || "Patients";
-const SHEET_NURSING = process.env.SHEET_NURSING || "NursingRecords";
+const SHEET_NURSING  = process.env.SHEET_NURSING  || "NursingRecords";
 
-/* ===================== GOOGLE AUTH ===================== */
+/* =========================================================
+ * GOOGLE AUTH
+ * ========================================================= */
 let auth;
+
 try {
   const credentials = JSON.parse(
-    Buffer.from(process.env.GOOGLE_CREDENTIAL_BASE64, "base64").toString()
+    Buffer.from(process.env.GOOGLE_CREDENTIAL_BASE64, "base64").toString("utf8")
   );
 
   auth = new google.auth.GoogleAuth({
     credentials,
     scopes: ["https://www.googleapis.com/auth/spreadsheets"],
   });
+
 } catch (err) {
   console.error("❌ Invalid GOOGLE_CREDENTIAL_BASE64");
   process.exit(1);
@@ -50,13 +57,25 @@ async function getSheets() {
   return google.sheets({ version: "v4", auth: client });
 }
 
-/* ===================== MIDDLEWARE ===================== */
+/* =========================================================
+ * MIDDLEWARE
+ * ========================================================= */
 app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev"));
+
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
+
+// Static files
 app.use(express.static(path.join(__dirname, "public")));
 
-/* ===================== HELPERS ===================== */
+// Multer (memory upload)
+const upload = multer({
+  limits: { fileSize: 20 * 1024 * 1024 }, // 20MB
+});
+
+/* =========================================================
+ * HELPERS
+ * ========================================================= */
 async function readSheet(sheetName) {
   const sheets = await getSheets();
   const resp = await sheets.spreadsheets.values.get({
@@ -68,26 +87,44 @@ async function readSheet(sheetName) {
   if (!rows.length) return [];
 
   const header = rows[0];
+
   return rows.slice(1).map(row => {
     const obj = {};
-    header.forEach((h, i) => (obj[h] = row[i] || ""));
+    header.forEach((h, i) => {
+      obj[h] = row[i] || "";
+    });
     return obj;
   });
 }
 
+/* =========================================================
+ * HEALTH CHECK
+ * ========================================================= */
+app.get("/health", (_req, res) => {
+  res.json({ ok: true });
+});
 
-/* ===================== HEALTH CHECK ===================== */
-app.get("/health", (_, res) => res.json({ ok: true }));
-
+/* =========================================================
+ * ROUTES
+ * ========================================================= */
 const sheetsRouter = require("./routes/sheets");
-app.use("/api/sheet", sheetsRouter);
 
-/* ===================== SPA FALLBACK ===================== */
+// ส่ง multer ให้ router ใช้
+app.use("/api/sheet", (req, res, next) => {
+  req.upload = upload;
+  next();
+}, sheetsRouter);
+
+/* =========================================================
+ * SPA FALLBACK (IMPORTANT FOR RENDER)
+ * ========================================================= */
 app.get("*", (req, res) => {
+  // block api
   if (req.path.startsWith("/api")) {
     return res.status(404).json({ error: "API not found" });
   }
 
+  // block asset not found
   if (req.path.includes(".")) {
     return res.status(404).end();
   }
@@ -95,15 +132,20 @@ app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
-
-
-/* ===================== ERROR HANDLER ===================== */
+/* =========================================================
+ * ERROR HANDLER
+ * ========================================================= */
 app.use((err, req, res, _next) => {
-  console.error("🔥 API ERROR:", err.message);
-  res.status(500).json({ success: false, error: "Internal Server Error" });
+  console.error("🔥 API ERROR:", err);
+  res.status(500).json({
+    success: false,
+    message: err.message || "Internal Server Error",
+  });
 });
 
-/* ===================== START ===================== */
+/* =========================================================
+ * START SERVER
+ * ========================================================= */
 app.listen(PORT, () => {
   console.log(`🚀 Render service running on port ${PORT}`);
 });

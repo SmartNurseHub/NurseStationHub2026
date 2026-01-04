@@ -1,5 +1,5 @@
 // =======================================================
-// patients.js (FIXED & SAFE)
+// patients.js — SSE Upload (Render Safe · FULL VERSION)
 // =======================================================
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -18,90 +18,102 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (!fileInput || !submitBtn) return;
 
-  // แสดงชื่อไฟล์
+  /* ================= FILE NAME ================= */
   fileInput.addEventListener("change", () => {
     fileName.textContent = fileInput.files[0]
       ? fileInput.files[0].name
       : "ยังไม่ได้เลือกไฟล์";
   });
 
+  /* ================= UPLOAD SSE ================= */
   submitBtn.addEventListener("click", async () => {
     if (!fileInput.files.length) {
       alert("กรุณาเลือกไฟล์ก่อนอัปโหลด");
       return;
     }
 
+    // reset UI
     progressContainer.style.display = "block";
     progressBar.style.width = "0%";
     progressBar.textContent = "0%";
     statusEl.textContent = "กำลังอัปโหลด...";
 
+    totalRowsEl.textContent = "0";
+    newRowsEl.textContent = "0";
+    updatedRowsEl.textContent = "0";
+
     try {
-      const text = await fileInput.files[0].text();
-      const lines = text
-        .split(/\r?\n/)
-        .map(l => l.trim())
-        .filter(Boolean);
+      const formData = new FormData();
+      formData.append("file", fileInput.files[0]);
 
-      if (lines.length < 2) {
-        throw new Error("ไฟล์ไม่มีข้อมูล");
+      const res = await fetch("/api/sheet/patients/upload-sse", {
+        method: "POST",
+        body: formData
+      });
+
+      if (!res.ok || !res.body) {
+        throw new Error("ไม่สามารถเชื่อมต่อ SSE");
       }
 
-      const header = lines[0];
-      const dataRows = lines.slice(1);
-      const total = dataRows.length;
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder("utf-8");
+      let buffer = "";
 
-      totalRowsEl.textContent = total;
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
 
-      let newRows = 0;
-      let updatedRows = 0;
+        buffer += decoder.decode(value, { stream: true });
 
-      const batchSize = 50; // แนะนำ 50–200
-      let processed = 0;
+        const events = buffer.split("\n\n");
+        buffer = events.pop(); // เก็บเศษ
 
-      for (let i = 0; i < dataRows.length; i += batchSize) {
-        const batchRows = dataRows.slice(i, i + batchSize);
+        for (const evt of events) {
 
-        // 🔥 ส่ง header แค่ batch แรก
-        const payload =
-          i === 0
-            ? header + "\n" + batchRows.join("\n")
-            : batchRows.join("\n");
+          // DONE EVENT
+          if (evt.startsWith("event: done")) {
+            progressBar.style.width = "100%";
+            progressBar.textContent = "100%";
+            statusEl.textContent = "อัปโหลดสำเร็จ ✅";
+            return;
+          }
 
-        const blob = new Blob([payload], { type: "text/plain" });
-        const formData = new FormData();
-        formData.append("file", blob, fileInput.files[0].name);
+          // ERROR EVENT
+          if (evt.startsWith("event: error")) {
+            statusEl.textContent = "เกิดข้อผิดพลาด ❌";
+            console.error(evt);
+            return;
+          }
 
-        const res = await fetch("/api/sheet/patients/upload", {
-          method: "POST",
-          body: formData
-        });
+          // DATA EVENT
+          if (!evt.startsWith("data:")) continue;
 
-        const result = await res.json();
-        if (!res.ok || !result.success) {
-          throw new Error(result.message || "Upload failed");
+          const json = evt.replace(/^data:\s*/, "").trim();
+          if (!json) continue;
+
+          const data = JSON.parse(json);
+
+          const total = Number(data.total) || 0;
+          const processed = Number(data.processed) || 0;
+
+          const percent = total
+            ? Math.min(100, Math.round((processed / total) * 100))
+            : 0;
+
+          progressBar.style.width = percent + "%";
+          progressBar.textContent = percent + "%";
+
+          totalRowsEl.textContent = total;
+          newRowsEl.textContent = data.newRows ?? 0;
+          updatedRowsEl.textContent = data.updatedRows ?? 0;
+
+          statusEl.textContent = `Uploading... ${percent}%`;
         }
-
-        newRows += result.inserted || 0;
-        updatedRows += result.updated || 0;
-
-        processed += batchRows.length;
-
-        const percent = Math.round((processed / total) * 100);
-        progressBar.style.width = percent + "%";
-        progressBar.textContent = percent + "%";
-
-        newRowsEl.textContent = newRows;
-        updatedRowsEl.textContent = updatedRows;
       }
-
-      progressBar.style.width = "100%";
-      progressBar.textContent = "100%";
-      statusEl.textContent = "อัปโหลดสำเร็จ ✅";
 
     } catch (err) {
-      console.error(err);
-      statusEl.textContent = "เกิดข้อผิดพลาดในการอัปโหลด ❌";
+      console.error("Upload SSE error:", err);
+      statusEl.textContent = "อัปโหลดล้มเหลว ❌";
     }
   });
 

@@ -1,35 +1,23 @@
 // ======================================================================
-// app.js — Front-end Controller (Render Production Safe + SSE Upload)
-// NurseStationHub2026
+// app.js — Front-end Controller (Render Safe + SSE)
 // ======================================================================
 
 const API_BASE = "/api/sheet";
 
-/* ======================= GLOBAL STATE ======================= */
+/* ======================= GLOBAL ======================= */
 let patientsData = [];
 let patientIndex = [];
 let nursingRecordsCache = [];
 let editingNSR = null;
 
-/* ======================= UTIL ======================= */
 const $id = id => document.getElementById(id);
-
-function escapeHtml(str = "") {
-  return String(str)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-}
 
 /* ======================= SPA NAV ======================= */
 function navTo(view) {
-  const container = $id("view-container");
-  if (!container) return;
-
   fetch(`${view}.html`)
-    .then(r => r.ok ? r.text() : Promise.reject())
+    .then(r => r.text())
     .then(html => {
-      container.innerHTML = html;
+      $id("view-container").innerHTML = html;
 
       if (view === "patients") {
         loadPatients().then(initPatientUploadSSE);
@@ -40,47 +28,36 @@ function navTo(view) {
         loadNursingRecords();
         setupNursingForm();
       }
-    })
-    .catch(() => {
-      container.innerHTML = `<p class="text-danger">โหลดหน้าไม่สำเร็จ</p>`;
     });
 }
 
 /* ======================= PATIENTS ======================= */
 async function loadPatients() {
-  try {
-    const res = await fetch(`${API_BASE}/patients`);
-    const json = await res.json();
-    if (!json.success) throw new Error();
+  const res = await fetch(`${API_BASE}/patients`);
+  const json = await res.json();
+  patientsData = json.data || [];
 
-    patientsData = json.data || [];
-    patientIndex = patientsData.map((p, i) => ({
-      i,
-      text: `${p.HN || ""} ${p.NAME || ""} ${p.LNAME || ""}`.toLowerCase()
-    }));
-  } catch {
-    patientsData = [];
-    patientIndex = [];
-  }
+  patientIndex = patientsData.map((p, i) => ({
+    i,
+    text: `${p.HN} ${p.NAME} ${p.LNAME}`.toLowerCase()
+  }));
 }
 
 function setupPatientSearch() {
   const input = $id("patientSearch");
   const list = $id("searchResults");
-  if (!input || !list) return;
 
   input.oninput = () => {
-    const q = input.value.toLowerCase();
     list.innerHTML = "";
+    const q = input.value.toLowerCase();
     if (!q) return;
 
     patientIndex
       .filter(x => x.text.includes(q))
       .slice(0, 10)
-      .forEach(h => {
-        const p = patientsData[h.i];
+      .forEach(x => {
+        const p = patientsData[x.i];
         const div = document.createElement("div");
-        div.className = "list-group-item list-group-item-action";
         div.textContent = `${p.NAME} ${p.LNAME} (${p.HN})`;
         div.onclick = () => {
           ["HN", "CID", "NAME", "LNAME"].forEach(k => {
@@ -93,38 +70,29 @@ function setupPatientSearch() {
   };
 }
 
-/* ======================= NURSING RECORDS ======================= */
+/* ======================= NURSING ======================= */
 async function loadNursingRecords() {
-  try {
-    const res = await fetch(`${API_BASE}/nursing-records`);
-    const json = await res.json();
-    if (!json.success) throw new Error();
-
-    nursingRecordsCache = json.data || [];
-    renderNursingRecords(nursingRecordsCache);
-  } catch (err) {
-    console.error("loadNursingRecords error", err);
-  }
+  const res = await fetch(`${API_BASE}/nursing-records`);
+  const json = await res.json();
+  nursingRecordsCache = json.data || [];
+  renderNursingRecords(nursingRecordsCache);
 }
 
 function renderNursingRecords(records) {
   const tbody = $id("nursingTableBody");
-  if (!tbody) return;
-
   tbody.innerHTML = "";
+
   records.forEach(r => {
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${r.NSR || ""}</td>
-      <td>${r.DateService || ""}</td>
-      <td>${r.HN || ""}</td>
-      <td>${escapeHtml(r.NAME)} ${escapeHtml(r.LNAME)}</td>
-      <td>${escapeHtml(r.Activity || "")}</td>
-      <td>
-        <button class="edit-record" data-nsr="${r.NSR}">✏️</button>
-      </td>
+    tbody.innerHTML += `
+      <tr>
+        <td>${r.NSR}</td>
+        <td>${r.DateService}</td>
+        <td>${r.HN}</td>
+        <td>${r.NAME} ${r.LNAME}</td>
+        <td>${r.Activity}</td>
+        <td><button class="edit-record" data-nsr="${r.NSR}">✏️</button></td>
+      </tr>
     `;
-    tbody.appendChild(tr);
   });
 }
 
@@ -144,131 +112,69 @@ document.addEventListener("click", e => {
 /* ======================= FORM ======================= */
 function setupNursingForm() {
   const form = $id("nursingForm");
-  if (!form) return;
 
   form.onsubmit = async e => {
     e.preventDefault();
-    if (!editingNSR) {
-      alert("โหมดเพิ่มใหม่ยังไม่เปิดใช้งาน");
-      return;
-    }
 
     const data = Object.fromEntries(new FormData(form).entries());
 
-    try {
-      const res = await fetch(`${API_BASE}/nursing-records/${editingNSR}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data)
-      });
+    const res = await fetch(`${API_BASE}/nursing-records/${editingNSR}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
 
-      const json = await res.json();
-      if (!json.success) throw new Error();
-
+    const json = await res.json();
+    if (json.success) {
       alert("บันทึกสำเร็จ");
       navTo("nursingRecords");
-
-    } catch {
+    } else {
       alert("บันทึกไม่สำเร็จ");
     }
   };
 }
 
-/* ======================= PATIENT UPLOAD SSE ======================= */
+/* ======================= SSE UPLOAD ======================= */
 function initPatientUploadSSE() {
   const fileInput = $id("fileInput");
   const submitBtn = $id("submitFile");
-  const progressBar = $id("uploadProgress");
-  const totalRowsEl = $id("totalRows");
-  const newRowsEl = $id("newRows");
-  const updatedRowsEl = $id("updatedRows");
-  const statusEl = $id("uploadStatus");
-  const fileNameEl = $id("fileName");
-
-  if (!fileInput || !submitBtn) return;
-
-  fileInput.onchange = () => {
-    fileNameEl.textContent =
-      fileInput.files[0]?.name || "ยังไม่ได้เลือกไฟล์";
-  };
+  const progress = $id("uploadProgress");
+  const status = $id("uploadStatus");
 
   submitBtn.onclick = async () => {
-    if (!fileInput.files.length) {
-      alert("กรุณาเลือกไฟล์");
-      return;
-    }
+    const fd = new FormData();
+    fd.append("file", fileInput.files[0]);
 
-    const formData = new FormData();
-    formData.append("file", fileInput.files[0]);
+    const res = await fetch(`${API_BASE}/patients/upload-sse`, {
+      method: "POST",
+      body: fd,
+    });
 
-    // reset UI
-    progressBar.style.width = "0%";
-    progressBar.textContent = "0%";
-    statusEl.textContent = "กำลังอัปโหลด...";
-    totalRowsEl.textContent = "0";
-    newRowsEl.textContent = "0";
-    updatedRowsEl.textContent = "0";
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
 
-    try {
-      const res = await fetch(`${API_BASE}/patients/upload-sse`, {
-        method: "POST",
-        body: formData,
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value);
+      const events = buffer.split("\n\n");
+      buffer = events.pop();
+
+      events.forEach(e => {
+        if (!e.startsWith("data:")) return;
+        const d = JSON.parse(e.replace("data:", ""));
+        const percent = Math.round((d.processed / d.total) * 100);
+        progress.style.width = percent + "%";
+        progress.textContent = percent + "%";
+        status.textContent = "Uploading...";
       });
-
-      if (!res.ok || !res.body) {
-        throw new Error("Upload failed");
-      }
-
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder("utf-8");
-      let buffer = "";
-
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-
-        const chunks = buffer.split("\n\n");
-        buffer = chunks.pop(); // เก็บเศษไว้รอบหน้า
-
-        for (const chunk of chunks) {
-          if (!chunk.startsWith("data:")) continue;
-
-          const json = chunk.replace(/^data:\s*/, "").trim();
-          if (!json) continue;
-
-          const data = JSON.parse(json);
-
-          const total = Number(data.total) || 0;
-          const processed = Number(data.processed) || 0;
-          const percent = total
-            ? Math.min(100, Math.round((processed / total) * 100))
-            : 0;
-
-          progressBar.style.width = percent + "%";
-          progressBar.textContent = percent + "%";
-
-          totalRowsEl.textContent = total;
-          newRowsEl.textContent = data.newRows ?? 0;
-          updatedRowsEl.textContent = data.updatedRows ?? 0;
-
-          statusEl.textContent = `Uploading... ${percent}%`;
-        }
-      }
-
-      // complete
-      progressBar.style.width = "100%";
-      progressBar.textContent = "100%";
-      statusEl.textContent = "Upload completed ✅";
-
-    } catch (err) {
-      console.error("Upload SSE error", err);
-      statusEl.textContent = "Upload failed ❌";
     }
+
+    status.textContent = "Upload completed ✅";
   };
 }
-
 
 /* ======================= START ======================= */
 navTo("index");

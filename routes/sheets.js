@@ -1,22 +1,24 @@
 /********************************************************************
- * routes/sheets.js — Render Production Safe + SSE Upload
+ * routes/sheets.js — Render Production Safe + SSE Upload (PERSON)
  ********************************************************************/
 
 const express = require("express");
 const { google } = require("googleapis");
 const multer = require("multer");
-const upload = multer({ limits: { fileSize: 50 * 1024 * 1024 } }); // 50MB
+
 const router = express.Router();
+const upload = multer({ limits: { fileSize: 50 * 1024 * 1024 } });
 
 /* ===================== ENV ===================== */
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
 const SHEET_PATIENTS = process.env.SHEET_PATIENTS || "Patients";
-const SHEET_NURSING = process.env.SHEET_NURSING || "NursingRecords";
+const SHEET_NURSING  = process.env.SHEET_NURSING  || "NursingRecords";
 
 /* ===================== GOOGLE AUTH ===================== */
 const credentials = JSON.parse(
-  Buffer.from(process.env.GOOGLE_CREDENTIAL_BASE64, "base64").toString()
+  Buffer.from(process.env.GOOGLE_CREDENTIAL_BASE64, "base64").toString("utf8")
 );
+
 const auth = new google.auth.GoogleAuth({
   credentials,
   scopes: ["https://www.googleapis.com/auth/spreadsheets"],
@@ -28,14 +30,25 @@ async function getSheets() {
 }
 
 /* ===================== HELPERS ===================== */
+function colIndexToLetter(index) {
+  let letter = "";
+  while (index >= 0) {
+    letter = String.fromCharCode((index % 26) + 65) + letter;
+    index = Math.floor(index / 26) - 1;
+  }
+  return letter;
+}
+
 async function readSheet(sheetName) {
   const sheets = await getSheets();
-  const res = await sheets.spreadsheets.values.get({
+  const resp = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
     range: sheetName,
   });
-  const rows = res.data.values || [];
-  if (!rows.length) return [];
+
+  const rows = resp.data.values || [];
+  if (rows.length < 2) return [];
+
   const header = rows[0];
   return rows.slice(1).map(r => {
     const obj = {};
@@ -44,153 +57,175 @@ async function readSheet(sheetName) {
   });
 }
 
-/* ===================== ROUTES ===================== */
+/* ===================== BASIC ROUTES ===================== */
 
-// ดึงข้อมูลผู้ป่วยทั้งหมด
 router.get("/patients", async (_, res) => {
   try {
     const data = await readSheet(SHEET_PATIENTS);
     res.json({ success: true, data });
   } catch (err) {
-    console.error("Error /patients:", err);
     res.status(500).json({ success: false, message: err.message });
   }
 });
 
-// ดึงข้อมูล nursing records
 router.get("/nursing-records", async (_, res) => {
   try {
     const data = await readSheet(SHEET_NURSING);
     res.json({ success: true, data });
   } catch (err) {
-    console.error("Error /nursing-records:", err);
     res.status(500).json({ success: false, message: err.message });
   }
 });
 
-// ดึง nursing record ตาม NSR
-router.get("/nursing-records/:nsr", async (req, res) => {
-  try {
-    const data = await readSheet(SHEET_NURSING);
-    const record = data.find(r => r.NSR === req.params.nsr);
-    res.json(record ? { success: true, data: record } : { success: false });
-  } catch (err) {
-    console.error("Error /nursing-records/:nsr", err);
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
+/* =========================================================
+ * SSE UPLOAD PERSON (PIPE | DELIMITED)
+ * ========================================================= */
+router.post(
+  "/patients/upload-sse",
+  upload.single("file"),
+  async (req, res) => {
 
-/* ===================== SSE Upload Patients ===================== */
-const BATCH_SIZE = 1000; // batch append
-
-router.post("/patients/upload-sse", upload.single("file"), async (req, res) => {
-  if (!req.file) return res.status(400).json({ success: false, message: "No file uploaded" });
-
-  // ตั้งค่า SSE
-  res.writeHead(200, {
-  Connection: "keep-alive",
-  "Content-Type": "text/event-stream",
-  "Cache-Control": "no-cache",
-  "X-Accel-Buffering": "no", // ⭐ กัน Render / proxy buffer
-});
-
-
-  try {
-    const sheets = await getSheets();
-    const content = req.file.buffer.toString("utf-8");
-    const lines = content.split(/\r?\n/).filter(l => l.trim());
-    const total = lines.length;
-    let newRows = 0;
-    let updatedRows = 0;
-
-    // โหลดข้อมูลเดิม
-    const sheetData = await sheets.spreadsheets.values.get({
-      spreadsheetId: SPREADSHEET_ID,
-      range: `${SHEET_PATIENTS}!A:A`,
-    });
-    const existingRows = sheetData.data.values?.flat() || [];
-
-    const toAppend = [];
-    lines.forEach(line => {
-      if (!existingRows.includes(line)) {
-        toAppend.push([line]);
-        newRows++;
-      } else {
-        updatedRows++;
-      }
-    });
-
-    for (let i = 0; i < toAppend.length; i += BATCH_SIZE) {
-      const batch = toAppend.slice(i, i + BATCH_SIZE);
-      await sheets.spreadsheets.values.append({
-        spreadsheetId: SPREADSHEET_ID,
-        range: SHEET_PATIENTS,
-        valueInputOption: "RAW",
-        resource: { values: batch },
-      });
-      await new Promise(r => setTimeout(r, 120));
-
-      const processed = Math.min(i + batch.length, toAppend.length);
-      res.write(`data: ${JSON.stringify({
-        processed,
-        total,
-        newRows,
-        updatedRows,
-      })}\n\n`);
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: "No file uploaded" });
     }
 
-    // ปิด SSE
-    res.write("event: done\ndata: {}\n\n");
-    res.end();
-    console.log("Upload SSE completed successfully");
+    /* ---------- SSE HEADER ---------- */
+    res.writeHead(200, {
+      Connection: "keep-alive",
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      "X-Accel-Buffering": "no",
+    });
 
-  } catch (err) {
-  console.error("SSE upload exception:", err);
+    try {
+      const sheets = await getSheets();
 
-  res.write(`event: error\ndata: ${JSON.stringify({
-    success: false,
-    message: err.message
-  })}\n\n`);
+      /* ---------- READ & CLEAN FILE ---------- */
+      const content = req.file.buffer.toString("utf8");
 
-  res.end();
-}
+      const lines = content
+        .replace(/\t+/g, "")      // 🔥 ล้าง TAB
+        .split(/\r?\n/)
+        .filter(l => l.trim() !== "");
 
-});
+      if (lines.length < 2) {
+        throw new Error("File has no data rows");
+      }
 
-/* ===================== Count Patients ===================== */
-router.get("/patients/count", async (req, res) => {
+      /* ---------- HEADER ---------- */
+      const headers = lines[0]
+        .replace(/^\uFEFF/, "")
+        .split("|")
+        .map(h => h.trim());
+
+      const dataLines = lines.slice(1);
+      const total = dataLines.length;
+
+      /* ---------- CID SET ---------- */
+      const KEY_NAME = "CID";
+      const keyColIndex = headers.indexOf(KEY_NAME);
+      if (keyColIndex === -1) throw new Error("CID column not found");
+
+      const keyColLetter = colIndexToLetter(keyColIndex);
+
+      /* ---------- LOAD EXISTING CID ---------- */
+      const sheetResp = await sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `${SHEET_PATIENTS}!${keyColLetter}:${keyColLetter}`,
+      });
+
+      const existingSet = new Set(
+        (sheetResp.data.values || []).slice(1).flat().filter(Boolean)
+      );
+
+      /* ---------- INSERT HEADER IF EMPTY ---------- */
+      if (!sheetResp.data.values || sheetResp.data.values.length === 0) {
+        await sheets.spreadsheets.values.append({
+          spreadsheetId: SPREADSHEET_ID,
+          range: SHEET_PATIENTS,
+          valueInputOption: "RAW",
+          requestBody: { values: [headers] },
+        });
+      }
+
+      /* ---------- PARSE ROWS ---------- */
+      let processed = 0;
+      let newRows = 0;
+      let skipped = 0;
+      const buffer = [];
+
+      for (const line of dataLines) {
+        const cols = line.split("|");
+        const row = headers.map((_, i) => (cols[i] ?? "").trim());
+        const cid = row[keyColIndex];
+
+        processed++;
+
+        if (!cid || cid.length !== 13 || existingSet.has(cid)) {
+          skipped++;
+        } else {
+          buffer.push(row);
+          existingSet.add(cid);
+          newRows++;
+        }
+
+        // batch append
+        if (buffer.length === 500) {
+          await sheets.spreadsheets.values.append({
+            spreadsheetId: SPREADSHEET_ID,
+            range: SHEET_PATIENTS,
+            valueInputOption: "RAW",
+            requestBody: { values: buffer },
+          });
+          buffer.length = 0;
+        }
+
+        // SSE progress
+        if (processed % 100 === 0 || processed === total) {
+          res.write(
+            `data: ${JSON.stringify({
+              processed,
+              total,
+              newRows,
+              skipped,
+            })}\n\n`
+          );
+        }
+      }
+
+      /* ---------- FINAL FLUSH ---------- */
+      if (buffer.length) {
+        await sheets.spreadsheets.values.append({
+          spreadsheetId: SPREADSHEET_ID,
+          range: SHEET_PATIENTS,
+          valueInputOption: "RAW",
+          requestBody: { values: buffer },
+        });
+      }
+
+      res.write("event: done\ndata: {}\n\n");
+      res.end();
+
+    } catch (err) {
+      console.error("SSE upload error:", err);
+      res.write(
+        `event: error\ndata: ${JSON.stringify({ message: err.message })}\n\n`
+      );
+      res.end();
+    }
+  }
+);
+
+/* ===================== COUNT ===================== */
+router.get("/patients/count", async (_, res) => {
   try {
     const sheets = await getSheets();
-    const sheetData = await sheets.spreadsheets.values.get({
+    const resp = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
       range: `${SHEET_PATIENTS}!A:A`,
     });
-    const totalRows = sheetData.data.values?.length || 0;
-    res.json({ totalRows });
+    res.json({ totalRows: resp.data.values?.length || 0 });
   } catch (err) {
-    console.error("Error in /patients/count:", err);
-    res.status(500).json({ error: "Failed to get totalRows" });
-  }
-});
-
-/**
- * POST /api/sheet/patients/upload-temp
- */
-router.post("/patients/upload-temp", async (req, res) => {
-  try {
-    const rows = req.body;
-
-    if (!Array.isArray(rows) || rows.length === 0) {
-  return res.status(400).json({ error: "Empty or invalid payload" });
-}
-
-
-    res.json({
-      success: true,
-      received: rows.length
-    });
-  } catch (err) {
-    console.error("upload-temp error:", err);
     res.status(500).json({ error: err.message });
   }
 });

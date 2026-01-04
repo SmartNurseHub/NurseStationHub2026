@@ -1,3 +1,12 @@
+/********************************************************************
+ * patientsUpload.controller.js
+ * Upload PERSON (HOSxP / HDC) → Google Sheet
+ * - รองรับ pipe (|)
+ * - ล้าง TAB
+ * - กัน CID ซ้ำ
+ * - Insert header อัตโนมัติ
+ ********************************************************************/
+
 const { google } = require("googleapis");
 
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
@@ -8,7 +17,8 @@ const BATCH_SIZE = 1000;
 // Google Auth
 // ---------------------------------------------------------------------
 const credentials = JSON.parse(
-  Buffer.from(process.env.GOOGLE_CREDENTIAL_BASE64, "base64").toString("utf-8")
+  Buffer.from(process.env.GOOGLE_CREDENTIAL_BASE64, "base64")
+    .toString("utf8")
 );
 
 const auth = new google.auth.GoogleAuth({
@@ -22,7 +32,7 @@ async function getSheets() {
 }
 
 // ---------------------------------------------------------------------
-// Utils: Column index → Letter (A, B, ..., AA, AB)
+// Utils
 // ---------------------------------------------------------------------
 function colIndexToLetter(index) {
   let letter = "";
@@ -45,20 +55,22 @@ exports.uploadPatients = async (req, res) => {
       });
     }
 
-    console.log("Upload file:", req.file.originalname, req.file.size);
+    console.log("Upload:", req.file.originalname, req.file.size);
 
     const sheets = await getSheets();
 
     // -----------------------------------------------------------------
-    // 1) Read file
+    // 1) Read + clean file
     // -----------------------------------------------------------------
-    const content = req.file.buffer.toString("utf-8");
-    const rawLines = content
-      .split(/\r?\n/)
-      .map(l => l.trim())
-      .filter(Boolean);
+    const content = req.file.buffer.toString("utf8");
 
-    if (rawLines.length < 2) {
+    // 🔥 สำคัญมาก: ล้าง TAB และห้าม trim ทั้งบรรทัด
+    const lines = content
+      .replace(/\t+/g, "")
+      .split(/\r?\n/)
+      .filter(l => l.trim() !== "");
+
+    if (lines.length < 2) {
       return res.status(400).json({
         success: false,
         message: "File has no data rows",
@@ -66,62 +78,68 @@ exports.uploadPatients = async (req, res) => {
     }
 
     // -----------------------------------------------------------------
-    // 2) Find header (pipe-delimited)
+    // 2) Header
     // -----------------------------------------------------------------
-    const headerIndex = rawLines.findIndex(l => l.includes("|"));
-    if (headerIndex === -1) {
-      throw new Error("Pipe-delimited header not found");
-    }
-
-    const headerLine = rawLines[headerIndex];
+    const headerLine = lines[0];
     const headers = headerLine
-      .replace(/^\uFEFF/, "")   // 🔥 remove BOM
+      .replace(/^\uFEFF/, "") // remove BOM
       .split("|")
       .map(h => h.trim());
 
-    const dataLines = rawLines.slice(headerIndex + 1);
+    const dataLines = lines.slice(1);
 
     console.log("Columns:", headers.length);
-    console.log("Data rows:", dataLines.length);
+    console.log("Rows:", dataLines.length);
 
     // -----------------------------------------------------------------
-    // 3) Use CID as KEY
+    // 3) CID key
     // -----------------------------------------------------------------
     const KEY_NAME = "CID";
     const keyColIndex = headers.indexOf(KEY_NAME);
+
     if (keyColIndex === -1) {
-      throw new Error(`${KEY_NAME} column not found`);
+      throw new Error("CID column not found");
     }
 
     const keyColLetter = colIndexToLetter(keyColIndex);
 
     // -----------------------------------------------------------------
-    // 4) Load existing CID from Sheet (skip header)
+    // 4) Load existing data from Sheet
     // -----------------------------------------------------------------
-    const sheetKey = await sheets.spreadsheets.values.get({
+    const sheetRes = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${SHEET_PATIENTS}!${keyColLetter}:${keyColLetter}`,
+      range: `${SHEET_PATIENTS}!A:ZZ`,
     });
 
-    const existingKeySet = new Set(
-      (sheetKey.data.values || [])
-        .slice(1)          // 🔥 skip header
-        .flat()
-        .filter(Boolean)
-    );
+    const sheetValues = sheetRes.data.values || [];
+    const existingKeySet = new Set();
+
+    // ถ้ามีข้อมูลใน Sheet
+    if (sheetValues.length > 1) {
+      const sheetHeaders = sheetValues[0];
+      const cidIndexInSheet = sheetHeaders.indexOf(KEY_NAME);
+
+      if (cidIndexInSheet !== -1) {
+        for (let i = 1; i < sheetValues.length; i++) {
+          const cid = sheetValues[i][cidIndexInSheet];
+          if (cid) existingKeySet.add(cid);
+        }
+      }
+    }
 
     console.log("Existing CID:", existingKeySet.size);
 
     // -----------------------------------------------------------------
     // 5) Insert header if sheet empty
     // -----------------------------------------------------------------
-    if ((sheetKey.data.values || []).length === 0) {
+    if (sheetValues.length === 0) {
       await sheets.spreadsheets.values.append({
         spreadsheetId: SPREADSHEET_ID,
         range: SHEET_PATIENTS,
         valueInputOption: "RAW",
-        insertDataOption: "INSERT_ROWS",
-        requestBody: { values: [headers] },
+        requestBody: {
+          values: [headers],
+        },
       });
       console.log("Header inserted");
     }
@@ -134,13 +152,16 @@ exports.uploadPatients = async (req, res) => {
     const toAppend = [];
 
     for (const line of dataLines) {
-      const values = line.split("|");
-      const row = headers.map((_, i) => (values[i] ?? "").trim());
+      const cols = line.split("|");
+
+      const row = headers.map((_, i) =>
+        (cols[i] ?? "").trim()
+      );
 
       const cid = row[keyColIndex];
 
-      // CID validation
-      if (!cid || cid.length !== 13 || cid === KEY_NAME) {
+      // validate CID
+      if (!cid || cid.length !== 13) {
         skipped++;
         continue;
       }
@@ -155,7 +176,7 @@ exports.uploadPatients = async (req, res) => {
       inserted++;
     }
 
-    console.log(`Inserted: ${inserted}, Skipped: ${skipped}`);
+    console.log(`Inserted=${inserted}, Skipped=${skipped}`);
 
     // -----------------------------------------------------------------
     // 7) Batch append
@@ -168,7 +189,9 @@ exports.uploadPatients = async (req, res) => {
         range: SHEET_PATIENTS,
         valueInputOption: "RAW",
         insertDataOption: "INSERT_ROWS",
-        requestBody: { values: batch },
+        requestBody: {
+          values: batch,
+        },
       });
 
       console.log(`Append ${i + 1}-${i + batch.length}`);
