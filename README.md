@@ -63,3 +63,31 @@ git status
 git add .
 git commit -m "fix: correct upload API path and stabilize app.js"
 git push origin main
+
+
+
+NurseStationHub2026
+ ┣ config
+ ┃ ┗ credentials.json
+ ┣ public
+ ┃ ┣ image
+ ┃ ┃ ┗ logo.png
+ ┃ ┣ js
+ ┃ ┃ ┣ app.js
+ ┃ ┃ ┗ nursingRecords.js
+ ┃ ┣ appointments.html
+ ┃ ┣ index.html
+ ┃ ┣ nursingRecords.html
+ ┃ ┣ patients.html
+ ┃ ┣ sticker.html
+ ┃ ┗ style.css
+ ┣ routes
+ ┃ ┗ sheets.js
+ ┣ uploads
+ ┣ .env
+ ┣ .gitignore
+ ┣ package-lock.json
+ ┣ package.json
+ ┣ READE2.md
+ ┣ README.md
+ ┗ server.js

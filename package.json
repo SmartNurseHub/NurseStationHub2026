@@ -2,9 +2,11 @@
   "name": "nurse-system",
   "version": "1.0.0",
   "description": "Nurse Organizations System - Node + Express + Google Sheets",
+  "private": true,
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
+    "build": "echo \"No build step required\"",
     "dev": "nodemon server.js"
   },
   "engines": {
