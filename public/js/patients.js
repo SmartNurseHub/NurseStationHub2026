@@ -1,6 +1,6 @@
 // =======================================================
 // patients.js
-// จัดการอัปโหลดรายชื่อผู้รับบริการ
+// จัดการอัปโหลดรายชื่อผู้รับบริการ (realtime progress)
 // =======================================================
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -33,30 +33,56 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    const formData = new FormData();
-    formData.append("file", fileInput.files[0]);
-
     progressContainer.style.display = "block";
     progressBar.style.width = "0%";
     progressBar.textContent = "0%";
     statusEl.textContent = "กำลังอัปโหลด...";
 
     try {
-      const res = await fetch("/api/upload", {
-        method: "POST",
-        body: formData
-      });
+      const text = await fileInput.files[0].text();
+      const lines = text.split(/\r?\n/).filter(Boolean);
 
-      const result = await res.json();
-
-      if (!res.ok || !result.success) {
-        throw new Error(result.message || "Upload failed");
+      if (lines.length < 2) {
+        throw new Error("ไฟล์ไม่มีข้อมูล");
       }
 
-      // update report
-      totalRowsEl.textContent   = result.totalRows || 0;
-      newRowsEl.textContent     = result.newRows || 0;
-      updatedRowsEl.textContent = result.updatedRows || 0;
+      const header = lines[0];
+      const dataRows = lines.slice(1); // ตัด header
+      const total = dataRows.length;
+
+      totalRowsEl.textContent = total;
+
+      let newRows = 0;
+      let updatedRows = 0;
+      const batchSize = 10; // ปรับได้ตามความเร็ว
+
+      for (let i = 0; i < dataRows.length; i += batchSize) {
+        const batch = dataRows.slice(i, i + batchSize).join("\n");
+        const blob = new Blob([header + "\n" + batch], { type: "text/plain" });
+        const formData = new FormData();
+        formData.append("file", blob, fileInput.files[0].name);
+
+        const res = await fetch("/api/sheet/patients/upload", {
+          method: "POST",
+          body: formData
+        });
+
+        const result = await res.json();
+        if (!res.ok || !result.success) {
+          throw new Error(result.message || "Upload failed");
+        }
+
+        // อัปเดต counters แบบ realtime
+        newRows += result.newRows;
+        updatedRows += result.updatedRows;
+
+        const progress = Math.round(Math.min(((i + batch.length) / total) * 100, 100));
+        progressBar.style.width = progress + "%";
+        progressBar.textContent = progress + "%";
+
+        newRowsEl.textContent = newRows;
+        updatedRowsEl.textContent = updatedRows;
+      }
 
       progressBar.style.width = "100%";
       progressBar.textContent = "100%";
