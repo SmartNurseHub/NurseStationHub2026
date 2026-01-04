@@ -1,17 +1,32 @@
-// =======================================
-// Parse TXT / CSV → Array<Object>
-// =======================================
+// =======================================================
+// parseTxt — PIPE (|) delimited text → array of objects
+// =======================================================
 
 module.exports = function parseTxt(text) {
-  const lines = text.split(/\r?\n/).filter(Boolean);
-  if (!lines.length) return [];
+  if (!text) return [];
 
-  const header = lines.shift().split(/,|\t/).map(h => h.trim());
+  // แยกบรรทัด + ตัดบรรทัดว่าง
+  const lines = text
+    .split(/\r?\n/)
+    .map(l => l.trim())
+    .filter(Boolean);
 
-  return lines.map(line => {
-    const cols = line.split(/,|\t/);
+  if (lines.length < 2) return [];
+
+  // header (บรรทัดแรก)
+  const headers = lines[0].split("|").map(h => h.trim());
+
+  // data rows
+  const rows = lines.slice(1).map(line => {
+    const cols = line.split("|");
     const obj = {};
-    header.forEach((h, i) => obj[h] = cols[i] || "");
+
+    headers.forEach((h, i) => {
+      obj[h] = (cols[i] || "").trim();
+    });
+
     return obj;
   });
+
+  return rows;
 };
