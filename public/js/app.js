@@ -27,15 +27,14 @@ function navTo(view) {
   if (!container) return;
 
   fetch(`${view}.html`)
-    .then(r => {
-      if (!r.ok) throw new Error();
-      return r.text();
-    })
+    .then(r => r.ok ? r.text() : Promise.reject())
     .then(html => {
       container.innerHTML = html;
 
       if (view === "patients") {
-        loadPatients();
+        loadPatients().then(() => {
+          initPatientUploadSSE();
+        });
       }
 
       if (view === "nursingRecords") {
@@ -43,17 +42,12 @@ function navTo(view) {
         loadNursingRecords();
         setupNursingForm();
       }
-      if (view === "patients") {
-        loadPatients();
-        initPatientUpload();
-      }
-
-      
     })
     .catch(() => {
       container.innerHTML = `<p class="text-danger">โหลดหน้าไม่สำเร็จ</p>`;
     });
 }
+
 
 /* ======================= PATIENTS ======================= */
 async function loadPatients() {
@@ -191,40 +185,72 @@ function initPatientUploadSSE() {
   const newRowsEl = $id("newRows");
   const updatedRowsEl = $id("updatedRows");
   const statusEl = $id("uploadStatus");
+  const fileNameEl = $id("fileName");
 
-  submitBtn.onclick = () => {
+  if (!fileInput || !submitBtn) return;
+
+  fileInput.onchange = () => {
+    fileNameEl.textContent = fileInput.files[0]?.name || "ยังไม่ได้เลือกไฟล์";
+  };
+
+  submitBtn.onclick = async () => {
     if (!fileInput.files.length) return alert("กรุณาเลือกไฟล์");
 
     const file = fileInput.files[0];
     const formData = new FormData();
     formData.append("file", file);
 
-    const xhr = new XMLHttpRequest();
-    xhr.open("POST", "/api/sheet/patients/upload-sse");
-    xhr.send(formData);
+    // Reset progress bar
+    progressBar.style.width = "0%";
+    progressBar.textContent = "0%";
+    statusEl.textContent = "กำลังอัปโหลด...";
+    totalRowsEl.textContent = 0;
+    newRowsEl.textContent = 0;
+    updatedRowsEl.textContent = 0;
 
-    const evtSource = new EventSource("/api/sheet/patients/upload-sse");
-    
-    evtSource.onmessage = (e) => {
-      const data = JSON.parse(e.data);
-      const percent = Math.round((data.processed / data.total) * 100);
-      progressBar.style.width = percent + "%";
-      progressBar.textContent = percent + "%";
+    try {
+      // 1️⃣ POST เพื่อสร้าง uploadId
+      const res = await fetch(`${API_BASE}/patients/upload-temp`, {
+        method: "POST",
+        body: formData,
+      });
+      const { uploadId } = await res.json();
 
-      newRowsEl.textContent = data.newRows;
-      updatedRowsEl.textContent = data.updatedRows;
-      totalRowsEl.textContent = data.total; // provisional
-      statusEl.textContent = `Uploading... ${percent}%`;
-    };
+      // 2️⃣ SSE stream รับ progress ตาม uploadId
+      const evtSource = new EventSource(`${API_BASE}/patients/upload-sse/${uploadId}`);
 
-    evtSource.addEventListener("done", () => {
-      progressBar.style.width = "100%";
-      progressBar.textContent = "100%";
-      statusEl.textContent = "Upload completed!";
-      evtSource.close();
-    });
+      evtSource.onmessage = (e) => {
+        const data = JSON.parse(e.data);
+        const percent = Math.round((data.processed / data.total) * 100);
+
+        progressBar.style.width = percent + "%";
+        progressBar.textContent = percent + "%";
+
+        totalRowsEl.textContent = data.total;
+        newRowsEl.textContent = data.newRows;
+        updatedRowsEl.textContent = data.updatedRows;
+        statusEl.textContent = `Uploading... ${percent}%`;
+      };
+
+      evtSource.addEventListener("done", () => {
+        progressBar.style.width = "100%";
+        progressBar.textContent = "100%";
+        statusEl.textContent = "Upload completed!";
+        evtSource.close();
+      });
+
+      evtSource.onerror = (err) => {
+        console.error("SSE error", err);
+        statusEl.textContent = "Upload failed (SSE error)";
+        evtSource.close();
+      };
+    } catch (err) {
+      console.error("Upload error", err);
+      statusEl.textContent = "Upload failed (Exception)";
+    }
   };
 }
+
 
 
 
