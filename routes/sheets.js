@@ -148,5 +148,8 @@ router.put("/nursing-records/:nsr", async (req, res) => {
     res.status(500).json({ success: false });
   }
 });
+/* ===================== ROUTES ===================== */
+const sheetsRouter = require("./routes/sheets");
+app.use("/api/sheet", sheetsRouter);
 
 module.exports = router;

@@ -75,36 +75,6 @@ async function readSheet(sheetName) {
   });
 }
 
-/* ===================== ROUTES ===================== */
-const router = express.Router();
-
-router.get("/patients", async (_, res, next) => {
-  try {
-    res.json({ success: true, data: await readSheet(SHEET_PATIENTS) });
-  } catch (err) {
-    next(err);
-  }
-});
-
-router.get("/nursing-records", async (_, res, next) => {
-  try {
-    res.json({ success: true, data: await readSheet(SHEET_NURSING) });
-  } catch (err) {
-    next(err);
-  }
-});
-
-router.get("/nursing-records/:nsr", async (req, res, next) => {
-  try {
-    const data = await readSheet(SHEET_NURSING);
-    const record = data.find(r => r.NSR === req.params.nsr);
-    res.json(record ? { success: true, data: record } : { success: false });
-  } catch (err) {
-    next(err);
-  }
-});
-
-app.use("/api/sheet", router);
 
 /* ===================== HEALTH CHECK ===================== */
 app.get("/health", (_, res) => res.json({ ok: true }));
