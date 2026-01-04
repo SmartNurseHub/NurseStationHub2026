@@ -1,0 +1,138 @@
+<!-- =========================================================
+     DASHBOARD VIEW
+     โหลดผ่าน app.js → navTo('dashboard')
+========================================================= -->
+
+<div class="container-fluid p-3">
+
+  <!-- ===================== PAGE TITLE ===================== -->
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="fw-bold mb-0">📊 Dashboard</h4>
+    <small class="text-muted">ภาพรวมระบบงานพยาบาล</small>
+  </div>
+
+  <!-- ===================== SUMMARY CARDS ===================== -->
+  <div class="row g-3 mb-4">
+
+    <div class="col-md-3">
+      <div class="card shadow-sm border-0">
+        <div class="card-body">
+          <h6 class="text-muted">ผู้รับบริการทั้งหมด</h6>
+          <h3 id="cardPatients" class="fw-bold text-primary">-</h3>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-3">
+      <div class="card shadow-sm border-0">
+        <div class="card-body">
+          <h6 class="text-muted">บันทึกการพยาบาล</h6>
+          <h3 id="cardNursing" class="fw-bold text-success">-</h3>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-3">
+      <div class="card shadow-sm border-0">
+        <div class="card-body">
+          <h6 class="text-muted">นัดหมายวันนี้</h6>
+          <h3 id="cardAppointments" class="fw-bold text-warning">-</h3>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-3">
+      <div class="card shadow-sm border-0">
+        <div class="card-body">
+          <h6 class="text-muted">ผู้ใช้งานระบบ</h6>
+          <h3 class="fw-bold text-danger">1</h3>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ===================== CHART SECTION ===================== -->
+  <div class="row g-3">
+
+    <div class="col-md-6">
+      <div class="card shadow-sm border-0">
+        <div class="card-body">
+          <h6 class="fw-bold mb-3">📈 จำนวนผู้รับบริการรายเดือน</h6>
+          <canvas id="patientsChart" height="120"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-6">
+      <div class="card shadow-sm border-0">
+        <div class="card-body">
+          <h6 class="fw-bold mb-3">🩺 บันทึกการพยาบาล</h6>
+          <canvas id="nursingChart" height="120"></canvas>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<!-- ===================== DASHBOARD SCRIPT ===================== -->
+<script>
+(async function loadDashboard() {
+  try {
+    // ---------------- FETCH DATA ----------------
+    const [patientsRes, nursingRes] = await Promise.all([
+      fetch("/api/sheet/patients"),
+      fetch("/api/sheet/nursing-records")
+    ]);
+
+    const patientsJson = await patientsRes.json();
+    const nursingJson  = await nursingRes.json();
+
+    const patients = patientsJson.data || [];
+    const nursing  = nursingJson.data || [];
+
+    // ---------------- UPDATE CARDS ----------------
+    document.getElementById("cardPatients").textContent = patients.length;
+    document.getElementById("cardNursing").textContent  = nursing.length;
+    document.getElementById("cardAppointments").textContent = "-";
+
+    // ---------------- PREPARE CHART DATA ----------------
+    const months = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
+
+    // mock aggregation (ตัวอย่าง)
+    const patientCounts = months.map(() => Math.floor(Math.random() * 20) + 5);
+    const nursingCounts = months.map(() => Math.floor(Math.random() * 30) + 10);
+
+    // ---------------- PATIENTS CHART ----------------
+    new Chart(document.getElementById("patientsChart"), {
+      type: "line",
+      data: {
+        labels: months,
+        datasets: [{
+          label: "ผู้รับบริการ",
+          data: patientCounts,
+          tension: 0.4,
+          fill: true
+        }]
+      }
+    });
+
+    // ---------------- NURSING CHART ----------------
+    new Chart(document.getElementById("nursingChart"), {
+      type: "bar",
+      data: {
+        labels: months,
+        datasets: [{
+          label: "บันทึกพยาบาล",
+          data: nursingCounts
+        }]
+      }
+    });
+
+  } catch (err) {
+    console.error("Dashboard load error:", err);
+  }
+})();
+</script>
