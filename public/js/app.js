@@ -20,8 +20,11 @@ function navTo(view) {
       $id("view-container").innerHTML = html;
 
       if (view === "patients") {
-        loadPatients().then(initPatientUploadSSE);
-      }
+  loadPatients().then(() => {
+    setTimeout(initPatientUploadSSE, 0);
+  });
+}
+
 
       if (view === "nursingRecords") {
         loadPatients().then(setupPatientSearch);
@@ -140,41 +143,81 @@ function initPatientUploadSSE() {
   const submitBtn = $id("submitFile");
   const progress = $id("uploadProgress");
   const status = $id("uploadStatus");
+  const totalRowsEl = $id("totalRows");
+  const newRowsEl = $id("newRows");
+  const updatedRowsEl = $id("updatedRows");
+
+  // 🛡️ GUARD — ป้องกัน null
+  if (!fileInput || !submitBtn || !progress || !status) {
+    console.warn("Upload SSE elements not ready");
+    return;
+  }
 
   submitBtn.onclick = async () => {
+    if (!fileInput.files.length) {
+      alert("กรุณาเลือกไฟล์");
+      return;
+    }
+
     const fd = new FormData();
     fd.append("file", fileInput.files[0]);
+
+    // reset UI
+    progress.style.width = "0%";
+    progress.textContent = "0%";
+    status.textContent = "กำลังอัปโหลด...";
+    if (totalRowsEl) totalRowsEl.textContent = "0";
+    if (newRowsEl) newRowsEl.textContent = "0";
+    if (updatedRowsEl) updatedRowsEl.textContent = "0";
 
     const res = await fetch(`${API_BASE}/patients/upload-sse`, {
       method: "POST",
       body: fd,
     });
 
+    if (!res.body) {
+      status.textContent = "Upload failed ❌";
+      return;
+    }
+
     const reader = res.body.getReader();
-    const decoder = new TextDecoder();
+    const decoder = new TextDecoder("utf-8");
     let buffer = "";
 
     while (true) {
       const { value, done } = await reader.read();
       if (done) break;
 
-      buffer += decoder.decode(value);
+      buffer += decoder.decode(value, { stream: true });
       const events = buffer.split("\n\n");
       buffer = events.pop();
 
-      events.forEach(e => {
-        if (!e.startsWith("data:")) return;
-        const d = JSON.parse(e.replace("data:", ""));
-        const percent = Math.round((d.processed / d.total) * 100);
+      events.forEach(evt => {
+        if (!evt.startsWith("data:")) return;
+
+        const data = JSON.parse(evt.replace(/^data:\s*/, ""));
+        const total = Number(data.total) || 0;
+        const processed = Number(data.processed) || 0;
+        const percent = total
+          ? Math.min(100, Math.round((processed / total) * 100))
+          : 0;
+
         progress.style.width = percent + "%";
         progress.textContent = percent + "%";
-        status.textContent = "Uploading...";
+        status.textContent = `Uploading... ${percent}%`;
+
+        if (totalRowsEl) totalRowsEl.textContent = total;
+        if (newRowsEl) newRowsEl.textContent = data.newRows ?? 0;
+        if (updatedRowsEl) updatedRowsEl.textContent = data.updatedRows ?? 0;
       });
     }
 
+    progress.style.width = "100%";
+    progress.textContent = "100%";
     status.textContent = "Upload completed ✅";
   };
 }
+   
 
 /* ======================= START ======================= */
-navTo("index");
+navTo("dashboard");
