@@ -147,7 +147,6 @@ function initPatientUploadSSE() {
   const newRowsEl = $id("newRows");
   const updatedRowsEl = $id("updatedRows");
 
-  // 🛡️ GUARD — ป้องกัน null
   if (!fileInput || !submitBtn || !progress || !status) {
     console.warn("Upload SSE elements not ready");
     return;
@@ -175,11 +174,6 @@ function initPatientUploadSSE() {
       body: fd,
     });
 
-    if (!res.body) {
-      status.textContent = "Upload failed ❌";
-      return;
-    }
-
     const reader = res.body.getReader();
     const decoder = new TextDecoder("utf-8");
     let buffer = "";
@@ -196,27 +190,36 @@ function initPatientUploadSSE() {
         if (!evt.startsWith("data:")) return;
 
         const data = JSON.parse(evt.replace(/^data:\s*/, ""));
-        const total = Number(data.total) || 0;
-        const processed = Number(data.processed) || 0;
-        const percent = total
-          ? Math.min(100, Math.round((processed / total) * 100))
-          : 0;
 
-        progress.style.width = percent + "%";
-        progress.textContent = percent + "%";
-        status.textContent = `Uploading... ${percent}%`;
+        /* ================= PROGRESS ================= */
+        if (!data.done) {
+          const total = Number(data.total) || 0;
+          const processed = Number(data.processed) || 0;
+          const percent = total
+            ? Math.round((processed / total) * 100)
+            : 0;
 
-        if (totalRowsEl) totalRowsEl.textContent = total;
-        if (newRowsEl) newRowsEl.textContent = data.newRows ?? 0;
-        if (updatedRowsEl) updatedRowsEl.textContent = data.updatedRows ?? 0;
+          progress.style.width = percent + "%";
+          progress.textContent = percent + "%";
+          status.textContent = `Uploading... ${percent}%`;
+          return;
+        }
+
+        /* ================= DONE (SUMMARY) ================= */
+        if (data.done) {
+          progress.style.width = "100%";
+          progress.textContent = "100%";
+          status.textContent = "อัปโหลดสำเร็จ ✅";
+
+          if (totalRowsEl) totalRowsEl.textContent = data.totalRows ?? 0;
+          if (newRowsEl) newRowsEl.textContent = data.newRows ?? 0;
+          if (updatedRowsEl) updatedRowsEl.textContent = data.updatedRows ?? 0;
+        }
       });
     }
-
-    progress.style.width = "100%";
-    progress.textContent = "100%";
-    status.textContent = "Upload completed ✅";
   };
 }
+
    
 
 /* ======================= START ======================= */
