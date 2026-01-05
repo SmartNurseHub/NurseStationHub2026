@@ -1,153 +1,151 @@
-// =========================================================
-// nursingRecords.js — Render Production Safe
-// (Tab control + Load + Edit only)
-// =========================================================
+const express = require("express");
+const router = express.Router();
+const { google } = require("googleapis");
 
-const API_BASE = "/api/sheet";
+const SHEET_ID = process.env.SPREADSHEET_ID;
+const SHEET_NAME = "NursingRecords";
 
-/* ======================= UTIL ======================= */
-function escapeHtml(str = "") {
-  return String(str)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-}
-
-/* ======================= TAB CONTROL ======================= */
-document.addEventListener("click", e => {
-
-  const openTab = e.target.closest(".open-tab");
-  if (openTab) {
-    e.preventDefault();
-    const tab = openTab.dataset.targetTab;
-    document.querySelectorAll(".nr-tab-panel")
-      .forEach(p => p.style.display = "none");
-    document.querySelector(`.nr-tab-panel[data-tab="${tab}"]`)
-      ?.style.setProperty("display", "block");
-    return;
-  }
-
-  const btn = e.target.closest(".nr-tab-btn");
-  if (btn) {
-    document.querySelectorAll(".nr-tab-btn")
-      .forEach(b => b.classList.remove("active"));
-    btn.classList.add("active");
-
-    const tab = btn.dataset.tabTarget;
-    document.querySelectorAll(".nr-tab-panel")
-      .forEach(p => p.style.display = "none");
-    document.querySelector(`.nr-tab-panel[data-tab="${tab}"]`)
-      ?.style.setProperty("display", "block");
-  }
+/* ================= GOOGLE AUTH ================= */
+const auth = new google.auth.GoogleAuth({
+  credentials: JSON.parse(
+    Buffer.from(
+      process.env.GOOGLE_CREDENTIAL_BASE64,
+      "base64"
+    ).toString("utf8")
+  ),
+  scopes: ["https://www.googleapis.com/auth/spreadsheets"],
 });
 
-/* ======================= LOAD TABLE ======================= */
-async function loadNursingRecords() {
-  try {
-    const res = await fetch(`${API_BASE}/nursing-records`);
-    const result = await res.json();
-    if (!result.success) return;
-
-    const tbody = document.getElementById("nursingTableBody");
-    if (!tbody) return;
-
-    tbody.innerHTML = "";
-
-    result.data.forEach(r => {
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td>${escapeHtml(r.NSR)}</td>
-        <td>${escapeHtml(r.DateService)}</td>
-        <td>${escapeHtml(r.HN)}</td>
-        <td>${escapeHtml(r.NAME)} ${escapeHtml(r.LNAME)}</td>
-        <td>${escapeHtml(r.Activity)}</td>
-        <td>${escapeHtml(r.Provider1)}</td>
-        <td>
-          <button class="edit-record" data-nsr="${escapeHtml(r.NSR)}">
-            ✏️
-          </button>
-        </td>
-      `;
-      tbody.appendChild(tr);
-    });
-
-  } catch (err) {
-    console.error("Load NursingRecords failed:", err);
-  }
+async function getSheet() {
+  const client = await auth.getClient();
+  return google.sheets({ version: "v4", auth: client });
 }
 
-/* ======================= LOAD TO FORM ======================= */
-async function loadNursingRecordToForm(nsr) {
+/* =================================================
+   GET ALL NURSING RECORDS
+   GET /api/sheet/nursing-records
+================================================= */
+router.get("/nursing-records", async (req, res) => {
   try {
-    const res = await fetch(`${API_BASE}/nursing-records/${nsr}`);
-    const result = await res.json();
+    const sheets = await getSheet();
+    const result = await sheets.spreadsheets.values.get({
+      spreadsheetId: SHEET_ID,
+      range: SHEET_NAME,
+    });
 
-    if (!result.success) {
-      alert("ไม่พบข้อมูล");
-      return;
+    const values = result.data.values || [];
+    if (values.length < 2) {
+      return res.json({ success: true, data: [] });
     }
 
-    const form = document.getElementById("nursingForm");
-    if (!form) return;
+    const [header, ...rows] = values;
 
-    Object.entries(result.data).forEach(([key, value]) => {
-      const input = form.querySelector(`[name="${key}"]`);
-      if (input) input.value = value || "";
-    });
-
-    form.dataset.mode = "edit";
-    form.dataset.nsr = nsr;
-
-  } catch (err) {
-    console.error("Load record error:", err);
-  }
-}
-
-/* ======================= EDIT BUTTON ======================= */
-document.addEventListener("click", e => {
-  const btn = e.target.closest(".edit-record");
-  if (!btn) return;
-  loadNursingRecordToForm(btn.dataset.nsr);
-});
-
-/* ======================= FORM SUBMIT ======================= */
-document.addEventListener("submit", async e => {
-  const form = e.target.closest("#nursingForm");
-  if (!form) return;
-
-  e.preventDefault();
-
-  if (form.dataset.mode !== "edit" || !form.dataset.nsr) {
-    alert("โหมดเพิ่มใหม่ยังไม่เปิดใช้งาน");
-    return;
-  }
-
-  const data = Object.fromEntries(new FormData(form).entries());
-
-  try {
-    const res = await fetch(
-      `${API_BASE}/nursing-records/${form.dataset.nsr}`,
-      {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      }
+    const data = rows.map(row =>
+      Object.fromEntries(
+        header.map((h, i) => [h, row[i] || ""])
+      )
     );
 
-    const result = await res.json();
-    if (!result.success) throw new Error();
-
-    alert("แก้ไขข้อมูลเรียบร้อย");
-    form.reset();
-    delete form.dataset.mode;
-    delete form.dataset.nsr;
-    loadNursingRecords();
-
+    res.json({ success: true, data });
   } catch (err) {
-    console.error(err);
-    alert("บันทึกไม่สำเร็จ");
+    console.error("GET nursing-records:", err);
+    res.status(500).json({
+      success: false,
+      error: err.message,
+    });
   }
 });
 
-/* ======================= SPA HOOK ======================= */
-document.addEventListener("view-loaded-nursingRecords", loadNursingRecords);
+/* =================================================
+   GET ONE BY NSR
+   GET /api/sheet/nursing-records/:nsr
+================================================= */
+router.get("/nursing-records/:nsr", async (req, res) => {
+  try {
+    const sheets = await getSheet();
+    const nsr = String(req.params.nsr).trim();
+
+    const result = await sheets.spreadsheets.values.get({
+      spreadsheetId: SHEET_ID,
+      range: SHEET_NAME,
+    });
+
+    const values = result.data.values || [];
+    if (values.length < 2) {
+      return res.json({ success: false });
+    }
+
+    const [header, ...rows] = values;
+
+    const rowIndex = rows.findIndex(
+      r => String(r[0]).trim() === nsr
+    );
+
+    if (rowIndex === -1) {
+      return res.json({ success: false });
+    }
+
+    const data = Object.fromEntries(
+      header.map((h, i) => [h, rows[rowIndex][i] || ""])
+    );
+
+    res.json({
+      success: true,
+      data,
+      rowIndex: rowIndex + 2, // real sheet row
+    });
+  } catch (err) {
+    console.error("GET nursing-record by NSR:", err);
+    res.status(500).json({ success: false });
+  }
+});
+
+/* =================================================
+   UPDATE BY NSR
+   PUT /api/sheet/nursing-records/:nsr
+================================================= */
+router.put("/nursing-records/:nsr", async (req, res) => {
+  try {
+    const sheets = await getSheet();
+    const nsr = String(req.params.nsr).trim();
+
+    const sheetData = await sheets.spreadsheets.values.get({
+      spreadsheetId: SHEET_ID,
+      range: SHEET_NAME,
+    });
+
+    const values = sheetData.data.values || [];
+    if (values.length < 2) {
+      return res.json({ success: false });
+    }
+
+    const [header, ...rows] = values;
+
+    const rowIndex = rows.findIndex(
+      r => String(r[0]).trim() === nsr
+    );
+
+    if (rowIndex === -1) {
+      return res.json({ success: false });
+    }
+
+    /* เรียงค่าตาม header */
+    const updatedRow = header.map(h => req.body[h] ?? "");
+
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SHEET_ID,
+      range: `${SHEET_NAME}!A${rowIndex + 2}`,
+      valueInputOption: "USER_ENTERED",
+      requestBody: {
+        values: [updatedRow],
+      },
+    });
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("UPDATE nursing-record:", err);
+    res.status(500).json({ success: false });
+  }
+});
+
+module.exports = router;

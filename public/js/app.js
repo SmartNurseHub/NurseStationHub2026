@@ -1,16 +1,14 @@
 // ======================================================================
-// app.js — Front-end Controller (Render Safe + SSE)
+// app.js — Render Production Safe (FIXED)
 // ======================================================================
 
 const API_BASE = "/api/sheet";
+const $id = id => document.getElementById(id);
 
-/* ======================= GLOBAL ======================= */
 let patientsData = [];
 let patientIndex = [];
 let nursingRecordsCache = [];
 let editingNSR = null;
-
-const $id = id => document.getElementById(id);
 
 /* ======================= SPA NAV ======================= */
 function navTo(view) {
@@ -20,21 +18,16 @@ function navTo(view) {
       $id("view-container").innerHTML = html;
 
       if (view === "patients") {
-  loadPatients().then(() => {
-    setTimeout(initPatientUploadSSE, 0);
-  });
-}
-
+        loadPatients().then(() => setTimeout(initPatientUploadSSE, 0));
+      }
 
       if (view === "nursingRecords") {
-        loadPatients().then(setupPatientSearch);
-        loadNursingRecords();
-        setupNursingForm();
+        initNursingPage();
       }
     });
 }
 
-/* ======================= PATIENTS ======================= */
+/* ======================= PATIENT ======================= */
 async function loadPatients() {
   const res = await fetch(`${API_BASE}/patients`);
   const json = await res.json();
@@ -49,6 +42,7 @@ async function loadPatients() {
 function setupPatientSearch() {
   const input = $id("patientSearch");
   const list = $id("searchResults");
+  if (!input || !list) return;
 
   input.oninput = () => {
     list.innerHTML = "";
@@ -63,7 +57,7 @@ function setupPatientSearch() {
         const div = document.createElement("div");
         div.textContent = `${p.NAME} ${p.LNAME} (${p.HN})`;
         div.onclick = () => {
-          ["HN", "CID", "NAME", "LNAME"].forEach(k => {
+          ["HN", "CID", "NAME", "LNAME", "TELEPHONE"].forEach(k => {
             if ($id(k)) $id(k).value = p[k] || "";
           });
           list.innerHTML = "";
@@ -78,14 +72,15 @@ async function loadNursingRecords() {
   const res = await fetch(`${API_BASE}/nursing-records`);
   const json = await res.json();
   nursingRecordsCache = json.data || [];
-  renderNursingRecords(nursingRecordsCache);
+  renderNursingTable();
 }
 
-function renderNursingRecords(records) {
+function renderNursingTable() {
   const tbody = $id("nursingTableBody");
-  tbody.innerHTML = "";
+  if (!tbody) return;
 
-  records.forEach(r => {
+  tbody.innerHTML = "";
+  nursingRecordsCache.forEach(r => {
     tbody.innerHTML += `
       <tr>
         <td>${r.NSR}</td>
@@ -93,134 +88,71 @@ function renderNursingRecords(records) {
         <td>${r.HN}</td>
         <td>${r.NAME} ${r.LNAME}</td>
         <td>${r.Activity}</td>
-        <td><button class="edit-record" data-nsr="${r.NSR}">✏️</button></td>
-      </tr>
-    `;
+        <td>
+          <button class="edit-record" data-nsr="${r.NSR}">✏️</button>
+        </td>
+      </tr>`;
   });
 }
 
-document.addEventListener("click", e => {
-  const btn = e.target.closest(".edit-record");
-  if (!btn) return;
+function bindEditButtons() {
+  document.addEventListener("click", e => {
+    const btn = e.target.closest(".edit-record");
+    if (!btn) return;
 
-  editingNSR = btn.dataset.nsr;
-  const rec = nursingRecordsCache.find(r => r.NSR === editingNSR);
-  if (!rec) return;
+    editingNSR = btn.dataset.nsr;
+    const rec = nursingRecordsCache.find(r => r.NSR === editingNSR);
+    if (!rec) return;
 
-  Object.keys(rec).forEach(k => {
-    if ($id(k)) $id(k).value = rec[k];
+    Object.entries(rec).forEach(([k, v]) => {
+      if ($id(k)) $id(k).value = v || "";
+    });
   });
-});
+}
 
 /* ======================= FORM ======================= */
 function setupNursingForm() {
   const form = $id("nursingForm");
+  if (!form) return;
 
   form.onsubmit = async e => {
     e.preventDefault();
 
+    if (!editingNSR) {
+      alert("โหมดเพิ่มใหม่ยังไม่เปิด");
+      return;
+    }
+
     const data = Object.fromEntries(new FormData(form).entries());
 
-    const res = await fetch(`${API_BASE}/nursing-records/${editingNSR}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    });
+    const res = await fetch(
+      `${API_BASE}/nursing-records/${editingNSR}`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      }
+    );
 
     const json = await res.json();
     if (json.success) {
-      alert("บันทึกสำเร็จ");
-      navTo("nursingRecords");
+      alert("แก้ไขข้อมูลเรียบร้อย");
+      editingNSR = null;
+      form.reset();
+      loadNursingRecords();
     } else {
       alert("บันทึกไม่สำเร็จ");
     }
   };
 }
 
-/* ======================= SSE UPLOAD ======================= */
-function initPatientUploadSSE() {
-  const fileInput = $id("fileInput");
-  const submitBtn = $id("submitFile");
-  const progress = $id("uploadProgress");
-  const status = $id("uploadStatus");
-  const totalRowsEl = $id("totalRows");
-  const newRowsEl = $id("newRows");
-  const updatedRowsEl = $id("updatedRows");
-
-  if (!fileInput || !submitBtn || !progress || !status) {
-    console.warn("Upload SSE elements not ready");
-    return;
-  }
-
-  submitBtn.onclick = async () => {
-    if (!fileInput.files.length) {
-      alert("กรุณาเลือกไฟล์");
-      return;
-    }
-
-    const fd = new FormData();
-    fd.append("file", fileInput.files[0]);
-
-    // reset UI
-    progress.style.width = "0%";
-    progress.textContent = "0%";
-    status.textContent = "กำลังอัปโหลด...";
-    if (totalRowsEl) totalRowsEl.textContent = "0";
-    if (newRowsEl) newRowsEl.textContent = "0";
-    if (updatedRowsEl) updatedRowsEl.textContent = "0";
-
-    const res = await fetch(`${API_BASE}/patients/upload-sse`, {
-      method: "POST",
-      body: fd,
-    });
-
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder("utf-8");
-    let buffer = "";
-
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-
-      buffer += decoder.decode(value, { stream: true });
-      const events = buffer.split("\n\n");
-      buffer = events.pop();
-
-      events.forEach(evt => {
-        if (!evt.startsWith("data:")) return;
-
-        const data = JSON.parse(evt.replace(/^data:\s*/, ""));
-
-        /* ================= PROGRESS ================= */
-        if (!data.done) {
-          const total = Number(data.total) || 0;
-          const processed = Number(data.processed) || 0;
-          const percent = total
-            ? Math.round((processed / total) * 100)
-            : 0;
-
-          progress.style.width = percent + "%";
-          progress.textContent = percent + "%";
-          status.textContent = `Uploading... ${percent}%`;
-          return;
-        }
-
-        /* ================= DONE (SUMMARY) ================= */
-        if (data.done) {
-          progress.style.width = "100%";
-          progress.textContent = "100%";
-          status.textContent = "อัปโหลดสำเร็จ ✅";
-
-          if (totalRowsEl) totalRowsEl.textContent = data.totalRows ?? 0;
-          if (newRowsEl) newRowsEl.textContent = data.newRows ?? 0;
-          if (updatedRowsEl) updatedRowsEl.textContent = data.updatedRows ?? 0;
-        }
-      });
-    }
-  };
+/* ======================= INIT PAGE ======================= */
+function initNursingPage() {
+  loadPatients().then(setupPatientSearch);
+  loadNursingRecords();
+  setupNursingForm();
+  bindEditButtons();
 }
-
-   
 
 /* ======================= START ======================= */
 navTo("dashboard");
