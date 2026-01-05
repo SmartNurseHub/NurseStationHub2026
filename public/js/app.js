@@ -1,5 +1,5 @@
 // ======================================================================
-// app.js — Render Production Safe (FIXED)
+// app.js — Full SPA + Tab + Nursing + Patient + Form + Event Delegation
 // ======================================================================
 
 const API_BASE = "/api/sheet";
@@ -17,8 +17,10 @@ function navTo(view) {
     .then(html => {
       $id("view-container").innerHTML = html;
 
+      // INIT AFTER LOADED HTML
       if (view === "patients") {
         loadPatients().then(() => setTimeout(initPatientUploadSSE, 0));
+        setupPatientSearch();
       }
 
       if (view === "nursingRecords") {
@@ -29,14 +31,20 @@ function navTo(view) {
 
 /* ======================= PATIENT ======================= */
 async function loadPatients() {
-  const res = await fetch(`${API_BASE}/patients`);
-  const json = await res.json();
-  patientsData = json.data || [];
+  try {
+    const res = await fetch(`${API_BASE}/patients`);
+    const json = await res.json();
+    patientsData = json.data || [];
 
-  patientIndex = patientsData.map((p, i) => ({
-    i,
-    text: `${p.HN} ${p.NAME} ${p.LNAME}`.toLowerCase()
-  }));
+    patientIndex = patientsData.map((p, i) => ({
+      i,
+      text: `${p.HN} ${p.NAME} ${p.LNAME}`.toLowerCase()
+    }));
+  } catch (err) {
+    console.error("loadPatients:", err);
+    patientsData = [];
+    patientIndex = [];
+  }
 }
 
 function setupPatientSearch() {
@@ -69,10 +77,15 @@ function setupPatientSearch() {
 
 /* ======================= NURSING ======================= */
 async function loadNursingRecords() {
-  const res = await fetch(`${API_BASE}/nursing-records`);
-  const json = await res.json();
-  nursingRecordsCache = json.data || [];
-  renderNursingTable();
+  try {
+    const res = await fetch(`${API_BASE}/nursing-records`);
+    const json = await res.json();
+    nursingRecordsCache = json.data || [];
+    renderNursingTable();
+  } catch (err) {
+    console.error("loadNursingRecords:", err);
+    nursingRecordsCache = [];
+  }
 }
 
 function renderNursingTable() {
@@ -95,6 +108,7 @@ function renderNursingTable() {
   });
 }
 
+/* ======================= EDIT RECORD ======================= */
 function bindEditButtons() {
   document.addEventListener("click", e => {
     const btn = e.target.closest(".edit-record");
@@ -107,10 +121,14 @@ function bindEditButtons() {
     Object.entries(rec).forEach(([k, v]) => {
       if ($id(k)) $id(k).value = v || "";
     });
+
+    // เปิด tab online ถ้าใช้ tab เพิ่ม/แก้ไข
+    const openTabBtn = document.querySelector('.open-tab[data-target-tab="online"]');
+    if (openTabBtn) openTabBtn.click();
   });
 }
 
-/* ======================= FORM ======================= */
+/* ======================= NURSING FORM ======================= */
 function setupNursingForm() {
   const form = $id("nursingForm");
   if (!form) return;
@@ -119,39 +137,96 @@ function setupNursingForm() {
     e.preventDefault();
 
     if (!editingNSR) {
-      alert("โหมดเพิ่มใหม่ยังไม่เปิด");
+      alert("กรุณาเลือกหรือเพิ่มข้อมูลก่อน");
       return;
     }
 
     const data = Object.fromEntries(new FormData(form).entries());
 
-    const res = await fetch(
-      `${API_BASE}/nursing-records/${editingNSR}`,
-      {
+    try {
+      const res = await fetch(`${API_BASE}/nursing-records/${editingNSR}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
-      }
-    );
+      });
 
-    const json = await res.json();
-    if (json.success) {
-      alert("แก้ไขข้อมูลเรียบร้อย");
-      editingNSR = null;
-      form.reset();
-      loadNursingRecords();
-    } else {
-      alert("บันทึกไม่สำเร็จ");
+      const json = await res.json();
+      if (json.success) {
+        alert("บันทึกข้อมูลเรียบร้อยแล้ว");
+        editingNSR = null;
+        form.reset();
+        loadNursingRecords();
+      } else {
+        alert("บันทึกไม่สำเร็จ");
+      }
+    } catch (err) {
+      console.error("saveNursingRecord:", err);
+      alert("เกิดข้อผิดพลาดในการบันทึก");
     }
   };
 }
 
-/* ======================= INIT PAGE ======================= */
+/* ========================
+// TAB & DROPDOWN (Event Delegation)
+======================== */
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest('.open-tab');
+  if (!btn) return;
+
+  e.preventDefault();
+  const targetTab = btn.dataset.targetTab;
+  if (!targetTab) return;
+
+  // ซ่อนทุก panel
+  document.querySelectorAll('.nr-tab-panel').forEach(panel => {
+    panel.style.display = 'none';
+    panel.classList.remove('active');
+  });
+
+  // แสดง panel target
+  const panel = document.querySelector(`.nr-tab-panel[data-tab="${targetTab}"]`);
+  if (panel) {
+    panel.style.display = 'block';
+    panel.classList.add('active');
+  }
+
+  // ปิด dropdown menu ถ้ามี
+  const dropdown = btn.closest('.dropdown');
+  if (dropdown) {
+    const menu = dropdown.querySelector('.dropdown-menu');
+    if (menu) menu.classList.remove('show');
+  }
+});
+
+// Optional: Tab header buttons แบบ data-tab
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest('.nr-tab-header button[data-tab]');
+  if (!btn) return;
+
+  const targetTab = btn.dataset.tab;
+  if (!targetTab) return;
+
+  // ซ่อนทุก panel
+  document.querySelectorAll('.nr-tab-panel').forEach(panel => panel.style.display = 'none');
+  // แสดง panel target
+  const panel = document.querySelector(`.nr-tab-panel[data-tab="${targetTab}"]`);
+  if (panel) panel.style.display = 'block';
+
+  // เปลี่ยน active class ของ header
+  document.querySelectorAll('.nr-tab-header button[data-tab]').forEach(h => h.classList.remove('active'));
+  btn.classList.add('active');
+});
+
+/* ======================= INIT NURSING PAGE ======================= */
 function initNursingPage() {
   loadPatients().then(setupPatientSearch);
   loadNursingRecords();
   setupNursingForm();
   bindEditButtons();
+
+  // เปิด tab แรกอัตโนมัติ
+  const firstTab = document.querySelector('.nr-tab-panel');
+  if (firstTab) firstTab.style.display = 'block';
 }
 
 /* ======================= START ======================= */
