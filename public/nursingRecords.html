@@ -25,6 +25,7 @@
         </button>
         <ul class="dropdown-menu" aria-labelledby="dropdownMenunursingrecord"style="min-width: 250px;font-size: 12px;padding: 8px 0;">
           <li><a class="dropdown-item open-tab" data-target-tab="online">➕ เพิ่มใหม่</a></li>
+          <li><a class="dropdown-item edit-record" href="#" data-nsr="">✏️ แก้ไข</a></li>
           <li><a class="dropdown-item" href="#">📋 รายการ</a></li>
         </ul>
       </div>
@@ -41,6 +42,7 @@
         </button>
         <ul class="dropdown-menu" aria-labelledby="dropdownMenunursingconsel" style="min-width: 220px;font-size: 12px;padding: 8px 0;">
           <li><a class="dropdown-item" href="#">➕ เพิ่มใหม่</a></li>
+          <li><a class="dropdown-item" href="#">✏️ แก้ไข</a></li>
           <li><a class="dropdown-item" href="#">📋 รายการ</a></li>
         </ul>
       </div>
@@ -55,8 +57,7 @@
      SECTION 2: TAB — บันทึกออนไลน์
      ฟอร์มนี้ส่งเข้า API /api/NursingRecords/save (routes/sheets.js)
 ========================================================= -->
-  <div class="nr-tab-panel" data-tab="online">
-
+  <div class="nr-tab-panel" data-tab="online" style="display:none;">
 
     <!-- ===========================
         ฟอร์มบันทึกออนไลน์
@@ -78,7 +79,7 @@
             <!-- Basic Info -->
             <div class="col-md-2" >
               <label style="font-size:10px;" class="form-label mb-0">NSR No.</label>
-              <input style="font-size:10px;" type="text" class="form-control" id="NSR" name="NSR" readonly>
+              <input style="font-size:10px;" type="text" class="form-control" id="NSR" name="NSR">
             </div>
             <div class="col-md-2" hidden>
               <label class="form-label mb-0">วันที่บันทึกข้อมูล</label>
