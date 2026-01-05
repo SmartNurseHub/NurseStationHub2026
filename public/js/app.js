@@ -1,7 +1,3 @@
-// ======================================================================
-// app.js — Full SPA + Tab + Nursing + Patient + Form + Event Delegation
-// ======================================================================
-
 const API_BASE = "/api/sheet";
 const $id = id => document.getElementById(id);
 
@@ -17,84 +13,76 @@ function navTo(view) {
     .then(html => {
       $id("view-container").innerHTML = html;
 
-      // INIT AFTER LOADED HTML
-      if (view === "patients") {
-        loadPatients().then(() => setTimeout(initPatientUploadSSE, 0));
+      if(view === "patients"){
+        loadPatients().then(() => setTimeout(initPatientUploadSSE,0));
         setupPatientSearch();
       }
 
-      if (view === "nursingRecords") {
+      if(view === "nursingRecords"){
         initNursingPage();
       }
     });
 }
 
 /* ======================= PATIENT ======================= */
-async function loadPatients() {
-  try {
+async function loadPatients(){
+  try{
     const res = await fetch(`${API_BASE}/patients`);
     const json = await res.json();
     patientsData = json.data || [];
-
-    patientIndex = patientsData.map((p, i) => ({
-      i,
-      text: `${p.HN} ${p.NAME} ${p.LNAME}`.toLowerCase()
-    }));
-  } catch (err) {
-    console.error("loadPatients:", err);
-    patientsData = [];
-    patientIndex = [];
+    patientIndex = patientsData.map((p,i)=>({i, text:`${p.HN} ${p.NAME} ${p.LNAME}`.toLowerCase()}));
+  }catch(err){
+    console.error("loadPatients:",err);
+    patientsData = []; patientIndex=[];
   }
 }
 
-function setupPatientSearch() {
+function setupPatientSearch(){
   const input = $id("patientSearch");
   const list = $id("searchResults");
-  if (!input || !list) return;
+  if(!input || !list) return;
 
   input.oninput = () => {
     list.innerHTML = "";
     const q = input.value.toLowerCase();
-    if (!q) return;
+    if(!q){ list.style.display='none'; return; }
 
-    patientIndex
-      .filter(x => x.text.includes(q))
-      .slice(0, 10)
-      .forEach(x => {
-        const p = patientsData[x.i];
-        const div = document.createElement("div");
-        div.textContent = `${p.NAME} ${p.LNAME} (${p.HN})`;
-        div.onclick = () => {
-          ["HN", "CID", "NAME", "LNAME", "TELEPHONE"].forEach(k => {
-            if ($id(k)) $id(k).value = p[k] || "";
-          });
-          list.innerHTML = "";
-        };
-        list.appendChild(div);
-      });
+    patientIndex.filter(x=>x.text.includes(q)).slice(0,10).forEach(x=>{
+      const p = patientsData[x.i];
+      const div = document.createElement("div");
+      div.className="list-group-item";
+      div.textContent=`${p.NAME} ${p.LNAME} (${p.HN})`;
+      div.onclick = ()=>{
+        ["HN","CID","NAME","LNAME","TELEPHONE"].forEach(k=>{
+          if($id(k)) $id(k).value = p[k] || "";
+        });
+        list.style.display='none';
+      };
+      list.appendChild(div);
+    });
+    list.style.display='block';
   };
 }
 
 /* ======================= NURSING ======================= */
-async function loadNursingRecords() {
-  try {
+async function loadNursingRecords(){
+  try{
     const res = await fetch(`${API_BASE}/nursing-records`);
     const json = await res.json();
     nursingRecordsCache = json.data || [];
     renderNursingTable();
-  } catch (err) {
-    console.error("loadNursingRecords:", err);
-    nursingRecordsCache = [];
+  }catch(err){
+    console.error("loadNursingRecords:",err);
+    nursingRecordsCache=[];
   }
 }
 
-function renderNursingTable() {
+function renderNursingTable(){
   const tbody = $id("nursingTableBody");
-  if (!tbody) return;
-
+  if(!tbody) return;
   tbody.innerHTML = "";
-  nursingRecordsCache.forEach(r => {
-    tbody.innerHTML += `
+  nursingRecordsCache.forEach(r=>{
+    tbody.innerHTML+=`
       <tr>
         <td>${r.NSR}</td>
         <td>${r.DateService}</td>
@@ -109,127 +97,91 @@ function renderNursingTable() {
 }
 
 /* ======================= EDIT RECORD ======================= */
-function bindEditButtons() {
-  document.addEventListener("click", e => {
+function bindEditButtons(){
+  document.addEventListener("click", e=>{
     const btn = e.target.closest(".edit-record");
-    if (!btn) return;
+    if(!btn) return;
 
     editingNSR = btn.dataset.nsr;
-    const rec = nursingRecordsCache.find(r => r.NSR === editingNSR);
-    if (!rec) return;
+    const rec = nursingRecordsCache.find(r=>r.NSR===editingNSR);
+    if(!rec) return;
 
-    // เติม form ด้วยค่าจาก record
-    Object.entries(rec).forEach(([k, v]) => {
-      if ($id(k)) $id(k).value = v || "";
+    Object.entries(rec).forEach(([k,v])=>{
+      if($id(k)) $id(k).value = v || "";
     });
 
-    // เปิด tab online อัตโนมัติ
+    // เปิด tab online
     const openTabBtn = document.querySelector('.open-tab[data-target-tab="online"]');
-    if (openTabBtn) openTabBtn.click();
+    if(openTabBtn) openTabBtn.click();
   });
 }
 
-
 /* ======================= NURSING FORM ======================= */
-function setupNursingForm() {
+function setupNursingForm(){
   const form = $id("nursingForm");
-  if (!form) return;
+  if(!form) return;
 
-  form.onsubmit = async e => {
+  form.onsubmit = async e=>{
     e.preventDefault();
-
-    if (!editingNSR) {
-      alert("กรุณาเลือกหรือเพิ่มข้อมูลก่อน");
-      return;
-    }
-
+    if(!editingNSR){ alert("กรุณาเลือกหรือเพิ่มข้อมูลก่อน"); return; }
     const data = Object.fromEntries(new FormData(form).entries());
-
-    try {
-      const res = await fetch(`${API_BASE}/nursing-records/${editingNSR}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+    try{
+      const res = await fetch(`${API_BASE}/nursing-records/${editingNSR}`,{
+        method:"PUT",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify(data)
       });
-
       const json = await res.json();
-      if (json.success) {
+      if(json.success){
         alert("บันทึกข้อมูลเรียบร้อยแล้ว");
-        editingNSR = null;
+        editingNSR=null;
         form.reset();
         loadNursingRecords();
-      } else {
-        alert("บันทึกไม่สำเร็จ");
-      }
-    } catch (err) {
-      console.error("saveNursingRecord:", err);
+      }else alert("บันทึกไม่สำเร็จ");
+    }catch(err){
+      console.error("saveNursingRecord:",err);
       alert("เกิดข้อผิดพลาดในการบันทึก");
     }
   };
 }
 
-// ========================
-// Tab & Dropdown Controller (Event Delegation)
-// ========================
-document.addEventListener("click", (e) => {
+/* ======================= TAB CONTROLLER ======================= */
+document.addEventListener("click", e=>{
   const btn = e.target.closest('.open-tab');
-  if (!btn) return;
+  if(!btn) return;
 
   e.preventDefault();
   const targetTab = btn.dataset.targetTab;
-  if (!targetTab) return;
+  if(!targetTab) return;
 
-  // ซ่อนทุก panel
-  document.querySelectorAll('.nr-tab-panel').forEach(panel => {
-    panel.style.display = 'none';
-    panel.classList.remove('active');
+  document.querySelectorAll('.nr-tab-panel').forEach(p=>{
+    p.style.display='none';
+    p.classList.remove('active');
   });
 
-  // แสดง panel target
   const panel = document.querySelector(`.nr-tab-panel[data-tab="${targetTab}"]`);
-  if (panel) {
-    panel.style.display = 'block';
+  if(panel){
+    panel.style.display='block';
     panel.classList.add('active');
   }
 
-  // ปิด dropdown menu ถ้าใช้ Bootstrap
+  // ปิด dropdown
   const dropdown = btn.closest('.dropdown');
-  if (dropdown) {
+  if(dropdown){
     const menu = dropdown.querySelector('.dropdown-menu');
-    if (menu) menu.classList.remove('show');
+    if(menu) menu.classList.remove('show');
   }
 });
 
-
-// Optional: Tab header buttons แบบ data-tab
-document.addEventListener("click", (e) => {
-  const btn = e.target.closest('.nr-tab-header button[data-tab]');
-  if (!btn) return;
-
-  const targetTab = btn.dataset.tab;
-  if (!targetTab) return;
-
-  // ซ่อนทุก panel
-  document.querySelectorAll('.nr-tab-panel').forEach(panel => panel.style.display = 'none');
-  // แสดง panel target
-  const panel = document.querySelector(`.nr-tab-panel[data-tab="${targetTab}"]`);
-  if (panel) panel.style.display = 'block';
-
-  // เปลี่ยน active class ของ header
-  document.querySelectorAll('.nr-tab-header button[data-tab]').forEach(h => h.classList.remove('active'));
-  btn.classList.add('active');
-});
-
 /* ======================= INIT NURSING PAGE ======================= */
-function initNursingPage() {
+function initNursingPage(){
   loadPatients().then(setupPatientSearch);
   loadNursingRecords();
   setupNursingForm();
   bindEditButtons();
 
-  // เปิด tab แรกอัตโนมัติ
-  const firstTab = document.querySelector('.nr-tab-panel');
-  if (firstTab) firstTab.style.display = 'block';
+  // ซ่อน tab ทุกอันตอนโหลด
+  document.querySelectorAll('.nr-tab-panel').forEach(p=>p.style.display='none');
 }
 
 /* ======================= START ======================= */
