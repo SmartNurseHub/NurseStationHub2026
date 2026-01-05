@@ -37,32 +37,67 @@ async function loadPatients(){
   }
 }
 
-function setupPatientSearch(){
+function setupPatientSearch() {
   const input = $id("patientSearch");
   const list = $id("searchResults");
-  if(!input || !list) return;
+  const btn = $id("btnSearchPatient");
+  if (!input || !list || !btn) return;
 
-  input.oninput = () => {
-    list.innerHTML = "";
-    const q = input.value.toLowerCase();
-    if(!q){ list.style.display='none'; return; }
+  const doSearch = () => {
+    list.innerHTML = "";               // ล้างผลเก่า
+    const q = input.value.toLowerCase().trim();
+    if (!q) {
+      list.style.display = "none";     // ซ่อน dropdown ถ้าไม่มีค่า
+      return;
+    }
 
-    patientIndex.filter(x=>x.text.includes(q)).slice(0,10).forEach(x=>{
+    const results = patientIndex
+      .filter(x => x.text.includes(q))
+      .slice(0, 10);                    // แสดงสูงสุด 10 รายการ
+
+    results.forEach(x => {
       const p = patientsData[x.i];
-      const div = document.createElement("div");
-      div.className="list-group-item";
-      div.textContent=`${p.NAME} ${p.LNAME} (${p.HN})`;
-      div.onclick = ()=>{
-        ["HN","CID","NAME","LNAME","TELEPHONE"].forEach(k=>{
-          if($id(k)) $id(k).value = p[k] || "";
+      const a = document.createElement("a");
+      a.href = "#";
+      a.className = "list-group-item list-group-item-action";
+      a.textContent = `${p.NAME} ${p.LNAME} (${p.HN})`;
+
+      a.onclick = (e) => {
+        e.preventDefault();
+
+        // เติมฟอร์ม
+        ["HN", "CID", "NAME", "LNAME", "TELEPHONE"].forEach(k => {
+          if ($id(k)) $id(k).value = p[k] || "";
         });
-        list.style.display='none';
+
+        // highlight active
+        list.querySelectorAll('.list-group-item').forEach(el => el.classList.remove('active'));
+        a.classList.add('active');
+
+        list.style.display = "none";   // ปิด dropdown
       };
-      list.appendChild(div);
+
+      list.appendChild(a);
     });
-    list.style.display='block';
+
+    list.style.display = results.length ? "block" : "none";
   };
+
+  // ค้นหาเมื่อพิมพ์
+  input.oninput = doSearch;
+
+  // ค้นหาเมื่อกดปุ่ม
+  btn.onclick = doSearch;
+
+  // ปิด dropdown ถ้าคลิกนอก
+  document.addEventListener("click", e => {
+    if (!list.contains(e.target) && e.target !== input && e.target !== btn) {
+      list.style.display = "none";
+    }
+  });
 }
+
+
 
 /* ======================= NURSING ======================= */
 async function loadNursingRecords(){
@@ -89,6 +124,7 @@ function renderNursingTable(){
         <td>${r.HN}</td>
         <td>${r.NAME} ${r.LNAME}</td>
         <td>${r.Activity}</td>
+        <td>${r.Provider1}</td>
         <td>
           <button class="edit-record" data-nsr="${r.NSR}">✏️</button>
         </td>
