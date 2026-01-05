@@ -118,15 +118,17 @@ function bindEditButtons() {
     const rec = nursingRecordsCache.find(r => r.NSR === editingNSR);
     if (!rec) return;
 
+    // เติม form ด้วยค่าจาก record
     Object.entries(rec).forEach(([k, v]) => {
       if ($id(k)) $id(k).value = v || "";
     });
 
-    // เปิด tab online ถ้าใช้ tab เพิ่ม/แก้ไข
+    // เปิด tab online อัตโนมัติ
     const openTabBtn = document.querySelector('.open-tab[data-target-tab="online"]');
     if (openTabBtn) openTabBtn.click();
   });
 }
+
 
 /* ======================= NURSING FORM ======================= */
 function setupNursingForm() {
@@ -166,9 +168,9 @@ function setupNursingForm() {
   };
 }
 
-/* ========================
-// TAB & DROPDOWN (Event Delegation)
-======================== */
+// ========================
+// Tab & Dropdown Controller (Event Delegation)
+// ========================
 document.addEventListener("click", (e) => {
   const btn = e.target.closest('.open-tab');
   if (!btn) return;
@@ -190,13 +192,14 @@ document.addEventListener("click", (e) => {
     panel.classList.add('active');
   }
 
-  // ปิด dropdown menu ถ้ามี
+  // ปิด dropdown menu ถ้าใช้ Bootstrap
   const dropdown = btn.closest('.dropdown');
   if (dropdown) {
     const menu = dropdown.querySelector('.dropdown-menu');
     if (menu) menu.classList.remove('show');
   }
 });
+
 
 // Optional: Tab header buttons แบบ data-tab
 document.addEventListener("click", (e) => {

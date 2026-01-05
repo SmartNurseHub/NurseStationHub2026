@@ -12,6 +12,7 @@
 ========================================================= -->
 <div class="d-flex justify-content-center">
   <div class="btn-group">
+
       <!-- บันทึกการพยาบาลออนไลน์ -->
       <div class="dropdown">
         <button class="btn dropdown-toggle" 
@@ -24,7 +25,6 @@
         </button>
         <ul class="dropdown-menu" aria-labelledby="dropdownMenunursingrecord"style="min-width: 250px;font-size: 12px;padding: 8px 0;">
           <li><a class="dropdown-item open-tab" data-target-tab="online">➕ เพิ่มใหม่</a></li>
-          <li><a class="dropdown-item edit-record" href="#" data-nsr="">✏️ แก้ไข</a></li>
           <li><a class="dropdown-item" href="#">📋 รายการ</a></li>
         </ul>
       </div>
@@ -46,23 +46,14 @@
         </ul>
       </div>
 
-    </form>
-    
   </div>
 </div>
-
 
 <!-- =========================================================
      SECTION 2: TAB — บันทึกออนไลน์
      ฟอร์มนี้ส่งเข้า API /api/NursingRecords/save (routes/sheets.js)
 ========================================================= -->
   <div class="nr-tab-panel" data-tab="online" style="display:none;">
-
-    <!-- ===========================
-        ฟอร์มบันทึกออนไลน์
-        ความสัมพันธ์ API:
-          ส่งข้อมูลทั้งหมดเป็น JSON ไปยัง backend
-    ============================ -->
 
       <div class="col-6 mx-auto mb-3 mt-4">
             <div class="input-group" >
