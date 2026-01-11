@@ -1,30 +1,18 @@
 {
-  "name": "nurse-system",
+  "name": "smart-nurse-hub",
   "version": "1.0.0",
-  "description": "Nurse Organizations System - Node + Express + Google Sheets",
-  "private": true,
+  "description": "Smart Nurse Hub - Express + SPA",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "build": "echo \"No build step required\"",
-    "dev": "nodemon server.js"
+    "start": "node server.js"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=18"
   },
-  "keywords": [],
-  "author": "You",
-  "license": "MIT",
   "dependencies": {
     "cors": "^2.8.5",
-    "csv-parse": "^6.1.0",
-    "dotenv": "^16.6.1",
+    "dotenv": "^17.2.3",
     "express": "^4.18.2",
-    "googleapis": "^121.0.0",
-    "morgan": "^1.10.0",
-    "multer": "^2.0.2"
-  },
-  "devDependencies": {
-    "nodemon": "^2.0.22"
+    "googleapis": "^170.0.0"
   }
 }
