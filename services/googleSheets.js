@@ -1,36 +1,51 @@
 const { google } = require("googleapis");
 
-const auth = new google.auth.JWT(
-  process.env.GOOGLE_CLIENT_EMAIL,
-  null,
-  process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, "\n"),
-  ["https://www.googleapis.com/auth/spreadsheets"]
-);
+function getAuth() {
+  if (!process.env.GOOGLE_CREDENTIAL_BASE64) {
+    throw new Error("Missing GOOGLE_CREDENTIAL_BASE64");
+  }
 
-const sheets = google.sheets({ version: "v4", auth });
+  // decode base64 → JSON
+  const credentials = JSON.parse(
+    Buffer.from(process.env.GOOGLE_CREDENTIAL_BASE64, "base64").toString("utf8")
+  );
 
-const SHEET_ID = process.env.GOOGLE_SHEET_ID;
+  return new google.auth.JWT(
+    credentials.client_email,
+    null,
+    credentials.private_key,
+    ["https://www.googleapis.com/auth/spreadsheets"]
+  );
+}
+
+const sheets = google.sheets({
+  version: "v4",
+  auth: getAuth(),
+});
+
+const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
+const SHEET_PATIENTS = process.env.SHEET_PATIENTS || "Patients";
 
 async function getPatients() {
   const res = await sheets.spreadsheets.values.get({
-    spreadsheetId: SHEET_ID,
-    range: "patients!A2:C",
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEET_PATIENTS}!A2:C`,
   });
 
-  return res.data.values?.map(row => ({
+  return (res.data.values || []).map(row => ({
     id: row[0],
     name: row[1],
     age: row[2],
-  })) || [];
+  }));
 }
 
-async function addPatient(patient) {
+async function addPatient(p) {
   await sheets.spreadsheets.values.append({
-    spreadsheetId: SHEET_ID,
-    range: "patients!A:C",
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEET_PATIENTS}!A:C`,
     valueInputOption: "USER_ENTERED",
     requestBody: {
-      values: [[patient.id, patient.name, patient.age]],
+      values: [[p.id, p.name, p.age]],
     },
   });
 }
