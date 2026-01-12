@@ -1,8 +1,10 @@
-// =========================
-// Smart Nurse Hub - SPA Controller
-// =========================
+// =======================================================
+// Smart Nurse Hub - SPA Controller (FULL VERSION)
+// =======================================================
 
+// =========================
 // Global state
+// =========================
 let currentView = 'dashboard';
 
 // =========================
@@ -26,7 +28,6 @@ function navTo(view) {
 // =========================
 function logout() {
   if (confirm('คุณต้องการออกจากระบบหรือไม่?')) {
-    // ตัวอย่าง: redirect ไปหน้า login
     window.location.href = '/login.html';
   }
 }
@@ -34,18 +35,19 @@ function logout() {
 // =========================
 // View Renderer
 // =========================
-function renderView(view) {
+async function renderView(view) {
   const container = document.getElementById('view-container');
 
   switch (view) {
+
     case 'dashboard':
       container.innerHTML = dashboardView();
       renderDashboardCharts();
       break;
 
     case 'patients':
-      container.innerHTML = patientsView();
-      initPatientsTable();
+      await loadExternalView('patients');
+      initPatientUpload();
       break;
 
     case 'nursingRecords':
@@ -70,7 +72,28 @@ function renderView(view) {
 }
 
 // =========================
-// Views (HTML Templates)
+// Load External HTML View
+// =========================
+async function loadExternalView(viewName) {
+  const container = document.getElementById('view-container');
+
+  try {
+    const res = await fetch(`/views/${viewName}.html`);
+    if (!res.ok) throw new Error('ไม่สามารถโหลดหน้าได้');
+
+    container.innerHTML = await res.text();
+
+  } catch (err) {
+    container.innerHTML = `
+      <div class="alert alert-danger text-center">
+        ${err.message}
+      </div>
+    `;
+  }
+}
+
+// =========================
+// Inline Views
 // =========================
 function dashboardView() {
   return `
@@ -86,32 +109,11 @@ function dashboardView() {
   `;
 }
 
-function patientsView() {
-  return `
-    <h3 class="mb-3">รายชื่อผู้รับบริการ</h3>
-    <table id="patientsTable" class="display" style="width:100%">
-      <thead>
-        <tr>
-          <th>HN</th>
-          <th>ชื่อ-สกุล</th>
-          <th>อายุ</th>
-          <th>เพศ</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr><td>001</td><td>สมชาย ใจดี</td><td>45</td><td>ชาย</td></tr>
-        <tr><td>002</td><td>สมหญิง รักสุข</td><td>38</td><td>หญิง</td></tr>
-      </tbody>
-    </table>
-  `;
-}
-
 function nursingRecordsView() {
   return `
     <h3>บันทึกทางการพยาบาล</h3>
-    <p>ฟังก์ชันบันทึกข้อมูลทางการพยาบาล (ตัวอย่าง)</p>
-    <textarea class="form-control" rows="5" placeholder="บันทึก..."></textarea>
-    <button class="btn btn-primary mt-2">บันทึก</button>
+    <textarea class="form-control mb-2" rows="5" placeholder="บันทึก..."></textarea>
+    <button class="btn btn-primary">บันทึก</button>
   `;
 }
 
@@ -119,8 +121,8 @@ function appointmentsView() {
   return `
     <h3>ตารางนัดหมาย</h3>
     <ul class="list-group">
-      <li class="list-group-item">10/01/2567 - ผู้ป่วย HN001</li>
-      <li class="list-group-item">12/01/2567 - ผู้ป่วย HN002</li>
+      <li class="list-group-item">10/01/2567 - HN001</li>
+      <li class="list-group-item">12/01/2567 - HN002</li>
     </ul>
   `;
 }
@@ -139,20 +141,18 @@ function settingsView() {
       <label class="form-label">ชื่อผู้ใช้</label>
       <input type="text" class="form-control" value="ธนชนัญ เกณฑ์คง">
     </div>
-    <button class="btn btn-primary">บันทึกการตั้งค่า</button>
+    <button class="btn btn-primary">บันทึก</button>
   `;
 }
 
 // =========================
-// Init Components
+// Dashboard Charts
 // =========================
-function initPatientsTable() {
-  $('#patientsTable').DataTable();
-}
-
 function renderDashboardCharts() {
   const ctx1 = document.getElementById('patientChart');
   const ctx2 = document.getElementById('appointmentChart');
+
+  if (!ctx1 || !ctx2) return;
 
   new Chart(ctx1, {
     type: 'bar',
@@ -171,6 +171,56 @@ function renderDashboardCharts() {
       datasets: [{
         data: [20, 5]
       }]
+    }
+  });
+}
+
+// =========================
+// Patients Upload Logic
+// =========================
+function initPatientUpload() {
+  const fileInput = document.getElementById('fileInput');
+  const fileName = document.getElementById('fileName');
+  const submitBtn = document.getElementById('submitFile');
+  const progressBar = document.getElementById('uploadProgress');
+
+  if (!fileInput || !submitBtn) return;
+
+  fileInput.addEventListener('change', () => {
+    fileName.textContent = fileInput.files[0]?.name || 'ยังไม่ได้เลือกไฟล์';
+  });
+
+  submitBtn.addEventListener('click', async () => {
+    if (!fileInput.files.length) {
+      alert('กรุณาเลือกไฟล์');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', fileInput.files[0]);
+
+    progressBar.style.width = '30%';
+    progressBar.textContent = 'กำลังอัปโหลด...';
+
+    try {
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData
+      });
+
+      const data = await res.json();
+
+      document.getElementById('totalRows').textContent = data.totalRows || 0;
+      document.getElementById('newRows').textContent = data.newRows || 0;
+      document.getElementById('updatedRows').textContent = data.updatedRows || 0;
+      document.getElementById('uploadStatus').textContent = 'อัปโหลดสำเร็จ';
+
+      progressBar.style.width = '100%';
+      progressBar.textContent = '100%';
+
+    } catch (err) {
+      document.getElementById('uploadStatus').textContent = 'เกิดข้อผิดพลาด';
+      progressBar.classList.add('bg-danger');
     }
   });
 }
