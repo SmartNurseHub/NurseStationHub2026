@@ -1,0 +1,18 @@
+<h4>Dashboard</h4>
+<div class="row">
+  <div class="col-md-4">
+    <div class="card p-3 shadow-sm">
+      <h6>จำนวนผู้รับบริการ</h6>
+      <div id="patientCount">-</div>
+    </div>
+  </div>
+</div>
+
+<script>
+async function init_dashboard() {
+  const res = await fetch("/api/patients");
+  const json = await res.json();
+  document.getElementById("patientCount").innerText =
+    json.data.length - 1;
+}
+</script>
