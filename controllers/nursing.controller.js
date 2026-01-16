@@ -1,18 +1,46 @@
+/******************************************************************
+ * controllers/nursing.controller.js
+ ******************************************************************/
+
 const { google } = require("googleapis");
 const { getAuth } = require("../helpers/googleAuth");
 
-exports.getNursingRecords = async (req, res) => {
+/* ================= CONFIG ================= */
+const SPREADSHEET_ID =
+  process.env.SPREADSHEET_NURSING_ID ||
+  process.env.SPREADSHEET_PATIENTS_DATA_001_ID;
+
+const SHEET_NAME = "NursingRecords"; // ✅ แก้ได้ตาม Sheet จริง
+const START_ROW = 2; // row 1 = header
+
+/* =========================================================
+ * GET /api/nursing
+ * ======================================================= */
+exports.listNursingRecords = async (req, res) => {
   try {
     const auth = getAuth();
     const sheets = google.sheets({ version: "v4", auth });
 
     const result = await sheets.spreadsheets.values.get({
-      spreadsheetId: process.env.SPREADSHEET_ID,
-      range: process.env.SHEET_NURSING
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEET_NAME}!A${START_ROW}:Z`
     });
 
-    res.json({ success: true, data: result.data.values || [] });
-  } catch (e) {
-    res.status(500).json({ success: false, message: e.message });
+    const rows = result.data.values || [];
+
+    // ❗ ส่ง array ล้วน เพื่อให้ frontend ใช้ forEach ได้ทันที
+    const records = rows.map((r) => ({
+      date: r[0] || "",
+      time: r[1] || "",
+      patient: r[2] || "",
+      note: r[3] || "",
+      nurse: r[4] || ""
+    }));
+
+    res.json(records);
+
+  } catch (err) {
+    console.error("❌ listNursingRecords error:", err);
+    res.status(500).json([]);
   }
 };

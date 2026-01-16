@@ -2,6 +2,7 @@
  * app.js
  * Smart Nurse Hub 2026
  * SPA Controller (CSP / Production Safe)
+ * ✅ Table / DataTable ถูกตัดออกทั้งหมด
  ******************************************************************/
 
 "use strict";
@@ -103,6 +104,31 @@ function bindGlobalEvents() {
     });
   });
 }
+
+/* =========================
+   INIT : PATIENTS (UPLOAD ONLY)
+   ❌ ไม่มี Table / ไม่มี GET list
+========================= */
+window.init_patients = function () {
+  console.log("📤 init_patients (upload-only mode)");
+
+  const fileInput = document.getElementById("fileInput");
+  const submitBtn = document.getElementById("submitFile");
+  const fileName = document.getElementById("fileName");
+
+  if (!fileInput || !submitBtn) return;
+
+  fileInput.addEventListener("change", () => {
+    fileName.textContent = fileInput.files[0]
+      ? fileInput.files[0].name
+      : "ยังไม่ได้เลือกไฟล์";
+  });
+
+  // NOTE:
+  // - logic upload / progress / report
+  // - ให้ผูก API POST /api/patients/upload ที่นี่
+  // - ไม่มีการโหลดรายชื่อ / render table ใด ๆ
+};
 
 /* =========================
    INIT

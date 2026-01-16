@@ -1,12 +1,44 @@
 /******************************************************************
  * helpers/parseTxt.js
- * Robust TXT / CSV parser
+ * ROBUST HYBRID PARSER
+ * - รองรับ buffer ทั้งไฟล์
+ * - รองรับ parsing ทีละบรรทัด (streaming)
+ * - RAM SAFE
  ******************************************************************/
 
-module.exports = function parseTxt(buffer) {
-  if (!buffer) return { headers: [], data: [] };
+"use strict";
 
-  const text = buffer.toString("utf8").trim();
+/**
+ * parseTxt(input)
+ * @param {Buffer|string} input
+ * @returns {Object}
+ *  - buffer mode  → { headers: [], data: [][] }
+ *  - stream mode  → { data: [[]] }   (1 row)
+ */
+module.exports = function parseTxt(input) {
+
+  /* ================= STREAM MODE =================
+     ใช้กับ readline / streaming
+     input = string (1 line)
+  ================================================= */
+  if (typeof input === "string") {
+    const line = input.trim();
+    if (!line) return { data: [] };
+
+    const delimiter = line.includes("|") ? "|" : ",";
+    const row = line.split(delimiter).map(v => v.trim());
+
+    return { data: [row] };
+  }
+
+  /* ================= BUFFER MODE =================
+     ใช้กับไฟล์เล็ก / legacy
+  ================================================= */
+  if (!input || !Buffer.isBuffer(input)) {
+    return { headers: [], data: [] };
+  }
+
+  const text = input.toString("utf8").trim();
   if (!text) return { headers: [], data: [] };
 
   const lines = text
@@ -14,11 +46,10 @@ module.exports = function parseTxt(buffer) {
     .map(l => l.trim())
     .filter(Boolean);
 
-  if (lines.length === 0) {
+  if (!lines.length) {
     return { headers: [], data: [] };
   }
 
-  // detect delimiter | or ,
   const delimiter = lines[0].includes("|") ? "|" : ",";
 
   const rows = lines.map(line =>

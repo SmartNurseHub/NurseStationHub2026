@@ -1,14 +1,23 @@
+/******************************************************************
+ * routes/patients.routes.js
+ * UPLOAD ONLY — SAFE
+ ******************************************************************/
+"use strict";
+
 const express = require("express");
-const multer = require("multer");
 const router = express.Router();
 
-const patients = require("../controllers/patients.controller");
-const upload = multer({ storage: multer.memoryStorage() });
+const upload = require("../middlewares/upload");
+const controller = require("../controllers/patients.controller");
 
-/* ===== LIST ===== */
-router.get("/", patients.listPatients);
-
-/* ===== UPLOAD (STREAMING) ===== */
-router.post("/upload", upload.single("file"), patients.uploadPatients);
+/* ================= UPLOAD ================= */
+/**
+ * field name = "file"
+ */
+router.post(
+  "/upload",
+  upload.single("file"),
+  controller.uploadPatients
+);
 
 module.exports = router;

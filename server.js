@@ -1,7 +1,8 @@
 /******************************************************************
  * server.js
- * Smart Nurse Hub — PRODUCTION CSP FIXED
+ * Smart Nurse Hub — FINAL MERGED (DEV + PRODUCTION READY)
  ******************************************************************/
+"use strict";
 
 require("dotenv").config();
 const express = require("express");
@@ -19,11 +20,11 @@ const PORT = process.env.PORT || 3000;
 app.use(morgan("combined"));
 
 /* =========================================================
- * CORS (Production)
+ * CORS (SAFE FOR DEV + PROD)
  * ======================================================= */
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || false,
+    origin: process.env.FRONTEND_URL || true,
     credentials: true
   })
 );
@@ -85,12 +86,13 @@ app.use(
           "https://i.pravatar.cc"
         ],
 
-        /* ---------- FETCH / MAP FILE ---------- */
+        /* ---------- FETCH / API ---------- */
         connectSrc: [
           "'self'",
+          process.env.FRONTEND_URL || "",
           "https://cdn.jsdelivr.net",
           "https://cdnjs.cloudflare.com"
-        ],
+        ].filter(Boolean),
 
         objectSrc: ["'none'"],
         frameAncestors: ["'none'"],
@@ -106,23 +108,26 @@ app.use(
 
 /* =========================================================
  * BODY PARSER
+ * (ไม่กระทบ multipart upload)
  * ======================================================= */
 app.use(express.json({ limit: "20mb" }));
 app.use(express.urlencoded({ extended: true }));
 
 /* =========================================================
- * STATIC FILES
+ * STATIC FILES (SPA)
  * ======================================================= */
 app.use(express.static(path.join(__dirname, "public")));
 app.use("/views", express.static(path.join(__dirname, "public/views")));
 
 /* =========================================================
- * API
+ * API ROUTES
  * ======================================================= */
 app.use("/api/patients", require("./routes/patients.routes"));
+app.use("/api/sheets", require("./routes/sheets.routes"));
+app.use("/api/nursing", require("./routes/nursing.routes"));
 
 /* =========================================================
- * API 404
+ * API 404 (เฉพาะ /api)
  * ======================================================= */
 app.use("/api", (req, res) => {
   res.status(404).json({
@@ -132,15 +137,15 @@ app.use("/api", (req, res) => {
 });
 
 /* =========================================================
- * SPA FALLBACK
+ * SPA FALLBACK (ต้องอยู่ล่างสุด)
  * ======================================================= */
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
 /* =========================================================
- * START
+ * START SERVER
  * ======================================================= */
 app.listen(PORT, () => {
-  console.log(`✅ Smart Nurse Hub running at http://localhost:${PORT}`);
+  console.log(`🚀 Smart Nurse Hub running at http://localhost:${PORT}`);
 });

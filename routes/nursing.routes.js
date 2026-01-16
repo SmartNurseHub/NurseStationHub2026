@@ -1,6 +1,14 @@
-const router = require("express").Router();
-const ctrl = require("../controllers/nursing.controller");
+/******************************************************************
+ * routes/nursing.routes.js
+ ******************************************************************/
+const express = require("express");
+const router = express.Router();
+const nursingController = require("../controllers/nursing.controller");
 
-router.get("/", ctrl.getNursingRecords);
+/* =========================================================
+ * GET /api/nursing
+ * โหลดบันทึกการพยาบาล
+ * ======================================================= */
+router.get("/", nursingController.listNursingRecords);
 
 module.exports = router;

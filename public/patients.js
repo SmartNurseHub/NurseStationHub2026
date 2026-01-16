@@ -1,9 +1,12 @@
 /******************************************************************
  * patients.js
  * STABLE — SPA SAFE
+ * MODE: UPLOAD ONLY (❌ ไม่มี Table / ❌ ไม่มี GET list)
  ******************************************************************/
 
-console.log("✅ patients.js loaded");
+"use strict";
+
+console.log("✅ patients.js loaded (upload-only)");
 
 const API = "/api/patients";
 
@@ -14,88 +17,62 @@ let newRowsEl;
 let updatedRowsEl;
 let uploadStatusEl;
 
-/* ================= LOAD TABLE ================= */
-async function loadPatients() {
-  console.log("📡 Loading patients...");
-  const res = await fetch(API);
-  const data = await res.json();
-  console.log("📦 Patients data:", data);
-  renderTable(data);
-}
-
-/* ================= RENDER TABLE ================= */
-function renderTable(rows) {
-  const head = document.getElementById("patientsTableHead");
-  const body = document.querySelector("#patientsTable tbody");
-
-  head.innerHTML = "";
-  body.innerHTML = "";
-
-  if (!rows || !rows.length) return;
-
-  Object.keys(rows[0]).forEach(h => {
-    const th = document.createElement("th");
-    th.textContent = h;
-    head.appendChild(th);
-  });
-
-  rows.forEach(r => {
-    const tr = document.createElement("tr");
-    Object.values(r).forEach(v => {
-      const td = document.createElement("td");
-      td.textContent = v ?? "";
-      tr.appendChild(td);
-    });
-    body.appendChild(tr);
-  });
-
-  console.log(`✅ Rendered ${rows.length} rows`);
-}
-
 /* ================= UPLOAD ================= */
 async function handleUpload() {
   const fileInput = document.getElementById("fileInput");
+
   if (!fileInput || !fileInput.files.length) {
-    alert("กรุณาเลือกไฟล์");
+    alert("กรุณาเลือกไฟล์ก่อนอัปโหลด");
     return;
   }
 
-  // ตอนนี้ element มีจริงแล้ว
+  const file = fileInput.files[0]; // ✅ FIX: ประกาศ file ให้ชัดเจน
+
+  // แสดง report
   uploadReport.classList.remove("d-none");
 
-  totalRowsEl.textContent = "0";
-  newRowsEl.textContent = "0";
-  updatedRowsEl.textContent = "0";
+  // reset ค่า
+  totalRowsEl.textContent    = "0";
+  newRowsEl.textContent      = "0";
+  updatedRowsEl.textContent  = "0";
   uploadStatusEl.textContent = "กำลังอัปโหลด...";
 
   const formData = new FormData();
-  formData.append("file", fileInput.files[0]);
+formData.append("file", fileInput.files[0]);
+
+await fetch("/api/patients/upload", {
+  method: "POST",
+  body: formData
+});
+
 
   try {
     const res = await fetch(`${API}/upload`, {
       method: "POST",
-      body: formData
+      body: formData // ❌ ห้ามใส่ headers
     });
+
+    if (!res.ok) {
+      throw new Error(`Upload failed (${res.status})`);
+    }
 
     const result = await res.json();
     console.log("📊 Upload result:", result);
 
-    totalRowsEl.textContent   = result.total ?? 0;
-    newRowsEl.textContent     = result.inserted ?? 0;
-    updatedRowsEl.textContent = result.updated ?? 0;
+    totalRowsEl.textContent    = result.total ?? 0;
+    newRowsEl.textContent      = result.inserted ?? 0;
+    updatedRowsEl.textContent  = result.updated ?? 0;
     uploadStatusEl.textContent = "บันทึกข้อมูลเรียบร้อยแล้ว";
 
-    await loadPatients();
-
   } catch (err) {
-    console.error(err);
-    uploadStatusEl.textContent = "เกิดข้อผิดพลาด";
+    console.error("❌ Upload error:", err);
+    uploadStatusEl.textContent = "เกิดข้อผิดพลาดในการอัปโหลด";
   }
 }
 
 /* ================= INIT (สำคัญที่สุด) ================= */
 window.init_patients = () => {
-  console.log("🔧 init_patients()");
+  console.log("🔧 init_patients() [upload-only]");
 
   // ✅ query DOM หลัง view ถูก inject
   uploadReport   = document.getElementById("uploadReport");
@@ -104,9 +81,12 @@ window.init_patients = () => {
   updatedRowsEl  = document.getElementById("updatedRows");
   uploadStatusEl = document.getElementById("uploadStatus");
 
+  if (!uploadReport || !totalRowsEl) {
+    console.warn("⚠️ uploadReport elements not found");
+    return;
+  }
+
   document
     .getElementById("submitFile")
     ?.addEventListener("click", handleUpload);
-
-  loadPatients();
 };
