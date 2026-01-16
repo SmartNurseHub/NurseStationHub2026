@@ -23,7 +23,7 @@ const INDEX_ID = process.env.SPREADSHEET_PATIENTS_INDEX_ID;
 const META_ID  = process.env.SPREADSHEET_PATIENTS_META_ID;
 
 const SHEET_NAME = "Sheet1";
-const ROWS_PER_SHARD = 80000;
+const ROWS_PER_SHARD = 50000;
 const BATCH_SIZE = 500;
 
 /* =========================================================
