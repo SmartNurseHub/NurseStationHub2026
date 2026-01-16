@@ -5,6 +5,13 @@
 "use strict";
 
 require("dotenv").config();
+console.log("RAW ENV KEYS =", Object.keys(process.env).filter(k =>
+  k.includes("SPREADSHEET")
+));
+console.log("CWD =", process.cwd());
+console.log("ENV FILE EXISTS =", require("fs").existsSync(".env"));
+console.log("DATA_ID =", process.env.SPREADSHEET_PATIENTS_DATA_001_ID);
+
 const express = require("express");
 const path = require("path");
 const morgan = require("morgan");
@@ -88,11 +95,13 @@ app.use(
 
         /* ---------- FETCH / API ---------- */
         connectSrc: [
-          "'self'",
-          process.env.FRONTEND_URL || "",
-          "https://cdn.jsdelivr.net",
-          "https://cdnjs.cloudflare.com"
-        ].filter(Boolean),
+  "'self'",
+  "http://localhost:3000",
+  "http://127.0.0.1:3000",
+  process.env.FRONTEND_URL || "",
+  "https://cdn.jsdelivr.net",
+  "https://cdnjs.cloudflare.com"
+].filter(Boolean),
 
         objectSrc: ["'none'"],
         frameAncestors: ["'none'"],

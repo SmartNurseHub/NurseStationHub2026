@@ -1,6 +1,6 @@
 /******************************************************************
  * routes/patients.routes.js
- * UPLOAD ONLY — SAFE
+ * PATIENT UPLOAD (NO SSE)
  ******************************************************************/
 "use strict";
 
@@ -10,10 +10,11 @@ const router = express.Router();
 const upload = require("../middlewares/upload");
 const controller = require("../controllers/patients.controller");
 
-/* ================= UPLOAD ================= */
-/**
- * field name = "file"
- */
+/* =========================================================
+   UPLOAD PATIENTS
+   POST /api/patients/upload
+   field name = "file"
+========================================================= */
 router.post(
   "/upload",
   upload.single("file"),
