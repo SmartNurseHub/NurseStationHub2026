@@ -1,5 +1,5 @@
 /* ==============================
-   ROOT VARIABLES (ตัวแปรหลัก)
+   ROOT VARIABLES
    ============================== */
 :root {
   --sidebar-width: 220px;
@@ -12,7 +12,7 @@
 }
 
 /* ==============================
-   GLOBAL STYLES
+   GLOBAL
    ============================== */
 body, input, textarea, button {
   font-family: 'Prompt', sans-serif;
@@ -38,8 +38,6 @@ header.app-header {
   padding: 10px 16px;
   box-shadow: 0 1px 4px rgba(0,0,0,0.08);
   z-index: 1000;
-  font-size: 12px;
-  font-weight: 600;
   background: #fba003fd;
   color: #fff;
   gap: 12px;
@@ -111,16 +109,16 @@ header.app-header img.logo {
   background: rgba(255,255,255,0.1);
 }
 
-/* ===== COLLAPSED ===== */
-#sidebar.collapsed {
+/* ===== COLLAPSED SIDEBAR ===== */
+body.sidebar-collapsed #sidebar {
   width: 0;
   padding: 0;
   overflow: hidden;
 }
 
-#sidebar.collapsed a,
-#sidebar.collapsed h6,
-#sidebar.collapsed div {
+body.sidebar-collapsed #sidebar a,
+body.sidebar-collapsed #sidebar h6,
+body.sidebar-collapsed #sidebar div {
   display: none;
 }
 
@@ -137,24 +135,27 @@ header.app-header img.logo {
   transition: margin-left var(--transition-speed);
 }
 
-#sidebar.collapsed ~ #content {
+/* เมื่อ sidebar ยุบ */
+body.sidebar-collapsed #content {
   margin-left: 0;
 }
 
 /* ==============================
-   MOBILE
+   MOBILE (≤768px)
    ============================== */
 @media (max-width: 768px) {
-  #sidebar {
+  /* content เต็มจอเสมอ */
+  #content {
+    margin-left: 0;
+  }
+
+  /* sidebar แสดงเฉพาะตอนยังไม่ collapsed */
+  body:not(.sidebar-collapsed) #sidebar {
     width: var(--sidebar-width);
   }
 
-  #sidebar.collapsed {
+  body.sidebar-collapsed #sidebar {
     width: 0;
-  }
-
-  #content {
-    margin-left: 0;
   }
 }
 
@@ -199,5 +200,5 @@ table.dataTable {
 }
 
 /* ==============================
-   END OF CSS
+   END
    ============================== */

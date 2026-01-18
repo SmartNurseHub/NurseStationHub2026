@@ -1,70 +1,41 @@
-const pool = require("../db");
+/*************************************************
+ * controllers/patients.controller.js (FINAL)
+ *************************************************/
 
-/**
- * UPSERT Patient
- * - ถ้า cid มีอยู่ → UPDATE
- * - ถ้า cid ไม่มี → INSERT
- */
-exports.upsertPatient = async (req, res) => {
-  const {
-    cid,
-    prename,
-    name,
-    lname,
-    hn,
-    sex,
-    birth,
-    telephone,
-  } = req.body;
+const { importPatientsService } = require("../services/patients.service");
 
-  if (!cid) {
-    return res.status(400).json({
-      success: false,
-      message: "cid is required",
-    });
-  }
-
+async function importPatients(req, res) {
   try {
-    const query = `
-      INSERT INTO patients (
-        cid, prename, name, lname, hn, sex, birth, telephone
-      ) VALUES (
-        $1,$2,$3,$4,$5,$6,$7,$8
-      )
-      ON CONFLICT (cid)
-      DO UPDATE SET
-        prename   = EXCLUDED.prename,
-        name      = EXCLUDED.name,
-        lname     = EXCLUDED.lname,
-        hn        = EXCLUDED.hn,
-        sex       = EXCLUDED.sex,
-        birth     = EXCLUDED.birth,
-        telephone = EXCLUDED.telephone
-      RETURNING *;
-    `;
+    const rows = req.body;
 
-    const values = [
-      cid,
-      prename,
-      name,
-      lname,
-      hn,
-      sex,
-      birth,
-      telephone,
-    ];
+    console.log("📥 importPatients body:", rows?.length);
 
-    const result = await pool.query(query, values);
+    if (!Array.isArray(rows) || rows.length === 0) {
+      return res.status(400).json({
+        success: false,
+        saved: 0,
+        message: "Invalid payload"
+      });
+    }
 
-    res.json({
+    const saved = await importPatientsService(rows);
+
+    return res.json({
       success: true,
-      data: result.rows[0],
+      saved: saved   // ⭐ บังคับมี key นี้เสมอ
     });
+
   } catch (err) {
-    console.error("UPSERT PATIENT ERROR:", err);
-    res.status(500).json({
+    console.error("❌ importPatients error:", err);
+
+    return res.status(500).json({
       success: false,
-      message: "Database error",
+      saved: 0,
+      message: "Internal server error"
     });
   }
+}
+
+module.exports = {
+  importPatients
 };

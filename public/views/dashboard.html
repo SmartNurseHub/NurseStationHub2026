@@ -1,18 +1,36 @@
-<h4>Dashboard</h4>
-<div class="row">
-  <div class="col-md-4">
-    <div class="card p-3 shadow-sm">
-      <h6>จำนวนผู้รับบริการ</h6>
-      <div id="patientCount">-</div>
+<div class="container-fluid">
+  <h4 class="mb-4">📊 Dashboard</h4>
+
+  <div class="row g-3">
+    <div class="col-md-3">
+      <div class="card card-compact p-3">
+        <h6>ผู้ป่วยทั้งหมด</h6>
+        <h3 class="fw-bold">128</h3>
+      </div>
+    </div>
+
+    <div class="col-md-3">
+      <div class="card card-compact p-3">
+        <h6>บันทึกวันนี้</h6>
+        <h3 class="fw-bold">42</h3>
+      </div>
     </div>
   </div>
+
+  <canvas id="chart1" height="100" class="mt-4"></canvas>
 </div>
 
 <script>
-async function init_dashboard() {
-  const res = await fetch("/api/patients");
-  const json = await res.json();
-  document.getElementById("patientCount").innerText =
-    json.data.length - 1;
+function init_dashboard() {
+  new Chart(document.getElementById("chart1"), {
+    type: "bar",
+    data: {
+      labels: ["จ", "อ", "พ", "พฤ", "ศ"],
+      datasets: [{
+        label: "จำนวนบันทึก",
+        data: [5, 8, 12, 7, 10]
+      }]
+    }
+  });
 }
 </script>
