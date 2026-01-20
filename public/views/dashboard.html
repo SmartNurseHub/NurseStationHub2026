@@ -1,0 +1,36 @@
+<div class="container-fluid">
+  <h4 class="mb-4">📊 Dashboard</h4>
+
+  <div class="row g-3">
+    <div class="col-md-3">
+      <div class="card card-compact p-3">
+        <h6>ผู้ป่วยทั้งหมด</h6>
+        <h3 class="fw-bold">128</h3>
+      </div>
+    </div>
+
+    <div class="col-md-3">
+      <div class="card card-compact p-3">
+        <h6>บันทึกวันนี้</h6>
+        <h3 class="fw-bold">42</h3>
+      </div>
+    </div>
+  </div>
+
+  <canvas id="chart1" height="100" class="mt-4"></canvas>
+</div>
+
+<script>
+function init_dashboard() {
+  new Chart(document.getElementById("chart1"), {
+    type: "bar",
+    data: {
+      labels: ["จ", "อ", "พ", "พฤ", "ศ"],
+      datasets: [{
+        label: "จำนวนบันทึก",
+        data: [5, 8, 12, 7, 10]
+      }]
+    }
+  });
+}
+</script>

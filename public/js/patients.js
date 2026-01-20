@@ -1,12 +1,20 @@
 /*************************************************
+<<<<<<< HEAD
  * public/js/patients.js
  * PATIENTS IMPORT — SPA SAFE VERSION
+=======
+ * patients.js — FINAL VERSION
+>>>>>>> 1b22a2ddbf2509e01101c6b6158becc13945304b
  *************************************************/
 
 console.log("✅ patients.js loaded");
 
 window.init_patients = function () {
+<<<<<<< HEAD
   console.log("🔧 init_patients START");
+=======
+  console.log("🔧 init_patients() START");
+>>>>>>> 1b22a2ddbf2509e01101c6b6158becc13945304b
 
   /* ===============================
      DOM
@@ -23,10 +31,19 @@ window.init_patients = function () {
   const checkAllBox = document.getElementById("checkAll");
   const btnSave = document.getElementById("btnSaveSelected");
 
+<<<<<<< HEAD
   if (!fileInput || !btnImport) {
     console.warn("⚠️ patients DOM not ready");
     return;
   }
+=======
+  console.log("🧪 DOM:", {
+    fileInput,
+    btnImport,
+    btnSave,
+    tableBody
+  });
+>>>>>>> 1b22a2ddbf2509e01101c6b6158becc13945304b
 
   /* ===============================
      STATE
@@ -46,6 +63,11 @@ window.init_patients = function () {
      IMPORT FILE
   ================================ */
   btnImport.addEventListener("click", () => {
+<<<<<<< HEAD
+=======
+    console.log("🟢 btnImport CLICKED");
+
+>>>>>>> 1b22a2ddbf2509e01101c6b6158becc13945304b
     const file = fileInput.files[0];
     if (!file) {
       alert("กรุณาเลือกไฟล์ TXT");
@@ -58,6 +80,7 @@ window.init_patients = function () {
   });
 
   /* ===============================
+<<<<<<< HEAD
      PARSE TXT (HEADER BASED)
   ================================ */
   function parseTxt(text) {
@@ -105,6 +128,38 @@ window.init_patients = function () {
 }
 
 
+=======
+     PARSE TXT
+  ================================ */
+  function parseTXT(text) {
+    console.log("📄 parsing txt");
+
+    const lines = text.split(/\r?\n/).filter(l => l.trim());
+    if (lines.length < 2) {
+      alert("ไฟล์ไม่มีข้อมูล");
+      return;
+    }
+
+    const headers = lines[0].split("|").map(h => h.trim());
+
+    rawPatients = lines.slice(1).map(line => {
+      const cols = line.split("|");
+      const o = {};
+      headers.forEach((h, i) => {
+        o[h] = (cols[i] || "").trim();
+      });
+      return o;
+    });
+
+    console.log("📊 parsed:", rawPatients.length);
+    filteredPatients = [...rawPatients];
+
+    renderTable(filteredPatients);
+    previewSection.classList.remove("d-none");
+    searchSection.classList.remove("d-none");
+  }
+
+>>>>>>> 1b22a2ddbf2509e01101c6b6158becc13945304b
   /* ===============================
      RENDER TABLE
   ================================ */
@@ -119,8 +174,14 @@ window.init_patients = function () {
                    class="row-check"
                    data-index="${i}">
           </td>
+<<<<<<< HEAD
           <td>เลขประจำตัวประชาชน</td>
           <td>ชื่อ - นามสกุล</td>
+=======
+          <td>${p.CID || ""}</td>
+          <td>${p.NAME || ""}</td>
+          <td>${p.LNAME || ""}</td>
+>>>>>>> 1b22a2ddbf2509e01101c6b6158becc13945304b
         </tr>
       `;
     });
@@ -132,8 +193,14 @@ window.init_patients = function () {
      CHECK ALL
   ================================ */
   checkAllBox.addEventListener("change", () => {
+<<<<<<< HEAD
     document.querySelectorAll(".row-check")
       .forEach(cb => cb.checked = checkAllBox.checked);
+=======
+    document.querySelectorAll(".row-check").forEach(cb => {
+      cb.checked = checkAllBox.checked;
+    });
+>>>>>>> 1b22a2ddbf2509e01101c6b6158becc13945304b
   });
 
   /* ===============================
@@ -177,6 +244,11 @@ window.init_patients = function () {
       };
     });
 
+<<<<<<< HEAD
+=======
+    console.log("📤 payload(valid CID):", payload.length);
+
+>>>>>>> 1b22a2ddbf2509e01101c6b6158becc13945304b
     try {
       const res = await fetch("/api/patients/import", {
         method: "POST",
@@ -184,6 +256,7 @@ window.init_patients = function () {
         body: JSON.stringify(payload)
       });
 
+<<<<<<< HEAD
       const result = await res.json();
       if (!res.ok) throw new Error(result.message);
 
@@ -192,19 +265,41 @@ window.init_patients = function () {
 
     } catch (err) {
       console.error(err);
+=======
+      if (!res.ok) throw new Error("save failed");
+
+      const result = await res.json();
+      alert(`✅ บันทึกสำเร็จ ${result.total} รายการ`);
+
+      resetPage();
+
+    } catch (err) {
+      console.error("❌ save error:", err);
+>>>>>>> 1b22a2ddbf2509e01101c6b6158becc13945304b
       alert("❌ ไม่สามารถบันทึกข้อมูล");
     }
   });
 
   /* ===============================
+<<<<<<< HEAD
      RESET
+=======
+     RESET PAGE
+>>>>>>> 1b22a2ddbf2509e01101c6b6158becc13945304b
   ================================ */
   function resetPage() {
     fileInput.value = "";
     fileNameLabel.textContent = "ยังไม่ได้เลือกไฟล์";
     searchInput.value = "";
+<<<<<<< HEAD
     rawPatients = [];
     filteredPatients = [];
+=======
+
+    rawPatients = [];
+    filteredPatients = [];
+
+>>>>>>> 1b22a2ddbf2509e01101c6b6158becc13945304b
     tableBody.innerHTML = "";
     previewSection.classList.add("d-none");
     searchSection.classList.add("d-none");

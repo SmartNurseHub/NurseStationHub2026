@@ -34,6 +34,7 @@ git push origin main
 
 
 NurseStationHub2026
+<<<<<<< HEAD
 │
 ├── config
 │   ├── env.js
@@ -102,3 +103,38 @@ NurseStationHub2026
 ├── server.js
 ├── package.json
 └── README.md
+=======
+ ┣ public
+ ┃ ┣ image
+ ┃ ┃ ┗ LOGO.png
+ ┃ ┣ js
+ ┃ ┃ ┣ dashboard.js
+ ┃ ┃ ┣ patients.js
+ ┃ ┃ ┗ upload.js
+ ┃ ┣ views
+ ┃ ┃ ┣ appointments.html
+ ┃ ┃ ┣ dashboard.html
+ ┃ ┃ ┣ nursingRecords.html
+ ┃ ┃ ┣ patients.html
+ ┃ ┃ ┣ reports.html
+ ┃ ┃ ┗ settings.html
+ ┃ ┣ app.js
+ ┃ ┣ index.html
+ ┃ ┗ style.css
+ ┣ routes
+ ┃ ┣ patients.routes.js
+ ┃ ┗ upload.routes.js
+ ┣ controllers
+ ┃ ┣ patients.controller.js
+ ┃ ┗ upload.controller.js
+ ┣ services
+ ┃ ┣ patients.service.js
+ ┃ ┣ sheets.controller.js
+ ┃ ┗ upload.service.js
+ ┣ uploads
+ ┣ .env
+ ┣ package-lock.json
+ ┣ package.json
+ ┣ README.md
+ ┗ server.js
+>>>>>>> 1b22a2ddbf2509e01101c6b6158becc13945304b

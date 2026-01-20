@@ -108,6 +108,22 @@ header.app-header img.logo {
   background: rgba(255,255,255,0.1);
 }
 
+<<<<<<< HEAD:public/assets/css/main.css
+=======
+/* ===== COLLAPSED SIDEBAR ===== */
+body.sidebar-collapsed #sidebar {
+  width: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+body.sidebar-collapsed #sidebar a,
+body.sidebar-collapsed #sidebar h6,
+body.sidebar-collapsed #sidebar div {
+  display: none;
+}
+
+>>>>>>> 1b22a2ddbf2509e01101c6b6158becc13945304b:public/style.css
 /* ==============================
    CONTENT
    ============================== */
@@ -120,6 +136,10 @@ header.app-header img.logo {
   transition: margin-left var(--transition-speed);
 }
 
+<<<<<<< HEAD:public/assets/css/main.css
+=======
+/* เมื่อ sidebar ยุบ */
+>>>>>>> 1b22a2ddbf2509e01101c6b6158becc13945304b:public/style.css
 body.sidebar-collapsed #content {
   margin-left: 0;
 }
@@ -136,7 +156,11 @@ body.sidebar-collapsed #sidebar {
 @media (max-width: 768px) {
   /* content เต็มจอเสมอ */
   #content {
+<<<<<<< HEAD:public/assets/css/main.css
     left: 0;
+=======
+    margin-left: 0;
+>>>>>>> 1b22a2ddbf2509e01101c6b6158becc13945304b:public/style.css
   }
 
   /* sidebar แสดงเฉพาะตอนยังไม่ collapsed */
