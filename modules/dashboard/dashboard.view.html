@@ -1,0 +1,74 @@
+<!-- ===============================================
+  modules/dashboard/dashboard.view.html
+  DASHBOARD VIEW
+================================================ -->
+
+<div class="container-fluid">
+
+  <div class="row mb-3">
+    <div class="col">
+      <h4 class="fw-bold">
+        🏠 Dashboard
+      </h4>
+      <p class="text-muted mb-0">
+        ภาพรวมระบบ Nurse Station Hub
+      </p>
+    </div>
+  </div>
+
+  <!-- ===============================
+       SUMMARY CARDS
+  ================================ -->
+  <div class="row g-3">
+
+    <div class="col-md-3">
+      <div class="card shadow-sm border-0 text-center p-3">
+        <div class="fs-2">👥</div>
+        <h6 class="mt-2">ผู้รับบริการทั้งหมด</h6>
+        <h4 id="statPatients" class="fw-bold">-</h4>
+      </div>
+    </div>
+
+    <div class="col-md-3">
+      <div class="card shadow-sm border-0 text-center p-3">
+        <div class="fs-2">📅</div>
+        <h6 class="mt-2">นัดหมายวันนี้</h6>
+        <h4 id="statAppointments" class="fw-bold">-</h4>
+      </div>
+    </div>
+
+    <div class="col-md-3">
+      <div class="card shadow-sm border-0 text-center p-3">
+        <div class="fs-2">🩺</div>
+        <h6 class="mt-2">บันทึกการพยาบาล</h6>
+        <h4 id="statRecords" class="fw-bold">-</h4>
+      </div>
+    </div>
+
+    <div class="col-md-3">
+      <div class="card shadow-sm border-0 text-center p-3">
+        <div class="fs-2">⚠️</div>
+        <h6 class="mt-2">รายการรอดำเนินการ</h6>
+        <h4 id="statPending" class="fw-bold">-</h4>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ===============================
+       CHART SECTION (placeholder)
+  ================================ -->
+  <div class="row mt-4">
+    <div class="col-md-12">
+      <div class="card shadow-sm border-0 p-3">
+        <h6 class="fw-bold mb-3">📊 สถิติการให้บริการ</h6>        
+        <canvas id="dashboardChart" height="100"></canvas>
+      </div>
+       <!-- SUMMARY CONTAINER (สำคัญมาก) -->
+  <div id="dashboardSummary">
+    <div class="text-muted">กำลังโหลดข้อมูล...</div>
+  </div>
+    </div>
+  </div>
+
+</div>
