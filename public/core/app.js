@@ -14,6 +14,7 @@ function toggleSidebar() {
 
 /* ===============================
    VIEW CONFIG (SOURCE OF TRUTH)
+   ➜ เพิ่ม module ที่นี่ที่เดียว
 ================================ */
 const VIEW_CONFIG = {
   dashboard: {
@@ -21,10 +22,29 @@ const VIEW_CONFIG = {
     script: "/modules/dashboard/dashboard.client.js",
     init: "initDashboard"
   },
+
   patients: {
     view: "/modules/patients/patients.view.html",
     script: "/modules/patients/patients.client.js",
     init: "initPatients"
+  },
+
+  appointments: {
+    view: "/modules/appointments/appointments.view.html",
+    script: "/modules/appointments/appointments.client.js",
+    init: "initAppointments"
+  },
+
+  nursingRecords: {
+    view: "/modules/nursingRecords/nursingRecords.view.html",
+    script: "/modules/nursingRecords/nursingRecords.client.js",
+    init: "initNursingRecords"
+  },
+
+  reports: {
+    view: "/modules/reports/reports.view.html",
+    script: "/modules/reports/reports.client.js",
+    init: "initReports"
   }
 };
 
@@ -37,7 +57,7 @@ async function loadView(name) {
 
   if (!cfg) {
     container.innerHTML = `
-      <div class="alert alert-danger">
+      <div class="alert alert-danger m-3">
         ❌ ไม่พบหน้า <b>${name}</b>
       </div>
     `;
@@ -48,7 +68,7 @@ async function loadView(name) {
     console.log("🔄 Load view:", name);
 
     /* ---------- 1. LOAD HTML ---------- */
-    const res = await fetch(cfg.view);
+    const res = await fetch(cfg.view, { cache: "no-store" });
     if (!res.ok) throw new Error("View not found");
 
     const html = await res.text();
@@ -68,7 +88,12 @@ async function loadView(name) {
 
       s.onload = () => {
         if (cfg.init && typeof window[cfg.init] === "function") {
-          window[cfg.init]();
+          try {
+            window[cfg.init]();
+            console.log(`✅ Init ${cfg.init}()`);
+          } catch (err) {
+            console.error(`❌ Init ${cfg.init} failed`, err);
+          }
         }
       };
 
@@ -79,13 +104,12 @@ async function loadView(name) {
   } catch (err) {
     console.error(err);
     container.innerHTML = `
-      <div class="alert alert-danger">
+      <div class="alert alert-danger m-3">
         ❌ โหลดหน้า <b>${name}</b> ไม่สำเร็จ
       </div>
     `;
   }
 }
-
 /* ===============================
    NAVIGATION (SPA)
 ================================ */
@@ -94,7 +118,9 @@ document.addEventListener("click", e => {
   if (!nav) return;
 
   e.preventDefault();
-  loadView(nav.dataset.nav);
+  const page = nav.dataset.nav;
+
+  loadView(page);
 });
 
 /* ===============================

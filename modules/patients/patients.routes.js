@@ -1,19 +1,15 @@
 /*************************************************
  * modules/patients/patients.routes.js
- * PATIENTS ROUTES (CLEAN)
  *************************************************/
-
 const express = require("express");
 const router = express.Router();
+const controller = require("./patients.controller");
 
-const {
-  importPatients,
-} = require("./patients.controller");
+/* =========================
+   PATIENTS API
+========================= */
+router.post("/import", controller.importPatients);
+router.get("/search", controller.searchPatients);
 
-/* =================================================
-   POST /api/patients/import
-   → Import patients (HN-based)
-================================================= */
-router.post("/import", importPatients);
 
 module.exports = router;

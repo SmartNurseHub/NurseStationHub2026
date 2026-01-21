@@ -1,219 +1,242 @@
-/*************************************************
+/************************************************************
  * modules/patients/patients.client.js
- * PATIENTS CLIENT (SPA SAFE + HEADER BASED)
- *************************************************/
+ * LARGE TXT IMPORT — 30,000+ ROWS SAFE (FINAL SYNC)
+ ************************************************************/
 
-let patientsData = [];
+console.log("🧑‍⚕️ patients.client.js LOADED (LARGE IMPORT MODE)");
 
-/* ===============================
-   THAI DATE HELPER
-   yyyyMMdd OR yyyy-mm-dd
-================================ */
-function toThaiDate(dateStr) {
-  if (!dateStr) return "";
+/* =========================================================
+   STATE
+========================================================= */
+const PatientsImportState = {
+  allRows: [],
+  filteredRows: [],
+  selectedCID: new Set(),
+  MAX_RENDER: 500
+};
 
-  let y, m, d;
-
-  if (/^\d{8}$/.test(dateStr)) {
-    y = dateStr.substring(0, 4);
-    m = dateStr.substring(4, 6);
-    d = dateStr.substring(6, 8);
-  } else if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-    [y, m, d] = dateStr.split("-");
-  } else {
-    return "";
-  }
-
-  const thaiMonths = [
-    "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน",
-    "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"
-  ];
-
-  return `${parseInt(d, 10)} ${thaiMonths[parseInt(m, 10) - 1]} ${parseInt(y, 10) + 543}`;
-}
-
-function normalizeCID(cid) {
-  if (!cid) return "";
-  return String(cid)
-    .replace(/'/g, "")
-    .replace(/\D/g, "")
-    .padStart(13, "0");
-}
-
-
-/* ===============================
+/* =========================================================
    INIT
-================================ */
+========================================================= */
 function initPatients() {
-  console.log("🧑‍⚕️ initPatients");
+  console.log("🧑‍⚕️ initPatients (Large Import Ready)");
+  bindFileInput();
+  bindSearch();
+  bindSave();
+}
 
-  const fileInput = document.getElementById("fileInput");
-  const searchInput = document.getElementById("searchInput");
-  const checkAll = document.getElementById("checkAll");
-  const btnSave = document.getElementById("btnSaveSelected");
-
+/* =========================================================
+   FILE INPUT
+========================================================= */
+function bindFileInput() {
+  const fileInput = document.getElementById("patientsTxtFile");
   if (!fileInput) return;
 
-  fileInput.addEventListener("change", handleFileSelect);
-  searchInput.addEventListener("input", handleSearch);
-  checkAll.addEventListener("change", toggleAll);
-  btnSave.addEventListener("click", saveSelected);
+  fileInput.onchange = async e => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const text = await file.text();
+
+    PatientsImportState.allRows = parsePatientsTxt(text);
+    PatientsImportState.filteredRows = PatientsImportState.allRows;
+
+    showPatientsPreview();
+    renderPatientsTable();
+    updateCounter();
+  };
 }
 
-/* ===============================
-   FILE READ
-================================ */
-function handleFileSelect(e) {
-  const file = e.target.files[0];
-  if (!file) return;
+/* =========================================================
+   PARSE TXT (MATCH REAL HOS FILE)
+========================================================= */
+function parsePatientsTxt(text) {
+  let lines = text
+    .split(/\r?\n/)
+    .map(l => l.trim())
+    .filter(l => l);
 
-  document.getElementById("fileName").innerText = file.name;
+  if (!lines.length) return [];
 
-  const reader = new FileReader();
-  reader.onload = () => parseTxt(reader.result);
-  reader.readAsText(file, "utf-8");
-}
-
-/* ===============================
-   PARSE TXT (HEADER BASED)
-================================ */
-function parseTxt(text) {
-  const lines = text.split(/\r?\n/).filter(l => l.trim() !== "");
-  if (lines.length < 2) {
-    alert("ไฟล์ไม่มีข้อมูล");
-    return;
+  /* ---------- REMOVE HEADER ---------- */
+  if (lines[0].toLowerCase().startsWith("hospcode|cid")) {
+    console.warn("⚠️ Header detected → removed");
+    lines = lines.slice(1);
   }
 
-  // HEADER
-  const headers = lines[0].split("|").map(h => h.trim());
+  return lines
+    .map(line => {
+      const c = line.split("|");
 
-  patientsData = lines.slice(1).map(line => {
-    const cols = line.split("|");
-    const o = {};
+      const tel    = c[30]?.trim();
+      const mobile = c[31]?.trim();
+      const birth  = c[9]?.trim();
 
-    headers.forEach((h, i) => {
-      o[h] = (cols[i] || "").trim();
-    });
-
-    return {
-      CID: normalizeCID(o.CID),
-      PRENAME: o.PRENAME || "",
-      NAME: o.NAME || "",
-      LNAME: o.LNAME || "",
-      HN: o.HN || "",
-      SEX: o.SEX || "",
-      BIRTH: o.BIRTH || "",
-      BIRTH_THAI: toThaiDate(o.BIRTH),
-      TELEPHONE: o.TELEPHONE || "",
-      MOBILE: o.MOBILE || "",
-      checked: true
-    };
-  }).filter(r => r.CID && r.NAME && r.LNAME);
-
-  if (patientsData.length === 0) {
-    alert("ไม่พบข้อมูลที่ถูกต้อง");
-    return;
-  }
-
-  document.getElementById("searchSection").classList.remove("d-none");
-  document.getElementById("previewSection").classList.remove("d-none");
-
-  renderTable(patientsData);
+      return {
+        CID: c[1]?.trim(),            // CID
+        PRENAME: c[4]?.trim(),        // PRENAME
+        NAME: c[5]?.trim(),           // NAME
+        LNAME: c[6]?.trim(),          // LNAME
+        HN: c[7]?.trim(),             // HN
+        SEX: c[8]?.trim(),            // SEX
+        BIRTH: birth,                 // YYYYMMDD
+        BIRTH_THAI: formatThaiDateLong(birth),
+        TELEPHONE: tel || "",
+        MOBILE: mobile || ""
+      };
+    })
+    .filter(r => r.CID && /^\d{13}$/.test(r.CID));
 }
 
-/* ===============================
-   RENDER TABLE
-================================ */
-function renderTable(data) {
-  const tbody = document.getElementById("previewTableBody");
-  tbody.innerHTML = "";
-
-  data.forEach((r, i) => {
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td class="text-center">
-        <input type="checkbox"
-               class="row-check"
-               data-index="${i}"
-               ${r.checked ? "checked" : ""}>
-      </td>
-      <td>${r.CID}</td>
-      <td>${r.NAME} ${r.LNAME}</td>
-      <td>${r.BIRTH_THAI}</td>
-      <td>${r.TELEPHONE}</td>
-    `;
-    tbody.appendChild(tr);
-  });
-
-  document.querySelectorAll(".row-check").forEach(cb => {
-    cb.addEventListener("change", e => {
-      const i = e.target.dataset.index;
-      data[i].checked = e.target.checked;
-    });
-  });
-}
-
-/* ===============================
+/* =========================================================
    SEARCH
-================================ */
-function handleSearch(e) {
-  const q = e.target.value.toLowerCase();
+========================================================= */
+function bindSearch() {
+  const input = document.getElementById("patientsSearch");
+  if (!input) return;
 
-  const filtered = patientsData.filter(r =>
-    r.CID.toLowerCase().includes(q) ||
-    r.NAME.toLowerCase().includes(q) ||
-    r.LNAME.toLowerCase().includes(q)
+  input.oninput = () => {
+    const q = input.value.trim();
+
+    PatientsImportState.filteredRows = !q
+      ? PatientsImportState.allRows
+      : PatientsImportState.allRows.filter(r =>
+          r.CID.includes(q) ||
+          r.NAME.includes(q) ||
+          r.LNAME.includes(q)
+        );
+
+    renderPatientsTable();
+    updateCounter();
+  };
+}
+
+/* =========================================================
+   DATE FORMAT (THAI LONG)
+========================================================= */
+function formatThaiDateLong(yyyymmdd) {
+  if (!yyyymmdd || yyyymmdd.length !== 8) return "";
+
+  const year = parseInt(yyyymmdd.slice(0, 4), 10) + 543;
+  const monthIndex = parseInt(yyyymmdd.slice(4, 6), 10) - 1;
+  const day = parseInt(yyyymmdd.slice(6, 8), 10);
+
+  const thaiMonths = [
+    "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน",
+    "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม",
+    "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"
+  ];
+
+  return `${day} ${thaiMonths[monthIndex]} ${year}`;
+}
+
+/* =========================================================
+   RENDER TABLE (CHUNK)
+========================================================= */
+function renderPatientsTable() {
+  const tbody = document.getElementById("patientsImportBody");
+  if (!tbody) return;
+
+  const rows = PatientsImportState.filteredRows.slice(
+    0,
+    PatientsImportState.MAX_RENDER
   );
 
-  renderTable(filtered);
+  tbody.innerHTML = rows.map(r => {
+    const checked = PatientsImportState.selectedCID.has(r.CID)
+      ? "checked"
+      : "";
+
+    return `
+      <tr>
+        <td class="text-center">
+          <input type="checkbox" ${checked}
+            onchange="togglePatientSelect('${r.CID}', this.checked)">
+        </td>
+        <td>${r.CID}</td>
+        <td>${r.NAME} ${r.LNAME}</td>
+        <td>${r.BIRTH_THAI}</td>
+        <td>${r.MOBILE || r.TELEPHONE}</td>
+      </tr>
+    `;
+  }).join("");
 }
 
-/* ===============================
-   CHECK ALL
-================================ */
-function toggleAll(e) {
-  const checked = e.target.checked;
-  patientsData.forEach(r => r.checked = checked);
-  renderTable(patientsData);
+/* =========================================================
+   SELECT
+========================================================= */
+function togglePatientSelect(cid, checked) {
+  checked
+    ? PatientsImportState.selectedCID.add(cid)
+    : PatientsImportState.selectedCID.delete(cid);
+
+  updateCounter();
 }
 
-/* ===============================
-   SAVE SELECTED
-================================ */
-async function saveSelected() {
-  const selected = patientsData.filter(r => r.checked);
+/* =========================================================
+   COUNTER
+========================================================= */
+function updateCounter() {
+  const el = document.getElementById("patientsImportCounter");
+  if (!el) return;
 
-  if (selected.length === 0) {
-    alert("กรุณาเลือกข้อมูล");
-    return;
-  }
+  el.innerText =
+    `แสดง ${Math.min(
+      PatientsImportState.filteredRows.length,
+      PatientsImportState.MAX_RENDER
+    )} / ${PatientsImportState.filteredRows.length} | ` +
+    `เลือก ${PatientsImportState.selectedCID.size}`;
+}
 
-  try {
+/* =========================================================
+   SAVE (BATCH → SERVICE SCHEMA MATCH)
+========================================================= */
+function bindSave() {
+  const btn = document.getElementById("btnSavePatients");
+  if (!btn) return;
+
+  btn.onclick = async () => {
+    if (!PatientsImportState.selectedCID.size) {
+      alert("⚠️ กรุณาเลือกข้อมูลก่อนบันทึก");
+      return;
+    }
+    const payload = PatientsImportState.allRows.filter(r =>
+      PatientsImportState.selectedCID.has(r.CID)
+    );
+     console.log("PAYLOAD TYPE:", Array.isArray(payload));
+  console.log("PAYLOAD LENGTH:", payload.length);
+  console.log("PAYLOAD SAMPLE:", payload[0]);
+
+    if (!confirm(`ยืนยันบันทึก ${payload.length} รายการ ?`)) return;
+
     const res = await fetch("/api/patients/import", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(selected)
+      body: JSON.stringify(payload)
     });
 
-    const json = await res.json();
-
-    if (!json.success) {
-      alert(json.message || "Import failed");
+    if (!res.ok) {
+      alert("❌ บันทึกไม่สำเร็จ");
       return;
     }
 
-    alert(
-  `บันทึกข้อมูลสำเร็จ\n` +
-  `🔁 อัปเดต: ${json.updated || 0} รายการ\n` +
-  `➕ เพิ่มใหม่: ${json.inserted || 0} รายการ`
-);
-
-/* 🔥 RESET ที่หายจริง */
-loadView("patients");
-
-  } catch (err) {
-    console.error(err);
-    alert("เกิดข้อผิดพลาด");
-  }
+    alert("✅ บันทึกข้อมูลสำเร็จ");
+    PatientsImportState.selectedCID.clear();
+    renderPatientsTable();
+    updateCounter();
+  };
 }
 
+/* =========================================================
+   UI
+========================================================= */
+function showPatientsPreview() {
+  document.getElementById("searchSection")?.classList.remove("d-none");
+  document.getElementById("previewSection")?.classList.remove("d-none");
+}
+
+/* =========================================================
+   EXPORT
+========================================================= */
+window.initPatients = initPatients;
+window.togglePatientSelect = togglePatientSelect;

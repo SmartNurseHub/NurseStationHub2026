@@ -1,18 +1,34 @@
 /******************************************************************
- * patients.controller.js
- * IMPORT PATIENTS (CLEAN & SAFE)
+ * modules/patients/patients.controller.js
+ *
+ * PATIENTS CONTROLLER — FINAL CLEAN
+ *
+ * หน้าที่:
+ * - รับ HTTP request จาก patients.routes.js
+ * - ตรวจสอบ / normalize ข้อมูลเบื้องต้น
+ * - ส่งต่อ logic ให้ patients.service.js
+ *
+ * เชื่อมโยง:
+ * - patients.routes.js
+ * - patients.service.js
+ * - ถูกเรียกจาก:
+ *   ├─ patients.client.js
+ *   └─ nursingRecords.client.js (search patient)
  ******************************************************************/
 
-const { importPatientsService } = require("./patients.service");
+const service = require("./patients.service");
 
-/* =========================
-   CID NORMALIZE (13 DIGITS)
-========================= */
+/* =================================================
+   UTILITIES
+   - ใช้ normalize CID ให้เป็นมาตรฐานเดียวกัน
+   - ใช้ทั้ง import และ service layer
+================================================= */
 function normalizeCID(cid) {
-  if (cid === null || cid === undefined) return "";
+  if (!cid) return "";
 
   cid = String(cid);
 
+  // ป้องกัน CID ที่มาในรูป scientific notation (Excel)
   if (cid.includes("E") || cid.includes("e")) {
     cid = Number(cid).toFixed(0);
   }
@@ -23,9 +39,12 @@ function normalizeCID(cid) {
     .padStart(13, "0");
 }
 
-/* =========================================================
+/* =================================================
    POST /api/patients/import
-========================================================= */
+   - Import / Upsert ข้อมูลผู้ป่วย
+   - CID-based
+   - เรียกจาก patients.client.js
+================================================= */
 exports.importPatients = async (req, res) => {
   try {
     const rows = req.body;
@@ -37,9 +56,7 @@ exports.importPatients = async (req, res) => {
       });
     }
 
-    /* -----------------------------
-       1) NORMALIZE + VALIDATE
-    ----------------------------- */
+    /* ---------- Normalize + Validate ---------- */
     const validRows = rows
       .map(r => ({
         ...r,
@@ -47,9 +64,7 @@ exports.importPatients = async (req, res) => {
       }))
       .filter(r =>
         r.CID &&
-        r.CID.length === 13 &&
-        r.NAME &&
-        r.LNAME
+        r.CID.length === 13
       );
 
     if (validRows.length === 0) {
@@ -59,22 +74,47 @@ exports.importPatients = async (req, res) => {
       });
     }
 
-    /* -----------------------------
-       2) IMPORT (UPSERT)
-    ----------------------------- */
-    const result = await importPatientsService(validRows);
+    /* ---------- Import (Service Layer) ---------- */
+    const result = await service.importPatientsService(validRows);
 
     res.json({
-  success: true,
-  updated: result.updated,
-  inserted: result.inserted
-});
+      success: true,
+      inserted: result.inserted,
+      updated: result.updated
+    });
 
   } catch (err) {
     console.error("IMPORT PATIENT ERROR:", err);
     res.status(500).json({
       success: false,
       message: "Server error"
+    });
+  }
+};
+
+/* =================================================
+   GET /api/patients/search?q=xxx
+   - ค้นหาผู้ป่วยแบบ realtime
+   - ใช้สำหรับ autocomplete / list
+   - เรียกจาก nursingRecords.client.js
+================================================= */
+exports.searchPatients = async (req, res) => {
+  try {
+    const q = (req.query.q || "").trim();
+
+    if (!q) {
+      return res.json({ data: [] });
+    }
+
+    const rows = await service.searchPatients(q);
+
+    res.json({ data: rows });
+
+  } catch (err) {
+    console.error("SEARCH PATIENT ERROR:", err);
+    res.status(500).json({
+      data: [],
+      message: "Search failed"
     });
   }
 };
