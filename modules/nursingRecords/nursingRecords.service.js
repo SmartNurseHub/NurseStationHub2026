@@ -47,20 +47,36 @@ exports.getAll = async () => {
 exports.save = async data => {
   const auth = getAuth();
   const sheets = google.sheets({ version: "v4", auth });
-
   const row = [
-    data.NSR || "",
-    data.DateService || "",
-    data.CID || "",
-    data.HN || "",
-    data.NAME || "",
-    data.LNAME || "",
-    data.TELEPHONE || "",
-    data.Activity || "",
-    data.Provider1 || "",
-    data.Stamp || new Date().toISOString()
-  ];
-
+  data.NSR || "",
+  data.Stamp || new Date().toISOString(),
+  data.CID || "",
+  data.HN || "",
+  data.NAME || "",
+  data.LNAME || "",
+  data.TELEPHONE || "",
+  data.DateService || "",
+  data.Activity || "",
+  data.Objective || "",
+  data.HealthInform || "",
+  data.HealthAdvice || "",
+  data.DateFollow1 || "",
+  data.TimeFollow1 || "",
+  data.RouteFollow1 || "",
+  data.Provider1 || "",
+  data.Response1 || "",
+  data.DateFollow2 || "",
+  data.TimeFollow2 || "",
+  data.RouteFollow2 || "",
+  data.Provider2 || "",
+  data.Response2 || "",
+  data.DateFollow3 || "",
+  data.TimeFollow3 || "",
+  data.RouteFollow3 || "",
+  data.Provider3 || "",
+  data.Response3 || "",
+  
+];
   await sheets.spreadsheets.values.append({
     spreadsheetId: SHEET_ID,
     range: `${SHEET_NAME}!A2`,
