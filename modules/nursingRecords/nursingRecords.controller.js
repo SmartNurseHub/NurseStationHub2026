@@ -1,5 +1,6 @@
 /******************************************************************
  * modules/nursingRecords/nursingRecords.controller.js
+ * FINAL STANDARD – MATCH nursingRecords.service.js
  ******************************************************************/
 const service = require("./nursingRecords.service");
 
@@ -9,7 +10,7 @@ const service = require("./nursingRecords.service");
 exports.getAll = async (req, res) => {
   try {
     const records = await service.getAll();
-    res.json(records);
+    res.json({ data: records });
   } catch (err) {
     console.error("❌ getAll error:", err);
     res.status(500).json({ message: "Failed to load nursing records" });
@@ -29,12 +30,15 @@ exports.getNextNSR = async (req, res) => {
   }
 };
 
-
 /* =========================================================
-   POST /api/nursingRecords
+   POST /api/nursingRecords   (CREATE)
 ========================================================= */
 exports.save = async (req, res) => {
   try {
+    if (!req.body.NSR) {
+      return res.status(400).json({ message: "NSR is required" });
+    }
+
     await service.save(req.body);
     res.json({ success: true });
   } catch (err) {
@@ -43,22 +47,38 @@ exports.save = async (req, res) => {
   }
 };
 
-
-/* =================================================
-   POST /api/patients/batch
-================================================= */
-exports.batchSave = async (req, res) => {
+/* =========================================================
+   PUT /api/nursingRecords/:nsr   (UPDATE)
+========================================================= */
+exports.update = async (req, res) => {
   try {
-    const rows = req.body.rows;
-    if (!Array.isArray(rows) || rows.length === 0) {
-      return res.status(400).json({ message: "No data" });
+    const { nsr } = req.params;
+    if (!nsr) {
+      return res.status(400).json({ message: "NSR is required" });
     }
 
-    await service.batchSave(rows);
-    res.json({ success: true, count: rows.length });
+    await service.updateByNSR(nsr, req.body);
+    res.json({ success: true });
 
   } catch (err) {
-    console.error("❌ batchSave error:", err);
-    res.status(500).json({ message: "Batch save failed" });
+    console.error("❌ update error:", err);
+    res.status(500).json({ message: "Failed to update nursing record" });
+  }
+};
+
+/* =========================================================
+   DELETE /api/nursingRecords/:nsr   (SOFT DELETE)
+========================================================= */
+exports.softDelete = async (req, res) => {
+  try {
+    const { nsr } = req.params;
+    const user = req.user?.name || "system";
+
+    await service.softDelete(nsr, user);
+    res.json({ success: true });
+
+  } catch (err) {
+    console.error("❌ softDelete error:", err);
+    res.status(500).json({ message: "Delete failed" });
   }
 };

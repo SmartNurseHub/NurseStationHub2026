@@ -52,6 +52,12 @@
   </div>
 </div>
 
+<!-- TABLE CONTAINER (TOP - default) -->
+<div id="tableTopContainer"></div>
+
+
+
+
 
 <!-- =========================================================
      SECTION 2: TAB — บันทึกออนไลน์
@@ -64,10 +70,6 @@
         ความสัมพันธ์ API:
           ส่งข้อมูลทั้งหมดเป็น JSON ไปยัง backend
     ============================ -->
-
-
-
-
       <div class="col-6 mx-auto mb-3 mt-4">
             <div class="input-group" >
               <span style="font-size:10px;" class="input-group-text">🔍</span>
@@ -96,6 +98,10 @@
               <label style="font-size:10px;"class="form-label mb-0">เลขบัตรประชาชน</label>
               <input style="font-size:10px;"type="text" class="form-control" id="CID" name="CID">
             </div>
+            <div class="col-md-2" hidden>
+              <label style="font-size:10px;"class="form-label mb-0">คำนำหน้า</label>
+              <input style="font-size:10px;"type="text" class="form-control" id="PRENAME" name="PRENAME">
+            </div>
             <div class="col-md-2">
               <label style="font-size:10px;"class="form-label mb-0">ชื่อผู้รับบริการ</label>
               <input style="font-size:10px;"type="text" class="form-control" id="NAME" name="NAME">
@@ -103,6 +109,10 @@
             <div class="col-md-2">
               <label style="font-size:10px;"class="form-label mb-0">นามสกุล</label>
               <input style="font-size:10px;"type="text" class="form-control" id="LNAME" name="LNAME">
+            </div>
+            <div class="col-md-2" hidden>
+              <label style="font-size:10px;"class="form-label mb-0">วันเกิด</label>
+              <input style="font-size:10px;"type="text" class="form-control" id="BIRTH" name="BIRTH">
             </div>
             <div class="col-md-2">
               <label style="font-size:10px;"class="form-label mb-0">เบอร์โทรศัพท์</label>
@@ -251,6 +261,16 @@
           <!-- 🔽 กล่อง suggestion ใช้ร่วมทุก textarea -->
         <div id="textarea-suggest"class="list-group position-absolute"style="z-index:2000; display:none; font-size:10px;"></div>
       </div>
+
+
+      <!-- TABLE CONTAINER (BOTTOM - when form opened) -->
+      <div id="tableBottomContainer"></div>
+
+
+
+
+
+
   <!-- =======================================================
        TABLE: รายการบันทึกทั้งหมดที่โหลดจาก GET /api/nursingRecords
        ความสัมพันธ์ไฟล์:
