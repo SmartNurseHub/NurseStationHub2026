@@ -285,11 +285,11 @@
       <thead class="table-primary text-center">
         <tr>
           <th width="12%">NSR No.</th>
-          <th width="9%">วันที่ให้บริการ</th>
-          <th width="9%">HN</th>
-          <th width="15%">ชื่อ - สกุล</th>
-          <th width="25%">กิจกรรม</th>
-          <th width="15%">ผู้บันทึก</th>
+          <th width="12%">วันที่ให้บริการ</th>
+          <th width="8%">HN</th>
+          <th width="20%">ชื่อ - สกุล</th>
+          <th width="20%">กิจกรรม</th>
+          <th width="13%">ผู้บันทึก</th>
           <th width="15%">การจัดการ</th>
         </tr>
       </thead>
@@ -297,5 +297,104 @@
     </table>
   </div>
 </div>
+
+<script>
+(() => {
+
+  const STORAGE_KEY = "nr_textarea_history";
+  let history = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+
+  const suggestBox = document.getElementById("textarea-suggest");
+  let activeTextarea = null;
+
+  // ใช้กับ textarea ทุกตัวที่มี data-type
+  document.querySelectorAll("textarea[data-type]").forEach(textarea => {
+
+    textarea.addEventListener("input", e => {
+      activeTextarea = textarea;
+
+      const type = textarea.dataset.type;
+      const value = textarea.value;
+      const lastWord = value.split(/\s+/).pop();
+
+      if (!lastWord || lastWord.length < 2) {
+        hideSuggest();
+        return;
+      }
+
+      const words = (history[type] || [])
+        .filter(w => w.startsWith(lastWord))
+        .slice(0, 6);
+
+      if (words.length === 0) {
+        hideSuggest();
+        return;
+      }
+
+      showSuggest(words, textarea, lastWord);
+    });
+
+    // บันทึกคำเมื่อออกจากช่อง
+    textarea.addEventListener("blur", () => {
+      saveWords(textarea);
+      setTimeout(hideSuggest, 150);
+    });
+
+  });
+
+  function showSuggest(words, textarea, lastWord) {
+    const rect = textarea.getBoundingClientRect();
+
+    suggestBox.innerHTML = "";
+    words.forEach(word => {
+      const item = document.createElement("button");
+      item.type = "button";
+      item.className = "list-group-item list-group-item-action py-1";
+      item.textContent = word;
+
+      item.onclick = () => {
+        textarea.value =
+          textarea.value.substring(
+            0,
+            textarea.value.lastIndexOf(lastWord)
+          ) + word + " ";
+        hideSuggest();
+        textarea.focus();
+      };
+
+      suggestBox.appendChild(item);
+    });
+
+    suggestBox.style.display = "block";
+    suggestBox.style.top = rect.bottom + window.scrollY + "px";
+    suggestBox.style.left = rect.left + window.scrollX + "px";
+    suggestBox.style.width = rect.width + "px";
+  }
+
+  function hideSuggest() {
+    suggestBox.style.display = "none";
+  }
+
+  function saveWords(textarea) {
+    const type = textarea.dataset.type;
+    if (!type) return;
+
+    if (!history[type]) history[type] = [];
+
+    textarea.value
+      .split(/[\s,]+/)
+      .map(w => w.trim())
+      .filter(w => w.length > 2)
+      .forEach(word => {
+        if (!history[type].includes(word)) {
+          history[type].push(word);
+        }
+      });
+
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+  }
+
+})();
+</script>
 
 
