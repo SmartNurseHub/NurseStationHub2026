@@ -12,6 +12,8 @@ function toggleSidebar() {
   document.body.classList.toggle("sidebar-collapsed");
 }
 
+
+
 /* ===============================
    VIEW CONFIG (SOURCE OF TRUTH)
    ➜ เพิ่ม module ที่นี่ที่เดียว
@@ -39,6 +41,13 @@ const VIEW_CONFIG = {
     view: "/modules/nursingRecords/nursingRecords.view.html",
     script: "/modules/nursingRecords/nursingRecords.client.js",
     init: "initNursingRecords"
+  },
+
+   /* ⭐ NEW */
+  nursingCounselor: {
+    view: "/modules/nursingCounselor/nursingCounselor.view.html",
+    script: "/modules/nursingCounselor/nursingCounselor.client.js",
+    init: "initNursingCounselor"
   },
 
   reports: {
@@ -110,6 +119,42 @@ async function loadView(name) {
     `;
   }
 }
+
+/* ===============================
+   OPEN NURSING COUNSELOR FORM
+   ใช้ร่วมทุก module
+================================ */
+window.openNursingCounselor = function (tab = "general") {
+
+  loadView("nursingCounselor");
+
+  setTimeout(() => {
+
+    // เปิด tab
+    const tabBtn = document.querySelector(
+      `button[data-bs-target="#${tab}"]`
+    );
+
+    if (tabBtn && window.bootstrap) {
+      bootstrap.Tab.getOrCreateInstance(tabBtn).show();
+    }
+
+    // scroll ไปที่ form
+    const formMap = {
+      general: "generalForm",
+      disease: "diseaseForm",
+      universal: "universalForm"
+    };
+
+    const form = document.getElementById(formMap[tab]);
+    if (form) {
+      form.scrollIntoView({ behavior: "smooth" });
+    }
+
+  }, 300);
+};
+
+
 /* ===============================
    NAVIGATION (SPA)
 ================================ */
@@ -122,6 +167,8 @@ document.addEventListener("click", e => {
 
   loadView(page);
 });
+
+
 
 /* ===============================
    INIT

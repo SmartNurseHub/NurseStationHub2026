@@ -25,27 +25,30 @@
         </button>
         <ul class="dropdown-menu" aria-labelledby="dropdownMenunursingrecord"style="min-width: 250px;font-size: 12px;padding: 8px 0;">
           <li><a class="dropdown-item open-tab" data-target-tab="online">➕ เพิ่มใหม่</a></li>
-          <li><a class="dropdown-item edit-record" href="#" data-nsr="">✏️ แก้ไข</a></li>
-          <li><a class="dropdown-item" href="#">📋 รายการ</a></li>
         </ul>
       </div>
 
       <!-- บันทึกการให้คำปรึกษา -->
       <div class="dropdown">
         <button class="btn dropdown-toggle"
-                style="background-color: #006666;color: #ffffff;font-size: 12px;font-weight: 500;padding: 10px 18px;border-radius: 8px;border: none;"
+                style="background-color:#006666;color:#fff;font-size:12px;font-weight:500;
+                      padding:10px 18px;border-radius:8px;border:none;"
                 type="button"
                 id="dropdownMenunursingconsel"
                 data-bs-toggle="dropdown"
                 aria-expanded="false">
-          👩‍⚕️บันทึกการให้คำปรึกษา💬
+          👩‍⚕️ บันทึกการให้คำปรึกษา 💬
         </button>
-        <ul class="dropdown-menu" aria-labelledby="dropdownMenunursingconsel" style="min-width: 220px;font-size: 12px;padding: 8px 0;">
-          <li><a class="dropdown-item" href="#">➕ เพิ่มใหม่</a></li>
-          <li><a class="dropdown-item" href="#">✏️ แก้ไข</a></li>
-          <li><a class="dropdown-item" href="#">📋 รายการ</a></li>
-        </ul>
+
+        <ul class="dropdown-menu"><li>
+          <a class="dropdown-item open-tab" data-target-tab="nursingCounselor">➕ เพิ่มใหม่</a>
+        </li>
+        <li>
+          <a class="dropdown-item" onclick="openNursingCounselor('edit')">✏️ แก้ไข</a>
+         </li>
+
       </div>
+
 
     </form>
     
@@ -54,10 +57,6 @@
 
 <!-- TABLE CONTAINER (TOP - default) -->
 <div id="tableTopContainer"></div>
-
-
-
-
 
 <!-- =========================================================
      SECTION 2: TAB — บันทึกออนไลน์
@@ -243,7 +242,7 @@
                   </div>
                   <div class="col-4">
                     <label style="font-size:10px;">ผู้ให้บริการ:</label>
-                    <textarea style="font-size:10px;" class="form-control form-control-sm"id="Provider3" name="Provider3" rows="1" data-type="provider"></textarea>
+                    <input style="font-size:10px;" class="form-control form-control-sm"id="Provider3" name="Provider3" rows="1" data-type="provider"></input>
                   </div>
                   <div class="col-12">
                     <label style="font-size:10px;">ผลการประเมิน:</label>
@@ -261,14 +260,11 @@
           <!-- 🔽 กล่อง suggestion ใช้ร่วมทุก textarea -->
         <div id="textarea-suggest"class="list-group position-absolute"style="z-index:2000; display:none; font-size:10px;"></div>
       </div>
+ 
 
 
       <!-- TABLE CONTAINER (BOTTOM - when form opened) -->
       <div id="tableBottomContainer"></div>
-
-
-
-
 
 
   <!-- =======================================================
@@ -277,26 +273,201 @@
          - แสดงผลจาก loadNursingRecords() ใน app.js หรือที่หน้านี้
 ======================================================= -->
 <!-- ================= TABLE CONTAINER ================= -->
-<div class="mt-4" id="nursingTableSection">
-  <h6 class="text-center mb-3">รายการบันทึกทางการพยาบาล</h6>
+    <div class="mt-4" id="nursingTableSection">
+      <h6 class="text-center mb-3">รายการบันทึกทางการพยาบาล</h6>
 
-  <div class="table-responsive">
-    <table class="table table-bordered table-striped" style="font-size:10px;">
-      <thead class="table-primary text-center">
-        <tr>
-          <th width="12%">NSR No.</th>
-          <th width="12%">วันที่ให้บริการ</th>
-          <th width="8%">HN</th>
-          <th width="20%">ชื่อ - สกุล</th>
-          <th width="20%">กิจกรรม</th>
-          <th width="13%">ผู้บันทึก</th>
-          <th width="15%">การจัดการ</th>
-        </tr>
-      </thead>
-      <tbody id="nursingTableBody"></tbody>
-    </table>
+      <div class="table-responsive">
+        <table class="table table-bordered table-striped" style="font-size:10px;">
+          <thead class="table-primary text-center">
+            <tr>
+              <th width="12%">NSR No.</th>
+              <th width="12%">วันที่ให้บริการ</th>
+              <th width="8%">HN</th>
+              <th width="20%">ชื่อ - สกุล</th>
+              <th width="20%">กิจกรรม</th>
+              <th width="13%">ผู้บันทึก</th>
+              <th width="15%">การจัดการ</th>
+            </tr>
+          </thead>
+          <tbody id="nursingTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+ </div>
+
+<!-- =========================================================
+     SECTION 3: TAB — บันทึกออนไลน์
+     ฟอร์มนี้ส่งเข้า API /api/NursingRecords/save (routes/sheets.js)
+========================================================= -->
+  <div class="nr-tab-panel" data-tab="nursingCounselor" style="display:none;">
+    
+        <!-- SECTION 3 SEARCH -->
+<div class="col-6 mx-auto mb-3 mt-4 position-relative">
+  <div class="input-group">
+    <span style="font-size:10px;" class="input-group-text">🔍</span>
+
+    <input type="text"
+           id="patientSearchCounsel"
+           class="form-control"
+           autocomplete="off"/>
+
+    <button style="font-size:10px;"
+            type="button"
+            class="btn btn-primary"
+            id="btnSearchPatientCounsel">
+      ค้นหา
+    </button>
+  </div>
+
+  <div id="searchResultsCounsel"
+       class="list-group w-100"
+       style="z-index:1000; display:none; position:absolute;">
   </div>
 </div>
+
+
+    
+    
+    <form id="generalForm">
+
+  <!-- ================= ส่วนที่ 1 ================= -->
+  <h6 class="mt-2 fw-bold">ส่วนที่ 1 ข้อมูลทั่วไปผู้รับคำปรึกษา</h6>
+  <div class="row g-2">
+    <div class="col-md-6">
+      <label class="form-label">ชื่อ–สกุล</label>
+      <input type="text" class="form-control" name="patient_name">
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">อายุ (ปี)</label>
+      <input type="number" class="form-control" name="age">
+    </div>
+    <div class="col-md-4">
+      <label class="form-label">เพศ</label>
+      <select class="form-select" name="gender">
+        <option>ชาย</option>
+        <option>หญิง</option>
+        <option>อื่น ๆ</option>
+      </select>
+    </div>
+
+    <div class="col-md-4">
+      <label class="form-label">HN / CID</label>
+      <input type="text" class="form-control" name="patient_id">
+    </div>
+    <div class="col-md-4">
+      <label class="form-label">วันที่รับคำปรึกษา</label>
+      <input type="date" class="form-control" name="visit_date">
+    </div>
+    <div class="col-md-4">
+      <label class="form-label">สถานที่ / หน่วยบริการ</label>
+      <input type="text" class="form-control" name="service_unit">
+    </div>
+
+    <div class="col-md-6">
+      <label class="form-label">ชื่อพยาบาลผู้ให้คำปรึกษา</label>
+      <input type="text" class="form-control" name="nurse_name">
+    </div>
+  </div>
+
+  <!-- ================= ส่วนที่ 2 ================= -->
+  <h6 class="mt-4 fw-bold">ส่วนที่ 2 เหตุผลในการเข้ารับคำปรึกษา (Chief Concern)</h6>
+  <textarea class="form-control" rows="2" name="chief_concern"></textarea>
+
+  <!-- ================= ส่วนที่ 3 ================= -->
+  <h6 class="mt-4 fw-bold">ส่วนที่ 3 การประเมินภาวะสุขภาพ (Assessment)</h6>
+  <div class="form-check">
+    <input class="form-check-input" type="checkbox" name="assessment_domains[]" value="physical"> สุขภาพกาย
+  </div>
+  <div class="form-check">
+    <input class="form-check-input" type="checkbox" name="assessment_domains[]" value="mental"> สุขภาพจิต/อารมณ์
+  </div>
+  <div class="form-check">
+    <input class="form-check-input" type="checkbox" name="assessment_domains[]" value="behavior"> พฤติกรรมสุขภาพ
+  </div>
+  <div class="form-check">
+    <input class="form-check-input" type="checkbox" name="assessment_domains[]" value="social"> ปัจจัยทางสังคม/ครอบครัว
+  </div>
+  <textarea class="form-control mt-2" rows="2" name="assessment_detail"
+    placeholder="รายละเอียดการประเมิน"></textarea>
+
+  <!-- ================= ส่วนที่ 4 ================= -->
+  <h6 class="mt-4 fw-bold">ส่วนที่ 4 การวินิจฉัยทางการพยาบาล / ประเด็นปัญหา</h6>
+  <textarea class="form-control" rows="2" name="nursing_diagnosis"></textarea>
+
+  <!-- ================= ส่วนที่ 5 ================= -->
+  <h6 class="mt-4 fw-bold">ส่วนที่ 5 วัตถุประสงค์ของการให้คำปรึกษา</h6>
+  <div class="form-check">
+    <input class="form-check-input" type="checkbox" name="objectives[]" value="knowledge"> เพื่อให้ความรู้
+  </div>
+  <div class="form-check">
+    <input class="form-check-input" type="checkbox" name="objectives[]" value="behavior"> เพื่อปรับพฤติกรรมสุขภาพ
+  </div>
+  <div class="form-check">
+    <input class="form-check-input" type="checkbox" name="objectives[]" value="motivation"> เพื่อเสริมแรงจูงใจ
+  </div>
+  <div class="form-check">
+    <input class="form-check-input" type="checkbox" name="objectives[]" value="prevention"> เพื่อป้องกันภาวะแทรกซ้อน
+  </div>
+
+  <!-- ================= ส่วนที่ 6 ================= -->
+  <h6 class="mt-4 fw-bold">ส่วนที่ 6 เนื้อหาและวิธีการให้คำปรึกษา</h6>
+  <label class="form-label">หัวข้อที่ให้คำปรึกษา</label>
+  <textarea class="form-control" rows="2" name="counseling_topic"></textarea>
+
+  <label class="form-label mt-2">วิธีการ</label>
+  <div class="form-check">
+    <input class="form-check-input" type="checkbox" name="methods[]" value="discussion"> สนทนาเชิงให้คำปรึกษา
+  </div>
+  <div class="form-check">
+    <input class="form-check-input" type="checkbox" name="methods[]" value="demonstration"> สาธิต/ฝึกปฏิบัติ
+  </div>
+  <div class="form-check">
+    <input class="form-check-input" type="checkbox" name="methods[]" value="media"> เอกสาร/สื่อสุขศึกษา
+  </div>
+
+  <!-- ================= ส่วนที่ 7 ================= -->
+  <h6 class="mt-4 fw-bold">ส่วนที่ 7 การประเมินผลหลังการให้คำปรึกษา</h6>
+  <select class="form-select" name="evaluation">
+    <option>ผู้รับบริการเข้าใจดี</option>
+    <option>เข้าใจบางส่วน</option>
+    <option>ต้องติดตามเพิ่มเติม</option>
+  </select>
+  <textarea class="form-control mt-2" rows="2" name="evaluation_detail"
+    placeholder="รายละเอียดเพิ่มเติม"></textarea>
+
+  <!-- ================= ส่วนที่ 8 ================= -->
+  <h6 class="mt-4 fw-bold">ส่วนที่ 8 แผนติดตามผล / ส่งต่อ</h6>
+  <div class="form-check">
+    <input class="form-check-input" type="checkbox" name="followup[]" value="appointment"> นัดติดตาม
+  </div>
+  <div class="form-check">
+    <input class="form-check-input" type="checkbox" name="followup[]" value="doctor"> ส่งต่อแพทย์
+  </div>
+  <div class="form-check">
+    <input class="form-check-input" type="checkbox" name="followup[]" value="team"> ส่งต่อสหสาขาวิชาชีพ
+  </div>
+
+  <!-- ================= ส่วนที่ 9 ================= -->
+  <h6 class="mt-4 fw-bold">ส่วนที่ 9 การรับรอง</h6>
+  <div class="row g-2">
+    <div class="col-md-4">
+      <label class="form-label">ตำแหน่ง</label>
+      <input type="text" class="form-control" name="nurse_position">
+    </div>
+    <div class="col-md-4">
+      <label class="form-label">เลขที่ใบอนุญาต</label>
+      <input type="text" class="form-control" name="license_no">
+    </div>
+  </div>
+
+  <button class="btn btn-primary mt-4">บันทึกข้อมูล</button>
+    </form>
+  </div>
+
+
+
+
+
 
 <script>
 (() => {
@@ -395,6 +566,75 @@
   }
 
 })();
+/* ===============================
+   SEARCH : Nursing Counselor
+================================ */
+(() => {
+
+  const input   = document.getElementById("patientSearchCounsel");
+  const btn     = document.getElementById("btnSearchPatientCounsel");
+  const results = document.getElementById("searchResultsCounsel");
+
+  if (!input || !btn || !results) return;
+
+  btn.addEventListener("click", search);
+  input.addEventListener("keyup", e => {
+    if (e.key === "Enter") search();
+  });
+
+  async function search() {
+    const q = input.value.trim();
+    if (q.length < 2) {
+      results.style.display = "none";
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/patients/search?q=${encodeURIComponent(q)}`);
+      const data = await res.json();
+
+      renderResults(data || []);
+    } catch (err) {
+      console.error("search error", err);
+    }
+  }
+
+  function renderResults(list) {
+    results.innerHTML = "";
+
+    if (list.length === 0) {
+      results.style.display = "none";
+      return;
+    }
+
+    list.forEach(p => {
+      const item = document.createElement("button");
+      item.type = "button";
+      item.className = "list-group-item list-group-item-action";
+      item.style.fontSize = "10px";
+      item.textContent = `${p.HN || ""} ${p.NAME || ""} ${p.LNAME || ""}`;
+
+      item.onclick = () => fillForm(p);
+      results.appendChild(item);
+    });
+
+    results.style.display = "block";
+  }
+
+  function fillForm(p) {
+    document.querySelector('[name="patient_name"]').value =
+      `${p.NAME || ""} ${p.LNAME || ""}`.trim();
+
+    document.querySelector('[name="patient_id"]').value =
+      p.HN || p.CID || "";
+
+    results.style.display = "none";
+  }
+
+})();
+
+
+
 </script>
 
 

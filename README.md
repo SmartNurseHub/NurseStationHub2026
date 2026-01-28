@@ -20,7 +20,7 @@ taskkill /PID <PID> /F
 
 git status
 git add .
-git commit -m "ข้อความ"
+git commit -m "modified1"
 git pull origin main  # ดึงก่อน เผื่อมีคนแก้ก่อน
 git push origin main
 
@@ -46,6 +46,16 @@ NurseStationHub2026
 │   │   ├── dashboard.routes.js
 │   │   ├── dashboard.service.js
 │   │   └── dashboard.view.html
+│   ├── nursingRecords
+│   │   ┣ audit.service.js
+│   │   ┣ nursingRecords.client.js
+│   │   ┣ nursingRecords.controller.js
+│   │   ┣ nursingRecords.routes.js
+│   │   ┣ nursingRecords.service.js
+│   │   ┗ nursingRecords.view.html
+│   ├── nursingCounselor
+│   │   ┣ nursingCounselor.client.js
+│   │   ┗ nursingCounselor.view.html
 │   │
 │   ├── patients
 │   │   ├── patients.controller.js

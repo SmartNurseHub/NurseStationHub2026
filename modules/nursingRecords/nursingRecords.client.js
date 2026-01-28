@@ -135,6 +135,10 @@ function showTab(name) {
   if (name === "online") {
     moveTable("bottom");
   }
+  // ✅ ถ้าเปิดฟอร์ม
+  if (name === "nursingCounselor") {
+    moveTable("bottom");
+  }
 }
 
 
@@ -371,48 +375,51 @@ function editRecord(r) {
   __NR_EDIT_NSR__ = r.NSR;
 
   const map = {
-  NSR: r.NSR,
-  Stamp: r.Stamp, 
-  CID: r.CID,
-  HN: r.HN,
-  PRENAME: r.PRENAME,
-  NAME: r.NAME,
-  LNAME: r.LNAME,
-  BIRTH: toRawDate(r.BIRTH),
-  TELEPHONE: r.TELEPHONE,
-  DateService: r.DateService,
-  Activity: r.Activity,
-  Objective: r.Objective,
-  HealthInform: r.HealthInform,
-  HealthAdvice: r.HealthAdvice,
+    NSR: r.NSR,
+    Stamp: r.Stamp, 
+    CID: r.CID,
+    HN: r.HN,
+    PRENAME: r.PRENAME,
+    NAME: r.NAME,
+    LNAME: r.LNAME,
+    BIRTH: toRawDate(r.BIRTH),
+    TELEPHONE: r.TELEPHONE,
+    DateService: toRawDate(r.DateService),
+    Activity: r.Activity,
+    Objective: r.Objective,
+    HealthInform: r.HealthInform,
+    HealthAdvice: r.HealthAdvice,
 
-  Follow1Date: r.Follow1Date,
-  Follow1Time: r.Follow1Time,
-  Follow1Route: r.Follow1Route,
-  Provider1: r.Provider1,
-  Response1: r.Response1,
+    // ===== FOLLOW 1 =====
+    DateFollow1:  toRawDate(r.Follow1Date),
+    TimeFollow1:  r.Follow1Time,
+    RouteFollow1: r.Follow1Route,
+    Provider1:    r.Provider1,
+    Response1:    r.Response1,
 
-  Follow2Date: r.Follow2Date,
-  Follow2Time: r.Follow2Time,
-  Follow2Route: r.Follow2Route,
-  Provider2: r.Provider2,
-  Response2: r.Response2,
+    // ===== FOLLOW 2 =====
+    DateFollow2:  toRawDate(r.Follow2Date),
+    TimeFollow2:  r.Follow2Time,
+    RouteFollow2: r.Follow2Route,
+    Provider2:    r.Provider2,
+    Response2:    r.Response2,
 
-  Follow3Date: r.Follow3Date,
-  Follow3Time: r.Follow3Time,
-  Follow3Route: r.Follow3Route,
-  Provider3: r.Provider3,
-  Response3: r.Response3
-};
-
+    // ===== FOLLOW 3 =====
+    DateFollow3:  toRawDate(r.Follow3Date),
+    TimeFollow3:  r.Follow3Time,
+    RouteFollow3: r.Follow3Route,
+    Provider3:    r.Provider3,
+    Response3:    r.Response3
+  };
 
   Object.entries(map).forEach(([id, val]) => {
     const el = document.getElementById(id);
-    if (el) el.value = val || "";
+    if (el) el.value = val ?? "";
   });
 
   showTab("online");
 }
+
 
 function formatBirth(b) {
   if (!b || String(b).length !== 8) return b || "";
