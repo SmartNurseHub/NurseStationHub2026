@@ -38,10 +38,9 @@ const VIEW_CONFIG = {
   },
 
   nursingRecords: {
-    view: "/modules/nursingRecords/nursingRecords.view.html",
-    script: "/modules/nursingRecords/nursingRecords.client.js",
-    init: "initNursingRecords"
-  },
+  view: "/modules/nursingRecords/nursingRecords.view.html",
+  script: "/modules/nursingRecords/nursingRecords.client.js"
+},
 
    /* ⭐ NEW */
   nursingCounselor: {

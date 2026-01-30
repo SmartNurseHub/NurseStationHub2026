@@ -1,50 +1,51 @@
 /******************************************************************
  * modules/patients/patients.service.js
  *
- * PATIENTS SERVICE — FINAL CLEAN & SAFE
+ * PATIENTS SERVICE — FINAL FIXED VERSION
  *
  * หน้าที่:
- * - ติดต่อ Google Sheets
+ * - ติดต่อ Google Sheets (PATIENTS MASTER)
  * - Import / Upsert patients (CID-based)
  * - Search patients สำหรับ autocomplete
- *
- * เชื่อมโยง:
- * - patients.controller.js
- * - Google Sheets (PATIENTS MASTER)
- *
- * ถูกเรียกจาก:
- * - patients.controller.js (import / search)
  ******************************************************************/
 
 const { google } = require("googleapis");
 
 /* =========================================================
-   GOOGLE AUTH & SHEETS CLIENT
+   GOOGLE SHEETS CLIENT (SAFE INIT)
 ========================================================= */
-const auth = new google.auth.GoogleAuth({
-  credentials: JSON.parse(
-    Buffer.from(
-      process.env.GOOGLE_CREDENTIAL_BASE64,
-      "base64"
-    ).toString("utf8")
-  ),
-  scopes: ["https://www.googleapis.com/auth/spreadsheets"],
-});
+let sheets = null;
 
-const sheets = google.sheets({ version: "v4", auth });
+async function getSheets() {
+  if (sheets) return sheets;
+
+  const auth = new google.auth.GoogleAuth({
+    credentials: JSON.parse(
+      Buffer.from(
+        process.env.GOOGLE_CREDENTIAL_BASE64,
+        "base64"
+      ).toString("utf8")
+    ),
+    scopes: ["https://www.googleapis.com/auth/spreadsheets"],
+  });
+
+  const authClient = await auth.getClient();
+
+  sheets = google.sheets({
+    version: "v4",
+    auth: authClient,
+  });
+
+  console.log("📄 Google Sheets client initialized");
+  return sheets;
+}
 
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
 const SHEET_PATIENTS = process.env.SHEET_PATIENTS;
 
 /* =========================================================
-   HELPERS / UTILITIES
+   HELPERS
 ========================================================= */
-
-/**
- * Normalize CID → string 13 digits
- * - ป้องกัน Excel scientific notation
- * - ป้องกัน number / null / undefined
- */
 function normalizeCID(cid) {
   if (cid === null || cid === undefined) return "";
 
@@ -60,10 +61,6 @@ function normalizeCID(cid) {
     .padStart(13, "0");
 }
 
-/**
- * Safe lowercase
- * - ป้องกัน error: toLowerCase is not a function
- */
 function safeLower(v) {
   return String(v ?? "").toLowerCase();
 }
@@ -72,9 +69,9 @@ function safeLower(v) {
    IMPORT / UPSERT PATIENTS (CID-BASED)
 ========================================================= */
 async function importPatientsService(rows) {
-  /* ----------------------------------
-     1) LOAD EXISTING CID FROM SHEET
-  ---------------------------------- */
+  const sheets = await getSheets();
+
+  /* ---------- Load existing CID ---------- */
   const existingRes = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
     range: `${SHEET_PATIENTS}!A2:A`,
@@ -84,12 +81,10 @@ async function importPatientsService(rows) {
   const cidMap = {};
   (existingRes.data.values || []).forEach((r, i) => {
     const cid = normalizeCID(r[0]);
-    if (cid) cidMap[cid] = i + 2; // sheet row
+    if (cid) cidMap[cid] = i + 2;
   });
 
-  /* ----------------------------------
-     2) DEDUP INPUT (CID UNIQUE)
-  ---------------------------------- */
+  /* ---------- Dedup input ---------- */
   const uniqueRows = {};
   for (const r of rows) {
     const cid = normalizeCID(r.CID);
@@ -97,9 +92,7 @@ async function importPatientsService(rows) {
     uniqueRows[cid] = { ...r, CID: cid };
   }
 
-  /* ----------------------------------
-     3) PREPARE UPSERT DATA
-  ---------------------------------- */
+  /* ---------- Prepare upsert ---------- */
   const updates = [];
   const inserts = [];
 
@@ -107,7 +100,7 @@ async function importPatientsService(rows) {
     const r = uniqueRows[cid];
 
     const rowValues = [
-      `'${cid}`,           // A: CID (string)
+      `'${cid}`,           // A
       r.PRENAME ?? "",     // B
       r.NAME ?? "",        // C
       r.LNAME ?? "",       // D
@@ -129,10 +122,8 @@ async function importPatientsService(rows) {
     }
   }
 
-  /* ----------------------------------
-     4) EXECUTE UPDATE
-  ---------------------------------- */
-  if (updates.length > 0) {
+  /* ---------- Execute update ---------- */
+  if (updates.length) {
     await sheets.spreadsheets.values.batchUpdate({
       spreadsheetId: SPREADSHEET_ID,
       requestBody: {
@@ -142,10 +133,8 @@ async function importPatientsService(rows) {
     });
   }
 
-  /* ----------------------------------
-     5) EXECUTE INSERT
-  ---------------------------------- */
-  if (inserts.length > 0) {
+  /* ---------- Execute insert ---------- */
+  if (inserts.length) {
     await sheets.spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_ID,
       range: `${SHEET_PATIENTS}!A:J`,
@@ -155,9 +144,6 @@ async function importPatientsService(rows) {
     });
   }
 
-  /* ----------------------------------
-     6) RESULT
-  ---------------------------------- */
   return {
     updated: updates.length,
     inserted: inserts.length,
@@ -165,13 +151,16 @@ async function importPatientsService(rows) {
 }
 
 /* =========================================================
-   SEARCH PATIENTS
-   - CID / HN / NAME / LNAME
-   - ใช้กับ autocomplete
+   SEARCH PATIENTS (AUTOCOMPLETE)
 ========================================================= */
 async function searchPatients(keyword) {
-  const q = safeLower(keyword);
-  if (!q) return [];
+  if (!keyword) return [];
+
+  const sheets = await getSheets();
+
+  const qRaw = String(keyword).trim();
+  const q = safeLower(qRaw);
+  const qCID = normalizeCID(qRaw);
 
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
@@ -180,24 +169,24 @@ async function searchPatients(keyword) {
   });
 
   const rows = res.data.values || [];
+  if (!rows.length) return [];
 
   const mapped = rows.map(r => ({
     CID: normalizeCID(r[0]),
     PRENAME: r[1] ?? "",
     NAME: r[2] ?? "",
     LNAME: r[3] ?? "",
-    HN: String(r[4] ?? ""),   // ⭐ บังคับเป็น string
+    HN: String(r[4] ?? ""),
     SEX: r[5] ?? "",
     BIRTH: r[6] ?? "",
     BIRTH_THAI: r[7] ?? "",
-    TELEPHONE: r[9] ?? "",
-    MOBILE: r[10] ?? "",
-    
+    TELEPHONE: r[8] ?? "",
+    MOBILE: r[9] ?? "",
   }));
 
   return mapped
     .filter(r =>
-      safeLower(r.CID).includes(q) ||
+      (qCID && r.CID.includes(qCID)) ||
       safeLower(r.HN).includes(q) ||
       safeLower(r.NAME).includes(q) ||
       safeLower(r.LNAME).includes(q)

@@ -69,16 +69,17 @@ exports.update = async (req, res) => {
 /* =========================================================
    DELETE /api/nursingRecords/:nsr   (SOFT DELETE)
 ========================================================= */
-exports.softDelete = async (req, res) => {
+exports.delete = async (req, res) => {
   try {
     const { nsr } = req.params;
-    const user = req.user?.name || "system";
+    console.log("🔥 DELETE API HIT", nsr);
 
-    await service.softDelete(nsr, user);
+    await service.deleteByNSR(nsr);
+
     res.json({ success: true });
-
   } catch (err) {
-    console.error("❌ softDelete error:", err);
+    console.error("❌ DELETE error:", err);
     res.status(500).json({ message: "Delete failed" });
   }
 };
+

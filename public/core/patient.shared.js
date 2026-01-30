@@ -24,23 +24,28 @@ async function searchPatientCore(query, renderCallback) {
 
   try {
     const res = await api.get(`/api/patients/search?q=${query}`);
-    renderCallback(res.data || []);
+    console.log("🔥 RAW API RES:", res.data);
+    renderCallback(res.data.data || []);
   } catch (err) {
     console.error("❌ patient search error", err);
-    alert("ค้นหาผู้ป่วยไม่สำเร็จ");
   }
 }
+
 
 // ==============================
 // RENDER RESULT
 // ==============================
 function renderPatientResults(container, patients, onSelect) {
+  console.log("🔥 RENDER:", container, patients.length);
+
   container.innerHTML = "";
 
   if (!patients.length) {
+    console.log("❌ NO PATIENTS TO RENDER");
     container.style.display = "none";
     return;
   }
+
 
   patients.forEach(p => {
     const item = document.createElement("button");
@@ -59,6 +64,9 @@ function renderPatientResults(container, patients, onSelect) {
 
   container.style.display = "block";
 }
+
+
+
 
 // ==============================
 // FILL FORM

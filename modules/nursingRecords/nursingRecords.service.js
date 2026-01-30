@@ -197,10 +197,10 @@ exports.getNextNSR = async () => {
 /* =========================================================
    SOFT DELETE
 ========================================================= */
-exports.softDelete = async (nsr, user = "system") => {
+exports.deleteByNSR = async (nsr) => {
+  console.log("🧨 SERVICE deleteByNSR", nsr);
   const auth = getAuth();
   const sheets = google.sheets({ version: "v4", auth });
-  const now = new Date().toISOString();
 
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: SHEET_ID,
@@ -208,23 +208,35 @@ exports.softDelete = async (nsr, user = "system") => {
   });
 
   const rows = res.data.values || [];
-  const index = rows.findIndex(r => r[0] === nsr);
-  if (index === -1) throw new Error("NSR not found");
+  const rowIndex = rows.findIndex(r => r[0] === nsr);
 
-  const row = index + 2;
+  if (rowIndex === -1) {
+    throw new Error("NSR not found");
+  }
 
-  await sheets.spreadsheets.values.update({
+  const sheetInfo = await sheets.spreadsheets.get({
     spreadsheetId: SHEET_ID,
-    range: `${SHEET_NAME}!AD${row}:AH${row}`,
-    valueInputOption: "USER_ENTERED",
+  });
+
+  const sheetId = sheetInfo.data.sheets.find(
+    s => s.properties.title === SHEET_NAME
+  ).properties.sheetId;
+
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId: SHEET_ID,
     requestBody: {
-      values: [[
-        "Y",          // Deleted
-        user,         // DeletedBy
-        now,          // DeletedAt
-        "INACTIVE",   // status
-        "Soft deleted"
-      ]]
-    }
+      requests: [
+        {
+          deleteDimension: {
+            range: {
+              sheetId,
+              dimension: "ROWS",
+              startIndex: rowIndex + 1, // +1 เพราะ A2
+              endIndex: rowIndex + 2,
+            },
+          },
+        },
+      ],
+    },
   });
 };

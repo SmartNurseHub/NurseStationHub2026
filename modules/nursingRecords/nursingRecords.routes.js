@@ -26,9 +26,7 @@ router.post("/", controller.save);
 ========================================================= */
 router.put("/:nsr", controller.update);
 
-/* =========================================================
-   SOFT DELETE
-========================================================= */
-router.delete("/:nsr", controller.softDelete);
+
+router.delete("/:nsr", controller.delete);
 
 module.exports = router;

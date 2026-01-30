@@ -196,36 +196,98 @@ function bindSave() {
   if (!btn) return;
 
   btn.onclick = async () => {
+
+    /* ===============================
+       1) ตรวจว่ามีข้อมูลเลือกไหม
+    =============================== */
     if (!PatientsImportState.selectedCID.size) {
-      alert("⚠️ กรุณาเลือกข้อมูลก่อนบันทึก");
+      Swal.fire({
+        icon: "warning",
+        title: "ยังไม่ได้เลือกข้อมูล",
+        text: "กรุณาเลือกข้อมูลก่อนบันทึก",
+        confirmButtonText: "ตกลง"
+      });
       return;
     }
+
     const payload = PatientsImportState.allRows.filter(r =>
       PatientsImportState.selectedCID.has(r.CID)
     );
-     console.log("PAYLOAD TYPE:", Array.isArray(payload));
-  console.log("PAYLOAD LENGTH:", payload.length);
-  console.log("PAYLOAD SAMPLE:", payload[0]);
 
-    if (!confirm(`ยืนยันบันทึก ${payload.length} รายการ ?`)) return;
+    console.log("PAYLOAD TYPE:", Array.isArray(payload));
+    console.log("PAYLOAD LENGTH:", payload.length);
+    console.log("PAYLOAD SAMPLE:", payload[0]);
 
-    const res = await fetch("/api/patients/import", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
+    /* ===============================
+       2) Confirm ก่อนบันทึก
+    =============================== */
+    const confirm = await Swal.fire({
+      icon: "question",
+      title: "ยืนยันการบันทึก",
+      html: `ต้องการบันทึกข้อมูล <b>${payload.length}</b> รายการ ใช่หรือไม่ ?`,
+      showCancelButton: true,
+      confirmButtonText: "บันทึก",
+      cancelButtonText: "ยกเลิก",
+      reverseButtons: true
     });
 
-    if (!res.ok) {
-      alert("❌ บันทึกไม่สำเร็จ");
-      return;
-    }
+    if (!confirm.isConfirmed) return;
 
-    alert("✅ บันทึกข้อมูลสำเร็จ");
-    PatientsImportState.selectedCID.clear();
-    renderPatientsTable();
-    updateCounter();
+    /* ===============================
+       3) Loading
+    =============================== */
+    Swal.fire({
+      title: "กำลังบันทึกข้อมูล",
+      text: "กรุณารอสักครู่...",
+      allowOutsideClick: false,
+      didOpen: () => {
+        Swal.showLoading();
+      }
+    });
+
+    try {
+      const res = await fetch("/api/patients/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) {
+        const err = await res.text();
+        throw new Error(err || "บันทึกไม่สำเร็จ");
+      }
+
+      /* ===============================
+         4) Success
+      =============================== */
+      Swal.fire({
+        icon: "success",
+        title: "บันทึกสำเร็จ",
+        text: `บันทึกข้อมูล ${payload.length} รายการเรียบร้อยแล้ว`,
+        timer: 2000,
+        showConfirmButton: false
+      });
+
+      PatientsImportState.selectedCID.clear();
+      renderPatientsTable();
+      updateCounter();
+
+    } catch (err) {
+      console.error("❌ SAVE ERROR", err);
+
+      /* ===============================
+         5) Error
+      =============================== */
+      Swal.fire({
+        icon: "error",
+        title: "บันทึกไม่สำเร็จ",
+        text: err.message || "เกิดข้อผิดพลาดระหว่างบันทึกข้อมูล",
+        confirmButtonText: "ตกลง"
+      });
+    }
   };
 }
+
 
 /* =========================================================
    UI

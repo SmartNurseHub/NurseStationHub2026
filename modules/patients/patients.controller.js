@@ -100,21 +100,16 @@ exports.importPatients = async (req, res) => {
 ================================================= */
 exports.searchPatients = async (req, res) => {
   try {
-    const q = (req.query.q || "").trim();
+    const keyword = req.query.q || "";
+    const data = await service.searchPatients(keyword);
 
-    if (!q) {
-      return res.json({ data: [] });
-    }
-
-    const rows = await service.searchPatients(q);
-
-    res.json({ data: rows });
+    // 🔥 สำคัญ: ส่ง array ตรง ๆ
+    res.json(data);
 
   } catch (err) {
-    console.error("SEARCH PATIENT ERROR:", err);
-    res.status(500).json({
-      data: [],
-      message: "Search failed"
-    });
+    console.error("❌ searchPatients error:", err);
+    res.status(500).json([]);
   }
 };
+
+
