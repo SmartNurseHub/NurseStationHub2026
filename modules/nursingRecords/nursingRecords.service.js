@@ -162,14 +162,16 @@ exports.updateByNSR = async (nsr, rawData) => {
 /* =========================================================
    GET NEXT NSR
 ========================================================= */
+/* =========================================================
+   GET NEXT NSR (Reset yearly)
+========================================================= */
 exports.getNextNSR = async () => {
   const auth = getAuth();
   const sheets = google.sheets({ version: "v4", auth });
 
   const now = new Date();
   const yyyy = now.getFullYear();
-  const mm   = String(now.getMonth() + 1).padStart(2, "0");
-  const prefix = `NSR${yyyy}${mm}`;
+  const prefix = `NSR${yyyy}`;
 
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: SHEET_ID,
@@ -178,13 +180,13 @@ exports.getNextNSR = async () => {
 
   const rows = res.data.values || [];
 
-  const sameMonth = rows
+  const sameYear = rows
     .map(r => r[0])
     .filter(v => v && v.startsWith(prefix));
 
   let nextNo = 1;
-  if (sameMonth.length) {
-    const last = sameMonth
+  if (sameYear.length) {
+    const last = sameYear
       .map(v => parseInt(v.split("-")[1], 10))
       .filter(n => !isNaN(n))
       .sort((a, b) => b - a)[0];
