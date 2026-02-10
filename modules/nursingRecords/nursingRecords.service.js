@@ -171,7 +171,10 @@ exports.getNextNSR = async () => {
 
   const now = new Date();
   const yyyy = now.getFullYear();
-  const prefix = `NSR${yyyy}`;
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+
+  const displayPrefix = `NSR${yyyy}${mm}`; // ใช้แสดงผล
+  const yearPrefix = `NSR${yyyy}`;         // ใช้คำนวณเลขรันทั้งปี
 
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: SHEET_ID,
@@ -180,21 +183,28 @@ exports.getNextNSR = async () => {
 
   const rows = res.data.values || [];
 
+  // ✅ ค้นหาเฉพาะรายการในปีเดียวกัน
   const sameYear = rows
     .map(r => r[0])
-    .filter(v => v && v.startsWith(prefix));
+    .filter(v => v && v.startsWith(yearPrefix));
 
   let nextNo = 1;
+
   if (sameYear.length) {
     const last = sameYear
-      .map(v => parseInt(v.split("-")[1], 10))
+      .map(v => {
+        const parts = v.split("-");
+        return parts[1] ? parseInt(parts[1], 10) : 0;
+      })
       .filter(n => !isNaN(n))
       .sort((a, b) => b - a)[0];
+
     nextNo = last + 1;
   }
 
-  return `${prefix}-${String(nextNo).padStart(5, "0")}`;
+  return `${displayPrefix}-${String(nextNo).padStart(5, "0")}`;
 };
+
 
 /* =========================================================
    SOFT DELETE
