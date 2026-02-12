@@ -1,5 +1,5 @@
 /*************************************************
- * server.js — MODULE-BASED VERSION (FIXED)
+ * server.js — PRODUCTION SAFE (Render OK)
  *************************************************/
 
 require("dotenv").config();
@@ -19,21 +19,17 @@ app.use(express.urlencoded({ extended: true }));
    STATIC FILES
 ================================ */
 app.use(express.static(path.join(__dirname, "public")));
-
-/* 🔥 สำคัญมาก: เปิด modules ให้ frontend */
 app.use("/modules", express.static(path.join(__dirname, "modules")));
 
 /* ===============================
    API ROUTES
 ================================ */
-const apiRoutes = require("./routes");
-app.use("/api", apiRoutes);
-
+app.use("/api", require("./routes"));
 
 /* ===============================
-   SPA FALLBACK
+   SPA FALLBACK (❗ ไม่กิน /api)
 ================================ */
-app.get("*", (req, res) => {
+app.get(/^\/(?!api).*/, (req, res) => {
   res.sendFile(path.join(__dirname, "views/index.html"));
 });
 
@@ -41,5 +37,5 @@ app.get("*", (req, res) => {
    START SERVER
 ================================ */
 app.listen(PORT, () => {
-  console.log(`🚀 NurseStationHub running at http://localhost:${PORT}`);
+  console.log(`🚀 NurseStationHub running on port ${PORT}`);
 });
