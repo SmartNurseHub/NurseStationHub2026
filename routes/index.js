@@ -36,6 +36,7 @@ safeUse("/patients", "../modules/patients/patients.routes", "Patients");
 safeUse("/upload", "../modules/upload/upload.routes", "Upload");
 safeUse("/appointments", "../modules/appointments/appointments.routes", "Appointments");
 safeUse("/nursingRecords", "../modules/nursingRecords/nursingRecords.routes", "NursingRecords");
-router.use("/line", require("../modules/lineOA/lineOA.routes"));
+safeUse("/lineOA", "../modules/lineOA/lineOA.routes", "LineOA");
+safeUse("/line", "../modules/lineOA/lineOA.routes", "LineOA(alias)");
 
 module.exports = router;
