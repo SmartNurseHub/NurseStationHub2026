@@ -12,6 +12,23 @@ function getAuth() {
   });
 }
 
+async function appendRow(sheetName, values) {
+  const auth = await getAuth();
+  const sheets = google.sheets({ version: "v4", auth });
+
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: process.env.SPREADSHEET_ID,
+    range: sheetName,
+    valueInputOption: "RAW",
+    requestBody: {
+      values: [values],
+    },
+  });
+
+  console.log(`✅ Append to ${sheetName}`, values);
+}
+
 module.exports = {
   getAuth,
+  appendRow, // 🔥 สำคัญ
 };

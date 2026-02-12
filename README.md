@@ -82,6 +82,12 @@ NurseStationHub2026
 │       ├── reports.service.js
 │       └── reports.view.html
 │
+└── lineOA
+    ├── lineOA.routes.js        # webhook endpoint
+    ├── lineOA.controller.js    # แยก logic event
+    ├── lineOA.service.js       # เขียน Google Sheet
+    ├── lineOA.line.service.js  # helper สำหรับ LINE API
+    └── lineOA.schema.js        # mapping sheet / column
 ├── public
 │   ├── assets
 │   │   ├── images
