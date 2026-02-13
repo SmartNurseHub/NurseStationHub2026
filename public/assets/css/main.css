@@ -189,6 +189,27 @@ table.dataTable {
   background: #f9fafb;
 }
 
+/* tab ปกติ */
+#counselorSectionTab .nav-link {
+  font-size: 10px;
+  font-weight: bold;
+  color: #006666;
+  border: 1px solid transparent;
+}
+
+/* tab ที่ active */
+#counselorSectionTab .nav-link.active {
+  color: #fff;
+  background-color: #006666;
+  border-color: #006666;
+}
+
+/* hover (ไม่ active) */
+#counselorSectionTab .nav-link:hover {
+  color: #004c4c;
+}
+
+
 /* ==============================
    END
    ============================== */

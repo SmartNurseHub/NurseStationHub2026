@@ -89,30 +89,31 @@ window.NursingOnlineActions = (() => {
       }
 
       rows.forEach(r => {
-        const tr = document.createElement("tr");
-        tr._record = r;
+  const tr = document.createElement("tr");
+  tr._record = r;
 
-        tr.innerHTML = `
-          <td>${r.NSR || ""}</td>
-          <td>${r.DateService || "-"}</td>
-          <td>${r.HN || "-"}</td>
-          <td>${r.NAME || ""} ${r.LNAME || ""}</td>
-          <td>${r.Activity || "-"}</td>
-          <td>${r.Provider1 || "-"}</td>
-          <td class="text-center">
-            <button type="button" class="btn btn-warning btn-sm action-edit">✏️</button>
-            <button class="btn btn-sm btn-info"
-  onclick='printRecord(${JSON.stringify(r)})'>
-  🖨️
-</button>
+  tr.innerHTML = `
+    <td>${r.NSR || ""}</td>
+    <td>${r.DateService || "-"}</td>
+    <td>${r.HN || "-"}</td>
+    <td>${r.NAME || ""} ${r.LNAME || ""}</td>
+    <td>${r.Activity || "-"}</td>
+    <td>${r.Provider1 || "-"}</td>
+    <td class="text-center">
+      <button type="button" class="btn btn-warning btn-sm action-edit">✏️</button>
 
-            <button class="btn btn-sm btn-danger ms-1"
-  onclick="deleteRecord('${r.NSR}')">🗑️</button>
+      <button class="btn btn-sm btn-info"
+        onclick='handlePrint(${JSON.stringify(r)})'>
+        🖨️
+      </button>
 
-          </td>
-        `;
-        tbody.appendChild(tr);
-      });
+      <button class="btn btn-sm btn-danger ms-1"
+        onclick="deleteRecord('${r.NSR}')">🗑️</button>
+    </td>
+  `;
+  tbody.appendChild(tr);
+});
+
 
     } catch (err) {
       console.error(err);

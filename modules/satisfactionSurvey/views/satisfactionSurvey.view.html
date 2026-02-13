@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- Bootstrap -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+  <style>
+    body { background:#FEEFC6; font-family:'Prompt',sans-serif; }
+    .card { border-radius:18px; border:none; }
+    .card-header {
+      background:linear-gradient(135deg,#006666);
+      color:white;
+      border-radius:18px 18px 0 0;
+      padding:18px;
+      position:relative;
+    }
+    table th, table td {
+      text-align:center;
+      vertical-align:middle;
+      font-size:14px;
+    }
+    table td:first-child { text-align:left; font-weight:500; }
+    .btn-submit { border-radius:40px; font-size:18px; padding:12px; }
+    .service-box {
+      background:#f8f9ff;
+      border:1px solid #e0e7ff;
+      border-radius:12px;
+      padding:12px;
+    }
+    .card-header img { height:90px; }
+  </style>
+</head>
+
+<body>
+
+<div class="container mt-4 mb-5">
+  <div class="card shadow">
+
+    <!-- HEADER -->
+    <div class="card-header d-flex align-items-center">
+      <img src="https://drive.google.com/thumbnail?id=1XyNEhgREHCn8AnPztJNZbFHut1GuKI7z">
+      <div class="text-center w-100 position-absolute start-50 translate-middle-x">
+        <h4 class="mb-1">แบบประเมินประสบการณ์และคุณภาพการรับบริการ</h4>
+        <h6 class="mb-1">มิตรไมตรีคลินิกเวชกรรม สาขาเขาน้อย</h6>
+        <small class="d-block mt-2">🌿 ทุกคำติชมของท่านมีคุณค่า 🌿</small>
+      </div>
+    </div>
+
+    <!-- BODY -->
+    <div class="card-body">
+      <form id="feedbackForm">
+
+        <!-- hidden UID from LINE -->
+        <input type="hidden" id="uid">
+
+        <!-- ข้อมูลผู้รับบริการ -->
+        <div class="row mb-3">
+          <div class="col-md-3">
+            <label class="form-label">วันที่รับบริการ</label>
+            <input type="date" class="form-control" id="date" required>
+          </div>
+          <div class="col-md-5">
+            <label class="form-label">ชื่อ - นามสกุล</label>
+            <input type="text" class="form-control" id="fullName" required>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">เบอร์โทรศัพท์</label>
+            <input type="tel" id="phone" class="form-control" placeholder="เช่น 0812345678" pattern="[0-9]{9,10}" inputmode="numeric">
+
+          </div>
+        </div>
+
+        <!-- บริการ -->
+        <div class="mb-4">
+          <label class="form-label fw-semibold">บริการที่ท่านมาใช้</label>
+          <div class="row service-box" id="servicesBox">
+            <div class="col-md-4 col-6"><input type="checkbox" value="ตรวจรักษาโรค"> ตรวจรักษาโรค</div>
+            <div class="col-md-4 col-6"><input type="checkbox" value="รับยา/ติดตามอาการ"> รับยา/ติดตามอาการ</div>
+            <div class="col-md-4 col-6"><input type="checkbox" value="ทำแผล/ฉีดยา/วัคซีน"> ทำแผล/ฉีดยา/วัคซีน</div>
+            <div class="col-md-4 col-6"><input type="checkbox" value="ตรวจสุขภาพประจำปี"> ตรวจสุขภาพประจำปี</div>
+            <div class="col-md-4 col-6"><input type="checkbox" value="ให้คำปรึกษา"> ให้คำปรึกษา</div>
+            <div class="col-md-4 col-6">
+              <input type="checkbox" value="อื่นๆ" id="serviceOtherChk"> อื่นๆ
+              <input type="text" class="form-control mt-2" id="serviceOtherText" placeholder="โปรดระบุ" style="display:none;">
+          </div>
+        </div>
+
+        <!-- ตารางคำถาม -->
+        <div class="table-responsive">
+          <table class="table table-bordered">
+            <thead class="table-primary">
+              <tr>
+                <th>รายการประเมิน</th>
+                <th>1</th><th>2</th><th>3</th><th>4</th><th>5</th>
+              </tr>
+            </thead>
+            <tbody id="questionTable"></tbody>
+          </table>
+        </div>
+
+        <!-- comment -->
+        <div class="mb-3">
+          <label class="form-label">ข้อเสนอแนะเพิ่มเติม</label>
+          <textarea class="form-control" id="comment" rows="3"></textarea>
+        </div>
+
+        <button type="button" class="btn btn-primary w-100 btn-submit" onclick="submitSurvey()">
+          📩 ส่งแบบประเมิน
+        </button>
+
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Scripts -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+
+
+
+<script>
+/* =====================
+   QUESTIONS
+===================== */
+const questions = [
+  "ระยะเวลารอรับบริการมีความเหมาะสม",
+  "ขั้นตอนการรับบริการเป็นไปอย่างต่อเนื่อง ไม่ซับซ้อน",
+  "ความสุภาพและเป็นมิตรของเจ้าหน้าที่",
+  "ความใส่ใจและการรับฟังของแพทย์/พยาบาล",
+  "คำอธิบายเกี่ยวกับอาการและการรักษาเข้าใจง่าย",
+  "ความชัดเจนของคำแนะนำในการดูแลตนเองหลังรับบริการ",
+  "ความมั่นใจในคุณภาพการรักษาที่ได้รับ",
+  "ความพึงพอใจต่อผลลัพธ์การรักษาโดยรวม",
+  "ความรู้สึกปลอดภัยและความเชื่อมั่นในคลินิก",
+  "โดยรวมแล้ว ท่านพึงพอใจกับการเข้ารับบริการครั้งนี้เพียงใด"
+];
+
+function renderQuestions() {
+  const tbody = document.getElementById("questionTable");
+  questions.forEach((q, i) => {
+    let tr = `<tr><td>${q}</td>`;
+    for (let s = 1; s <= 5; s++) {
+      tr += `<td><input type="radio" name="q${i+1}" value="${s}" required></td>`;
+    }
+    tr += "</tr>";
+    tbody.insertAdjacentHTML("beforeend", tr);
+  });
+}
+
+/* =====================
+   SUBMIT (SUPPORT OTHER)
+===================== */
+async function submitSurvey() {
+  const uid = document.getElementById("uid").value;
+  const serviceDate = document.getElementById("date").value;
+
+  if (!uid || !serviceDate) {
+    Swal.fire("แจ้งเตือน", "ข้อมูลไม่ครบ", "warning");
+    return;
+  }
+
+  /* ===== SERVICES + OTHER ===== */
+  let services = [...document.querySelectorAll("#servicesBox input:checked")]
+    .map(el => el.value);
+
+  const otherText = document.getElementById("serviceOtherText")?.value.trim();
+
+  if (services.includes("อื่นๆ")) {
+    services = services.filter(v => v !== "อื่นๆ");
+    if (otherText) {
+      services.push(`อื่นๆ: ${otherText}`);
+    } else {
+      Swal.fire("แจ้งเตือน", "กรุณาระบุบริการอื่นๆ", "warning");
+      return;
+    }
+  }
+
+  services = services.join(", ");
+
+  const data = {
+    uid,
+    serviceDate,
+    fullName: document.getElementById("fullName").value,
+    phone: document.getElementById("phone").value,
+    services,
+    q1: document.querySelector('input[name="q1"]:checked')?.value || "",
+    q2: document.querySelector('input[name="q2"]:checked')?.value || "",
+    q3: document.querySelector('input[name="q3"]:checked')?.value || "",
+    q4: document.querySelector('input[name="q4"]:checked')?.value || "",
+    q5: document.querySelector('input[name="q5"]:checked')?.value || "",
+    q6: document.querySelector('input[name="q6"]:checked')?.value || "",
+    q7: document.querySelector('input[name="q7"]:checked')?.value || "",
+    q8: document.querySelector('input[name="q8"]:checked')?.value || "",
+    q9: document.querySelector('input[name="q9"]:checked')?.value || "",
+    q10: document.querySelector('input[name="q10"]:checked')?.value || "",
+    comment: document.getElementById("comment").value
+  };
+
+  Swal.fire({ title:"กำลังบันทึก...", allowOutsideClick:false, didOpen:()=>Swal.showLoading() });
+
+  try {
+    const res = await fetch("/satisfaction-survey/submit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data)
+    });
+
+    const result = await res.json();
+    Swal.close();
+
+    if (result.status === "success") {
+      Swal.fire("สำเร็จ", "ขอบคุณสำหรับการประเมิน", "success")
+        .then(() => window.liff && liff.isInClient() && liff.closeWindow());
+    } else if (result.status === "duplicate") {
+      Swal.fire("แจ้งเตือน", "ท่านทำแบบประเมินแล้ว", "warning");
+    } else {
+      Swal.fire("ผิดพลาด", "ไม่สามารถบันทึกข้อมูลได้", "error");
+    }
+
+  } catch (err) {
+    console.error(err);
+    Swal.fire("ผิดพลาด", "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้", "error");
+  }
+}
+
+/* =====================
+   INIT LIFF
+===================== */
+document.addEventListener("DOMContentLoaded", async () => {
+  renderQuestions();
+
+  // toggle อื่นๆ
+  const otherChk = document.getElementById("serviceOtherChk");
+  if (otherChk) {
+    otherChk.addEventListener("change", () => {
+      document.getElementById("serviceOtherText").style.display =
+        otherChk.checked ? "block" : "none";
+      if (!otherChk.checked) {
+        document.getElementById("serviceOtherText").value = "";
+      }
+    });
+  }
+
+  await liff.init({ liffId:"2007902507-7OKhdnNW" });
+  if (!liff.isLoggedIn()) return liff.login();
+  const profile = await liff.getProfile();
+  document.getElementById("uid").value = profile.userId;
+});
+</script>
+
+
+</body>
+</html>

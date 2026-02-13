@@ -33,88 +33,91 @@ git push origin main
 
 
 
-NurseStationHub2026
-│
-├── config
-│   ├── env.js
-│   ├── google.config.js
-│   └── index.js
-│
-├── modules                ← ⭐ แยกตาม Feature
-│   ├── dashboard
-│   │   ├── dashboard.controller.js
-│   │   ├── dashboard.routes.js
-│   │   ├── dashboard.service.js
-│   │   └── dashboard.view.html
-│   ├── nursingRecords
-│   │   ┣ audit.service.js
-│   │   ┣ nursingRecords.client.js
-│   │   ┣ nursingRecords.controller.js
-│   │   ┣ nursingRecords.routes.js
-│   │   ┣ nursingRecords.service.js
-│   │   ┗ nursingRecords.view.html
-│   ├── nursingCounselor
-│   │   ┣ nursingCounselor.client.js
-│   │   ┗ nursingCounselor.view.html
-│   │
-│   ├── patients
-│   │   ├── patients.controller.js
-│   │   ├── patients.routes.js
-│   │   ├── patients.service.js
-│   │   ├── patients.view.html
-│   │   └── patients.client.js
-│   │
-│   ├── appointments
-│   │   ├── appointments.controller.js
-│   │   ├── appointments.routes.js
-│   │   ├── appointments.service.js
-│   │   ├── appointments.view.html
-│   │   └── appointments.client.js
-│   │
-│   ├── upload
-│   │   ├── upload.controller.js
-│   │   ├── upload.routes.js
-│   │   └── upload.service.js
-│   │
-│   └── reports
-│       ├── reports.controller.js
-│       ├── reports.routes.js
-│       ├── reports.service.js
-│       └── reports.view.html
-│
-└── lineOA
-    ├── lineOA.routes.js        # webhook endpoint
-    ├── lineOA.controller.js    # แยก logic event
-    ├── lineOA.service.js       # เขียน Google Sheet
-    ├── lineOA.line.service.js  # helper สำหรับ LINE API
-    └── lineOA.schema.js        # mapping sheet / column
-├── public
-│   ├── assets
-│   │   ├── images
-│   │   │   └── LOGO.png
-│   │   └── css
-│   │       └── main.css
-│   │
-│   ├── core
-│   │   ├── app.js          ← global js (sidebar, loadView)
-│   │   └── api.js          ← fetch wrapper
-│   │
-│   └── vendor             ← lib ภายนอก (ถ้ามี)
-│
-├── uploads                ← file upload จริง
-│
-├── routes
-│   └── index.js            ← รวม routes ทุก module
-│
-├── views
-│   ├── layout
-│   │   ├── header.html
-│   │   ├── sidebar.html
-│   │   └── footer.html
-│   │
-│   └── index.html          ← shell หลัก
-│
-├── .env
-├── server.js
-├── package.json
-└── README.md
+
+โครงสร้าง
+ ┗ NurseStationHub2026
+ ┃ ┣ config
+ ┃ ┃ ┗ google.js
+ ┃ ┣ modules
+ ┃ ┃ ┣ appointments
+ ┃ ┃ ┃ ┗ appointments.routes.js
+ ┃ ┃ ┣ dashboard
+ ┃ ┃ ┃ ┣ dashboard.client.js
+ ┃ ┃ ┃ ┣ dashboard.controller.js
+ ┃ ┃ ┃ ┣ dashboard.routes.js
+ ┃ ┃ ┃ ┣ dashboard.service.js
+ ┃ ┃ ┃ ┗ dashboard.view.html
+ ┃ ┃ ┣ lineOA
+ ┃ ┃ ┃ ┣ lineOA.controller.js
+ ┃ ┃ ┃ ┣ lineOA.line.service.js
+ ┃ ┃ ┃ ┣ lineOA.routes.js
+ ┃ ┃ ┃ ┣ lineOA.schema.js
+ ┃ ┃ ┃ ┗ lineOA.service.js
+ ┃ ┃ ┣ nursingRecords
+ ┃ ┃ ┃ ┣ views
+ ┃ ┃ ┃ ┃ ┣ nursingRecords.counselor.view.html
+ ┃ ┃ ┃ ┃ ┗ nursingRecords.online.view.html
+ ┃ ┃ ┃ ┣ audit.service.js
+ ┃ ┃ ┃ ┣ nursingRecords.client.js
+ ┃ ┃ ┃ ┣ nursingRecords.controller.js
+ ┃ ┃ ┃ ┣ nursingRecords.counselor.actions.js
+ ┃ ┃ ┃ ┣ nursingRecords.counselor.client.js
+ ┃ ┃ ┃ ┣ nursingRecords.online.actions.js
+ ┃ ┃ ┃ ┣ nursingRecords.online.client.js
+ ┃ ┃ ┃ ┣ nursingRecords.print.js
+ ┃ ┃ ┃ ┣ nursingRecords.routes.js
+ ┃ ┃ ┃ ┣ nursingRecords.service.js
+ ┃ ┃ ┃ ┗ nursingRecords.view.html
+ ┃ ┃ ┣ patientCore
+ ┃ ┃ ┃ ┗ patientCore.client.js
+ ┃ ┃ ┣ patients
+ ┃ ┃ ┃ ┣ patients.client.js
+ ┃ ┃ ┃ ┣ patients.controller.js
+ ┃ ┃ ┃ ┣ patients.routes.js
+ ┃ ┃ ┃ ┣ patients.service.js
+ ┃ ┃ ┃ ┗ patients.view.html
+ ┃ ┃ ┗ upload
+ ┃ ┃ ┃ ┗ upload.routes.js
+ ┃ ┣ public
+ ┃ ┃ ┣ assets
+ ┃ ┃ ┃ ┣ css
+ ┃ ┃ ┃ ┃ ┗ main.css
+ ┃ ┃ ┃ ┣ images
+ ┃ ┃ ┃ ┃ ┗ LOGO.png
+ ┃ ┃ ┃ ┗ js
+ ┃ ┃ ┃ ┃ ┗ date.utils.js
+ ┃ ┃ ┣ core
+ ┃ ┃ ┃ ┣ app.js
+ ┃ ┃ ┃ ┗ patient.shared.js
+ ┃ ┃ ┗ js
+ ┃ ┃ ┃ ┗ patients.js
+ ┃ ┣ routes
+ ┃ ┃ ┗ index.js
+ ┃ ┣ uploads
+ ┃ ┃ ┣ nursingRecords.client.js
+ ┃ ┃ ┣ nursingRecords.counselor.view.html
+ ┃ ┃ ┗ nursingRecords.view.html
+ ┃ ┣ views
+ ┃ ┃ ┗ index.html
+ ┃ ┣ .env
+ ┃ ┣ cloudflared.exe
+ ┃ ┣ package-lock.json
+ ┃ ┣ package.json
+ ┃ ┣ README.md
+ ┃ ┗ server.js
+
+
+
+
+ const questions = [
+  "ระยะเวลารอรับบริการมีความเหมาะสม",
+  "ขั้นตอนการรับบริการเป็นไปอย่างต่อเนื่อง ไม่ซับซ้อน",
+  "ความสุภาพและเป็นมิตรของเจ้าหน้าที่",
+  "ความใส่ใจและการรับฟังของแพทย์/พยาบาล",
+  "คำอธิบายเกี่ยวกับอาการและการรักษาเข้าใจง่าย",
+  "ความชัดเจนของคำแนะนำในการดูแลตนเองหลังรับบริการ",
+  "ความมั่นใจในคุณภาพการรักษาที่ได้รับ",
+  "ความพึงพอใจต่อผลลัพธ์การรักษาโดยรวม",
+  "ความรู้สึกปลอดภัยและความเชื่อมั่นในคลินิก",
+  "โดยรวมแล้ว ท่านพึงพอใจกับการเข้ารับบริการครั้งนี้เพียงใด"
+];

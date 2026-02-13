@@ -1,9 +1,1094 @@
 <!-- modules/nursingRecords/views/nursingRecords.counselor.view.html -->
-
-<div class="col-6 mx-auto mb-3 mt-4 position-relative">
-  <!-- search counselor -->
+<!-- ================= SEARCH (COUNSELOR) ================= -->
+<div class="col-10 mx-auto mb-3 mt-4">
+  <div class="col-6 mx-auto position-relative">
+    <label class="form-label mb-1 text-center d-block" style="font-size:12px;">ค้นหาผู้รับบริการ</label>
+      <div class="input-group">
+        <span class="input-group-text" style="font-size:10px;">🔍</span>
+          <input type="text" id="searchKey" class="form-control" placeholder="กรอก HN หรือ CID" autocomplete="off" style="font-size:12px;">
+            <button type="button" class="btn btn-primary" style="font-size:12px;" id="btnSearchCounselor">ค้นหา</button>
+      </div>
+      <div id="counselorSearchResults" class="list-group w-100" style="position:absolute; top:100%; z-index:1000; display:none;">
+      </div>
+  </div>
 </div>
 
-<form id="generalForm">
-  <!-- ฟอร์ม counselor ทั้งหมด -->
-</form>
+<div class="col-12 mx-auto mt-4">
+  <!-- Tab Content -->
+  <div class="border p-3">
+    <!-- สุขภาพกาย : Counseling Form -->
+    <div class="tab-pane fade show active" id="physical">
+      <h6 class="mb-3">บันทึกการพยาบาลให้คำปรึกษาสุขภาพเฉพาะราย (ทั่วไป)</h6>
+      <!-- SECTION A -->
+        <fieldset class="border p-3 mb-3">
+          <legend class="float-none w-auto px-2" style="font-size:10px; font-weight:600;">ข้อมูลทั่วไปผู้รับบริการ</legend>
+            <div class="row g-2" style="font-size:12px;">
+              <div class="col-md-6"></div>
+                <div class="col-md-6 d-flex justify-content-end align-items-center" style="font-size:10px;">
+                  <span class="me-1 fw-bold">NSC :</span>
+                  <input type="text" id="cnsNSC" class="form-control form-control-sm text-end" readonly style="font-size:10px; max-width:210px;">
+                </div>
+              <div class="col-md-8"></div>
+                <div class="col-md-4 d-flex justify-content-end align-items-center gap-2" style="font-size:10px;">
+                  <label class="mb-0 fw-bold" style="white-space:nowrap;">วันที่ให้บริการ</label>
+                  <input type="date" class="form-control form-control-sm" id="cnsDate" style="font-size:10px; max-width:140px;">
+                  <input type="time" class="form-control form-control-sm" id="cnsTime" style="font-size:10px; max-width:90px;">
+                </div>
+              <div class="col-md-2">
+                <label class="form-label mb-1 fw-bold" style="font-size:10px;">HN</label>
+                <input class="form-control form-control-sm" id="cnsHN" readonly style="font-size:10px;">
+              </div>
+              <div class="col-md-2">
+                <label class="form-label mb-1 fw-bold" style="font-size:10px;">เลขบัตรประชาชน</label>
+                <input class="form-control form-control-sm" id="cnsCID" readonly style="font-size:10px;">
+              </div>
+              <div class="col-md-1" hidden>
+                <label class="form-label mb-1 fw-bold" style="font-size:10px;">คำนำหน้าชื่อ</label>
+                <input class="form-control form-control-sm" id="cnsPrefix" readonly style="font-size:10px;" >
+              </div>
+              <div class="col-md-2">
+                <label class="form-label mb-1 fw-bold" style="font-size:10px;">ชื่อ</label>
+                <input class="form-control form-control-sm" id="cnsName" readonly style="font-size:10px;">
+              </div>
+              <div class="col-md-2">
+                <label class="form-label mb-1 fw-bold" style="font-size:10px;">นามสกุล</label>
+                <input class="form-control form-control-sm" id="cnsLname" readonly style="font-size:10px;">
+              </div>
+              <div class="col-md-2">
+                <label class="form-label mb-1 fw-bold" style="font-size:10px;">วันเกิด</label>
+                <input class="form-control form-control-sm" id="cnsBirth" readonly style="font-size:10px;">
+              </div>
+              <div class="col-md-1">
+                <label class="form-label mb-1 fw-bold" style="font-size:10px;">อายุ</label>
+                <input class="form-control form-control-sm" id="cnsAge" readonly style="font-size:10px;">
+              </div>
+              <div class="col-md-1">
+                <label class="form-label mb-1 fw-bold" style="font-size:10px;">เพศ</label>
+                <input class="form-control form-control-sm" id="cnsGender" readonly style="font-size:10px;">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label mb-1 fw-bold" style="font-size:10px;">เบอร์โทรศัพท์</label>
+                <input class="form-control form-control-sm" id="cnsPhone" style="font-size:10px;">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label mb-1 fw-bold" style="font-size:10px;">Line User ID</label>
+                <input class="form-control form-control-sm" style="font-size:10px;">
+              </div> 
+            </div>
+        </fieldset>
+
+        <!-- ================= TABS ================= -->
+        <ul class="nav nav-tabs mb-3"
+          id="counselorSectionTab"
+          role="tablist"
+          style="font-size:10px;">
+
+        <li class="nav-item" role="presentation">
+          <button class="nav-link active"
+                  id="sectionB-tab"
+                  data-bs-toggle="tab"
+                  data-bs-target="#sectionB"
+                  type="button"
+                  role="tab">
+            Assessment
+          </button>
+        </li>
+
+        <li class="nav-item" role="presentation">
+          <button class="nav-link"
+                  id="sectionC-tab"
+                  data-bs-toggle="tab"
+                  data-bs-target="#sectionC"
+                  type="button"
+                  role="tab">
+            Nursing Diagnosis
+          </button>
+        </li>
+
+        <li class="nav-item" role="presentation">
+          <button class="nav-link"
+                  id="sectionD-tab"
+                  data-bs-toggle="tab"
+                  data-bs-target="#sectionD"
+                  type="button"
+                  role="tab">
+            Planning
+          </button>
+        </li>
+
+        <li class="nav-item" role="presentation">
+          <button class="nav-link"
+                  id="sectionE-tab"
+                  data-bs-toggle="tab"
+                  data-bs-target="#sectionE"
+                  type="button"
+                  role="tab">
+            Implementation
+          </button>
+        </li>
+
+        <li class="nav-item" role="presentation">
+          <button class="nav-link"
+                  id="sectionF-tab"
+                  data-bs-toggle="tab"
+                  data-bs-target="#sectionF"
+                  type="button"
+                  role="tab">
+            Evaluation
+          </button>
+        </li>
+
+        </ul>
+
+          <div class="tab-content">
+              <!-- ================= SECTION B ================= -->
+
+              <div class="accordion" id="counselingAccordion">
+                <!-- หมวดที่ 1 -->
+                <div class="accordion-item" style="border:1px solid #cfe2ff;">
+                  <h2 class="accordion-header">
+                    <button class="accordion-button py-1" type="button" data-bs-toggle="collapse" data-bs-target="#cat1"
+                    style="font-size:10px; font-weight:bold; background-color:#006666; color:#fefefe;">
+                      📝 ข้อมูลปัญหาและเป้าหมาย
+                    </button>
+                  </h2>
+
+                  <div id="cat1" class="accordion-collapse collapse show">
+                    <div class="accordion-body py-2"
+                      style="max-height:140px; overflow-y:auto; background-color:#f8fbff;">
+                      <div class="row g-2">
+
+                        <!-- ================= 1 ================= -->
+                        <div class="col-md-6">
+                          <label class="form-label"
+                            style="font-size:10px;font-weight:bold;">
+                            1️⃣ ประเด็นปัญหาหลัก 📍
+                          </label>
+                          <input type="text"
+                            class="form-control form-control-sm"
+                            style="font-size:10px;"
+                            id="mainIssueInput"
+                            list="mainIssueHistory">
+                          <datalist id="mainIssueHistory"></datalist>
+                        </div>
+
+                        <!-- ================= 2 ================= -->
+                        <div class="col-md-6">
+                          <label class="form-label"
+                            style="font-size:10px;font-weight:bold;">
+                            2️⃣ ความคาดหวังจากการให้คำปรึกษา 🎯
+                          </label>
+                          <input type="text"
+                            class="form-control form-control-sm"
+                            style="font-size:10px;"
+                            id="expectationInput"
+                            list="expectationHistory">
+                          <datalist id="expectationHistory"></datalist>
+                        </div>
+
+                </div>
+
+                    </div>
+                  </div>
+
+                </div>
+
+
+
+                <!-- หมวดที่ 2 -->
+                <div class="accordion-item" style="border:1px solid #cfe2ff;">
+
+                  <h2 class="accordion-header">
+                    <button
+                      class="accordion-button py-1 collapsed"
+                      type="button"
+                      data-bs-toggle="collapse"
+                      data-bs-target="#cat2"
+                      style="font-size:10px; font-weight:bold; background-color:#006666; color:#fefefe;">
+                      💪 สุขภาพกาย
+                    </button>
+                  </h2>
+
+                  <div id="cat2" class="accordion-collapse collapse">
+                  <div class="accordion-body py-2"
+                    style="background-color:#f8fbff;">
+
+                    <!-- ข้อ 3 ด้านร่างกาย -->
+                    <label class="form-label mt-1"
+                      style="font-size:10px;font-weight:bold;">
+                      3️⃣ ด้านร่างกายและสุขภาพกาย 💪
+                    </label>
+
+                    <div>
+                      <label class="form-label mt-1"
+                        style="font-size:10px;font-weight:bold;">
+                        สภาพทั่วไป
+                      </label>
+
+                      <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio" name="physicalStatus">
+                        <label class="form-check-label" style="font-size:10px;">แข็งแรงดี</label>
+                      </div>
+
+                      <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio" name="physicalStatus">
+                        <label class="form-check-label" style="font-size:10px;">อ่อนเพลีย</label>
+                      </div>
+
+                      <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio" name="physicalStatus">
+                        <label class="form-check-label" style="font-size:10px;">ซึม</label>
+                      </div>
+
+                      <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio" name="physicalStatus">
+                        <label class="form-check-label" style="font-size:10px;">กระสับกระส่าย</label>
+                      </div>
+                    </div>
+
+                    <!-- สัญญาณชีพ -->
+                    <div class="mt-2">
+                      <label class="form-label"
+                        style="font-size:10px;font-weight:bold;">
+                        สัญญาณชีพ
+                      </label>
+
+                      <div class="row g-1">
+                        <div class="col-3 col-md">
+                          <label class="form-label mb-0" style="font-size:10px;">BT</label>
+                          <input class="form-control form-control-sm" style="font-size:10px;">
+                        </div>
+
+                        <div class="col-3 col-md">
+                          <label class="form-label mb-0" style="font-size:10px;">SBP</label>
+                          <input class="form-control form-control-sm" style="font-size:10px;">
+                        </div>
+
+                        <div class="col-3 col-md">
+                          <label class="form-label mb-0" style="font-size:10px;">DBP</label>
+                          <input class="form-control form-control-sm" style="font-size:10px;">
+                        </div>
+
+                        <div class="col-3 col-md">
+                          <label class="form-label mb-0" style="font-size:10px;">PR</label>
+                          <input class="form-control form-control-sm" style="font-size:10px;">
+                        </div>
+
+                        <div class="col-3 col-md">
+                          <label class="form-label mb-0" style="font-size:10px;">RR</label>
+                          <input class="form-control form-control-sm" style="font-size:10px;">
+                        </div>
+
+                        <div class="col-3 col-md">
+                          <label class="form-label mb-0" style="font-size:10px;">SpO₂</label>
+                          <input class="form-control form-control-sm" style="font-size:10px;">
+                        </div>
+
+                        <div class="col-3 col-md">
+                          <label class="form-label mb-0" style="font-size:10px;">BW</label>
+                          <input class="form-control form-control-sm" style="font-size:10px;">
+                        </div>
+
+                        <div class="col-3 col-md">
+                          <label class="form-label mb-0" style="font-size:10px;">HT</label>
+                          <input class="form-control form-control-sm" style="font-size:10px;">
+                        </div>
+                      </div>
+                    </div>
+
+                    <textarea class="form-control mt-2"
+                      rows="3"
+                      style="font-size:10px;"
+                      placeholder="รายละเอียดเพิ่มเติม"></textarea>
+
+                  </div>
+                  </div>
+
+                </div>
+
+
+                <!-- หมวดที่ 3 -->
+                <div class="accordion-item" style="border:1px solid #cfe2ff;">
+
+                  <h2 class="accordion-header">
+                    <button
+                      class="accordion-button py-1 collapsed"
+                      type="button"
+                      data-bs-toggle="collapse"
+                      data-bs-target="#cat3"
+                      style="font-size:10px; font-weight:bold; background-color:#006666; color:#fefefe;">
+                      🧠 สุขภาพจิตและอารมณ์
+                    </button>
+                  </h2>
+
+                  <div id="cat3" class="accordion-collapse collapse">
+                    <div class="accordion-body py-2"
+                      style="
+                        max-height:140px;
+                        overflow-y:auto;
+                        background-color:#f8fbff;
+                      ">
+                        <!-- ================= 4 ================= --> 
+
+                          <label class="form-label mt-3" style="font-size:10px;font-weight:bold;">
+                            4️⃣ สุขภาพจิตและอารมณ์ 🧠
+                          </label>
+                          <div class="flex-grow-1">
+                            <!-- Emotional -->
+                            <div style="font-size:10px;font-weight:bold;">ด้านอารมณ์ (Emotional)</div>
+                            <div class="form-check form-check-inline">
+                              <input class="form-check-input" type="checkbox" name="mental_emotional[]" value="ปกติ">
+                              <label class="form-check-label" style="font-size:10px;">ปกติ</label>
+                            </div>
+
+                            <div class="form-check form-check-inline">
+                              <input class="form-check-input" type="checkbox" name="mental_emotional[]" value="วิตกกังวล">
+                              <label class="form-check-label" style="font-size:10px;">วิตกกังวล</label>
+                            </div>
+
+                            <div class="form-check form-check-inline">
+                              <input class="form-check-input" type="checkbox" name="mental_emotional[]" value="เครียด">
+                              <label class="form-check-label" style="font-size:10px;">เครียด</label>
+                            </div>
+
+                            <div class="form-check form-check-inline">
+                              <input class="form-check-input" type="checkbox" name="mental_emotional[]" value="กลัว">
+                              <label class="form-check-label" style="font-size:10px;">กลัว</label>
+                            </div>
+
+                            <div class="form-check form-check-inline">
+                              <input class="form-check-input" type="checkbox" name="mental_emotional[]" value="ซึมเศร้า">
+                              <label class="form-check-label" style="font-size:10px;">ซึมเศร้า</label>
+                            </div>
+
+                            <div class="form-check form-check-inline">
+                              <input class="form-check-input" type="checkbox" name="mental_emotional[]" value="อารมณ์แปรปรวน">
+                              <label class="form-check-label" style="font-size:10px;">อารมณ์แปรปรวน</label>
+                            </div>
+
+                            <!-- Cognitive -->
+                            <div class="mt-2" style="font-size:10px;font-weight:bold;">
+                              ด้านความคิดและการรับรู้ (Cognitive)
+                            </div>
+
+                            <div class="form-check form-check-inline">
+                              <input class="form-check-input" type="checkbox" name="mental_cognitive[]" value="สมาธิลดลง">
+                              <label class="form-check-label" style="font-size:10px;">สมาธิลดลง</label>
+                            </div>
+
+                            <div class="form-check form-check-inline">
+                              <input class="form-check-input" type="checkbox" name="mental_cognitive[]" value="ขาดแรงจูงใจ">
+                              <label class="form-check-label" style="font-size:10px;">ขาดแรงจูงใจ</label>
+                            </div>
+
+                            <div class="form-check form-check-inline">
+                              <input class="form-check-input" type="checkbox" name="mental_cognitive[]" value="ความคิดด้านลบต่อตนเอง">
+                              <label class="form-check-label" style="font-size:10px;">ความคิดด้านลบต่อตนเอง</label>
+                            </div>
+
+                            <!-- Behavioral -->
+                            <div class="mt-2" style="font-size:10px;font-weight:bold;">
+                              ด้านพฤติกรรม (Behavioral)
+                            </div>
+
+                            <div class="form-check form-check-inline">
+                              <input class="form-check-input" type="checkbox" name="mental_behavioral[]" value="นอนไม่หลับ">
+                              <label class="form-check-label" style="font-size:10px;">นอนไม่หลับ</label>
+                            </div>
+
+                            <div class="form-check form-check-inline">
+                              <input class="form-check-input" type="checkbox" name="mental_behavioral[]" value="แยกตัว">
+                              <label class="form-check-label" style="font-size:10px;">แยกตัว ไม่อยากพบผู้อื่น</label>
+                            </div>
+
+                            <!-- Additional note -->
+                            <textarea
+                              class="form-control mt-2"
+                              rows="3"
+                              style="font-size:10px;"
+                              placeholder="รายละเอียดเพิ่มเติม / อื่น ๆ"></textarea>
+
+                          </div>
+
+                        </div>
+                      </div>
+                </div>
+
+
+               <!-- หมวดที่ 4 -->
+                <div class="accordion-item" style="border:1px solid #cfe2ff;">
+
+                  <h2 class="accordion-header">
+                    <button
+                      class="accordion-button py-1 collapsed"
+                      type="button"
+                      data-bs-toggle="collapse"
+                      data-bs-target="#cat4"
+                      style="
+                        font-size:10px;
+                        font-weight:bold;
+                        background-color:#e7f1ff;
+                        color:#084298;
+                      ">
+                      👪 สังคมและครอบครัว
+                    </button>
+                  </h2>
+
+                  <div id="cat4" class="accordion-collapse collapse">
+                    <div class="accordion-body py-2"
+                      style="background-color:#f8fbff;">
+
+                      <label class="form-label mb-2"
+                        style="font-size:10px;font-weight:bold;">
+                        5️⃣ ด้านสังคม ครอบครัว และผู้ดูแล 👪
+                      </label>
+
+                      <!-- ลักษณะการอยู่อาศัย -->
+                      <div class="mb-2">
+                        <label class="form-label d-block mb-1"
+                          style="font-size:10px;font-weight:bold;">
+                          ลักษณะการอยู่อาศัย
+                        </label>
+
+                        <div class="d-flex flex-wrap gap-2">
+                          <div class="form-check">
+                            <input class="form-check-input" type="radio" name="living">
+                            <label class="form-check-label" style="font-size:10px;">อยู่คนเดียว</label>
+                          </div>
+
+                          <div class="form-check">
+                            <input class="form-check-input" type="radio" name="living">
+                            <label class="form-check-label" style="font-size:10px;">อยู่กับครอบครัว</label>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- ความสัมพันธ์ครอบครัว -->
+                      <div class="mb-2">
+                        <label class="form-label d-block mb-1"
+                          style="font-size:10px;font-weight:bold;">
+                          ความสัมพันธ์ครอบครัว
+                        </label>
+
+                        <div class="d-flex flex-wrap gap-2">
+                          <div class="form-check">
+                            <input class="form-check-input" type="radio" name="familyRelation">
+                            <label class="form-check-label" style="font-size:10px;">ระดับดี</label>
+                          </div>
+
+                          <div class="form-check">
+                            <input class="form-check-input" type="radio" name="familyRelation">
+                            <label class="form-check-label" style="font-size:10px;">ระดับพอใช้</label>
+                          </div>
+
+                          <div class="form-check">
+                            <input class="form-check-input" type="radio" name="familyRelation">
+                            <label class="form-check-label" style="font-size:10px;">มีปัญหา/ขัดแย้ง</label>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- การสนับสนุนทางสังคม -->
+                      <div class="mb-2">
+                        <label class="form-label d-block mb-1"
+                          style="font-size:10px;font-weight:bold;">
+                          การสนับสนุนทางสังคม
+                        </label>
+
+                        <div class="d-flex flex-wrap gap-2">
+                          <div class="form-check">
+                            <input class="form-check-input" type="radio" name="socialSupport">
+                            <label class="form-check-label" style="font-size:10px;">สนับสนุนดี</label>
+                          </div>
+
+                          <div class="form-check">
+                            <input class="form-check-input" type="radio" name="socialSupport">
+                            <label class="form-check-label" style="font-size:10px;">บางส่วน</label>
+                          </div>
+
+                          <div class="form-check">
+                            <input class="form-check-input" type="radio" name="socialSupport">
+                            <label class="form-check-label" style="font-size:10px;">ขาดการสนับสนุน</label>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- บทบาทในชีวิต -->
+                      <div class="mb-2">
+                        <label class="form-label d-block mb-1"
+                          style="font-size:10px;font-weight:bold;">
+                          บทบาทและหน้าที่ในชีวิตประจำวัน
+                        </label>
+
+                        <div class="d-flex flex-wrap gap-2">
+                          <div class="form-check">
+                            <input class="form-check-input" type="radio" name="dailyRole">
+                            <label class="form-check-label" style="font-size:10px;">ดูแลตนเองได้</label>
+                          </div>
+
+                          <div class="form-check">
+                            <input class="form-check-input" type="radio" name="dailyRole">
+                            <label class="form-check-label" style="font-size:10px;">ช่วยเหลือบางส่วน</label>
+                          </div>
+
+                          <div class="form-check">
+                            <input class="form-check-input" type="radio" name="dailyRole">
+                            <label class="form-check-label" style="font-size:10px;">พึ่งพาผู้อื่น</label>
+                          </div>
+
+                          <div class="form-check">
+                            <input class="form-check-input" type="radio" name="dailyRole">
+                            <label class="form-check-label" style="font-size:10px;">ภาระดูแลผู้อื่น</label>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- ความเสี่ยงทางสังคม -->
+                      <div class="mb-1">
+                        <label class="form-label d-block mb-1"
+                          style="font-size:10px;font-weight:bold;">
+                          ความเสี่ยงทางสังคม
+                        </label>
+
+                        <div class="d-flex flex-wrap gap-2">
+                          <div class="form-check">
+                            <input class="form-check-input" type="radio" name="socialRisk">
+                            <label class="form-check-label" style="font-size:10px;">ไม่มี</label>
+                          </div>
+
+                          <div class="form-check">
+                            <input class="form-check-input" type="radio" name="socialRisk">
+                            <label class="form-check-label" style="font-size:10px;">ความรุนแรง</label>
+                          </div>
+
+                          <div class="form-check">
+                            <input class="form-check-input" type="radio" name="socialRisk">
+                            <label class="form-check-label" style="font-size:10px;">ละเลย/ทอดทิ้ง</label>
+                          </div>
+
+                          <div class="form-check">
+                            <input class="form-check-input" type="radio" name="socialRisk">
+                            <label class="form-check-label" style="font-size:10px;">โดดเดี่ยว</label>
+                          </div>
+                        </div>
+                      </div>
+
+                    </div>
+                  </div>
+                </div>
+
+
+
+                <!-- หมวดที่ 5 -->
+                <div class="accordion-item" style="border:1px solid #cfe2ff;">
+
+                  <h2 class="accordion-header">
+                    <button
+                      class="accordion-button py-1 collapsed"
+                      type="button"
+                      data-bs-toggle="collapse"
+                      data-bs-target="#cat5"
+                      style="
+                        font-size:10px;
+                        font-weight:bold;
+                        background-color:#e7f1ff;
+                        color:#084298;
+                      ">
+                      📘 ความรู้เกี่ยวกับสุขภาพ
+                    </button>
+                  </h2>
+
+                  <div id="cat5" class="accordion-collapse collapse">
+                    <div class="accordion-body py-2"
+                      style="background-color:#f8fbff;">
+
+                      <label class="form-label mb-2"
+                        style="font-size:10px;font-weight:bold;">
+                        6️⃣ ระดับความรู้และความเข้าใจเกี่ยวกับปัญหาสุขภาพ 📘
+                      </label>
+
+                      <div class="mb-2">
+                        <div class="d-flex flex-wrap gap-2">
+                          <div class="form-check">
+                            <input class="form-check-input" type="radio" name="knowledgeLevel">
+                            <label class="form-check-label" style="font-size:10px;">
+                              อยู่ในระดับดี
+                            </label>
+                          </div>
+
+                          <div class="form-check">
+                            <input class="form-check-input" type="radio" name="knowledgeLevel">
+                            <label class="form-check-label" style="font-size:10px;">
+                              อยู่ในระดับปานกลาง
+                            </label>
+                          </div>
+
+                          <div class="form-check">
+                            <input class="form-check-input" type="radio" name="knowledgeLevel">
+                            <label class="form-check-label" style="font-size:10px;">
+                              มีความเข้าใจคลาดเคลื่อนเกี่ยวกับโรค/การรักษา
+                            </label>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- รายละเอียดเพิ่มเติม -->
+                      <textarea
+                        class="form-control mt-2"
+                        rows="3"
+                        style="font-size:10px;"
+                        placeholder="รายละเอียดเพิ่มเติม / อื่น ๆ">
+                      </textarea>
+
+                    </div>
+                  </div>
+
+                </div>
+
+
+
+                <!-- หมวดที่ 6 -->
+                <div class="accordion-item" style="border:1px solid #cfe2ff;">
+
+                  <h2 class="accordion-header">
+                    <button
+                      class="accordion-button py-1 collapsed"
+                      type="button"
+                      data-bs-toggle="collapse"
+                      data-bs-target="#cat6"
+                      style="
+                        font-size:10px;
+                        font-weight:bold;
+                        background-color:#e7f1ff;
+                        color:#084298;
+                      ">
+                      ⚠️ ปัจจัยเสี่ยงและข้อจำกัด
+                    </button>
+                  </h2>
+
+                  <div id="cat6" class="accordion-collapse collapse">
+                    <div class="accordion-body py-2"
+                      style="background-color:#f8fbff;">
+
+                      <label class="form-label mb-2"
+                        style="font-size:10px;font-weight:bold;">
+                        7️⃣ ปัจจัยเสี่ยงและข้อจำกัด ⚠️
+                      </label>
+
+                      <input
+                        class="form-control form-control-sm mb-2"
+                        placeholder="ภาษา / การมองเห็น / การได้ยิน"
+                        style="font-size:10px;">
+
+                      <textarea
+                        class="form-control"
+                        rows="3"
+                        style="font-size:10px;"
+                        placeholder="รายละเอียดเพิ่มเติม">
+                      </textarea>
+
+                    </div>
+                  </div>
+
+                </div>
+
+
+
+              </div>
+
+
+
+
+            
+              <!-- ================= SECTION C ================= -->
+              <div class="tab-pane fade" id="sectionC" role="tabpanel">
+                <!-- ================= SECTION C ================= -->
+                <fieldset class="border p-3 mb-3">
+                  <legend style="font-size:10px;font-weight:bold;">
+                    การวินิจฉัยทางการพยาบาล
+                  </legend>
+
+                  <div class="row g-2" style="font-size:10px;">
+
+                  <div class="row g-2" style="font-size:10px;">
+
+                      <!-- 1 Subjective Data -->
+                      <div class="col-12 col-md-6">
+                        <label class="form-label fw-bold">
+                          1. Subjective Data (ข้อมูลจากผู้รับบริการ)
+                        </label>
+                        <textarea
+                          id="cnsSubjectiveData"
+                          class="form-control"
+                          rows="3"
+                          placeholder="เช่น ผู้รับบริการบอกว่า..., รู้สึก..., มีอาการ..."
+                          style="font-size:10px;"
+                        ></textarea>
+                      </div>
+
+                      <!-- 2 Objective Data -->
+                      <div class="col-12 col-md-6">
+                        <label class="form-label fw-bold">
+                          2. Objective Data (ข้อมูลจากการสังเกต/ตรวจประเมิน)
+                        </label>
+                        <textarea
+                          id="cnsObjectiveData"
+                          class="form-control"
+                          rows="3"
+                          placeholder="เช่น พฤติกรรมที่สังเกตได้, สัญญาณชีพ, ผลการประเมิน"
+                          style="font-size:10px;"
+                        ></textarea>
+                      </div>
+
+                    </div>
+
+
+                    <!-- 3 Nursing Diagnosis -->
+                    <div class="col-12">
+                      <label class="form-label fw-bold">
+                        3. การวินิจฉัยทางการพยาบาล
+                      </label>
+                      <textarea
+                        id="cnsNursingDiagnosis"
+                        class="form-control"
+                        rows="2"
+                      ></textarea>
+                    </div>
+
+                    <!-- 4 Goal -->
+                    <div class="col-12">
+                      <label class="form-label fw-bold">
+                        4. เป้าประสงค์การให้คำปรึกษา
+                      </label>
+                      <textarea
+                        id="cnsCounselGoal"
+                        class="form-control"
+                        rows="2"
+                      ></textarea>
+                    </div>
+
+                  </div>
+                </fieldset>
+              </div>
+
+              <!-- ================= SECTION D ================= -->
+              <div class="tab-pane fade" id="sectionD" role="tabpanel">
+                        <!-- 3 -->
+                        <div class="col-12">
+                          <label class="form-label fw-bold">
+                            3. แผนและกิจกรรมการให้คำปรึกษา
+                          </label>
+                        </div>
+
+                        <!-- เนื้อหา -->
+                        <div class="col-12">
+                          <label class="fw-bold d-block mb-1">
+                            เนื้อหาที่ให้คำปรึกษา
+                          </label>
+
+                          <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="checkbox" name="cnsContent[]" value="health_education">
+                            <label class="form-check-label">ให้ข้อมูล/ความรู้ด้านสุขภาพ</label>
+                          </div>
+
+                          <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="checkbox" name="cnsContent[]" value="therapeutic_counseling">
+                            <label class="form-check-label">การสื่อสารเชิงบำบัด</label>
+                          </div>
+
+                          <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="checkbox" name="cnsContent[]" value="self_care">
+                            <label class="form-check-label">ส่งเสริมการดูแลตนเอง</label>
+                          </div>
+
+                          <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="checkbox" name="cnsContent[]" value="behavior_change">
+                            <label class="form-check-label">ปรับพฤติกรรมสุขภาพ</label>
+                          </div>
+
+                          <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="checkbox" name="cnsContent[]" value="refer">
+                            <label class="form-check-label">ประสานแพทย์/ส่งต่อ</label>
+                          </div>
+
+                          <div class="mt-1">
+                            <input
+                              type="text"
+                              class="form-control form-control-sm"
+                              id="cnsContentOther"
+                              placeholder="อื่น ๆ"
+                            >
+                          </div>
+                        </div>
+
+              </div>
+              <!-- ================= SECTION E ================= -->
+              <div class="tab-pane fade" id="sectionE" role="tabpanel">
+
+                        <!-- วิธี -->
+                        <div class="col-12 mt-2">
+                          <label class="fw-bold d-block mb-1">
+                            วิธีการให้คำปรึกษา
+                          </label>
+
+                          <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="checkbox" name="cnsMethod[]" value="face_to_face">
+                            <label class="form-check-label">ตัวต่อตัว</label>
+                          </div>
+
+                          <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="checkbox" name="cnsMethod[]" value="demonstration">
+                            <label class="form-check-label">สาธิต/ฝึกปฏิบัติ</label>
+                          </div>
+
+                          <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="checkbox" name="cnsMethod[]" value="media">
+                            <label class="form-check-label">ใช้สื่อประกอบ</label>
+                          </div>
+                        </div>
+
+                        <!-- เวลา -->
+                        <div class="col-md-4">
+                          <label class="form-label fw-bold">
+                            ระยะเวลาในการให้คำปรึกษา (นาที)
+                          </label>
+                          <input
+                            type="number"
+                            class="form-control form-control-sm"
+                            id="cnsDuration"
+                          >
+                        </div>
+                    /div>
+
+
+                        <!-- ================= SECTION H ================= -->
+                      <div class="tab-pane fade show active" id="sectionE">
+                        <!-- สรุป -->
+                        <div class="col-12">
+                          <label class="form-label fw-bold">
+                            สรุปเนื้อหาที่ให้คำปรึกษา
+                          </label>
+                          <textarea
+                            id="cnsSummary"
+                            class="form-control"
+                            rows="2"
+                          ></textarea>
+                        </div>
+
+                      </div>
+                    </fieldset>
+                    <!-- ================= RESULT ================= -->
+                    <fieldset class="border p-3 mb-3">
+                      <legend style="font-size:10px;font-weight:bold;">
+                        การประเมินผลหลังให้คำปรึกษา
+                      </legend>
+
+                      <div class="row g-2" style="font-size:10px;">
+
+                        <!-- ปฏิบัติกลับ -->
+                        <div class="col-12">
+                          <label class="fw-bold d-block">
+                            ผู้ป่วย/ญาติสามารถอธิบายหรือปฏิบัติกลับได้
+                          </label>
+
+                          <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="cnsTeachBack" value="correct">
+                            <label class="form-check-label">ได้ถูกต้อง</label>
+                          </div>
+
+                          <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="cnsTeachBack" value="partial">
+                            <label class="form-check-label">ได้บางส่วน</label>
+                          </div>
+
+                          <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="cnsTeachBack" value="no">
+                            <label class="form-check-label">ไม่ได้</label>
+                          </div>
+                        </div>
+
+                        <!-- ความเข้าใจ -->
+                        <div class="col-12">
+                          <label class="fw-bold d-block">
+                            ผู้รับบริการมีความเข้าใจ
+                          </label>
+
+                          <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="cnsUnderstanding" value="good">
+                            <label class="form-check-label">ดี</label>
+                          </div>
+
+                          <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="cnsUnderstanding" value="fair">
+                            <label class="form-check-label">ปานกลาง</label>
+                          </div>
+
+                          <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="cnsUnderstanding" value="poor">
+                            <label class="form-check-label">น้อย</label>
+                          </div>
+                        </div>
+
+                        <!-- ผลลัพธ์ -->
+                        <div class="col-12">
+                          <label class="form-label fw-bold">
+                            การตอบสนอง/ผลลัพธ์ที่เกิดขึ้น
+                          </label>
+                          <textarea id="cnsOutcome" class="form-control" rows="2"></textarea>
+                        </div>
+
+                        <!-- บรรลุเป้าหมาย -->
+                        <div class="col-12">
+                          <label class="fw-bold d-block">
+                            บรรลุเป้าประสงค์
+                          </label>
+
+                          <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="cnsGoalAchieve" value="achieved">
+                            <label class="form-check-label">บรรลุ</label>
+                          </div>
+
+                          <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="cnsGoalAchieve" value="partial">
+                            <label class="form-check-label">บางส่วน</label>
+                          </div>
+
+                          <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="cnsGoalAchieve" value="not_achieved">
+                            <label class="form-check-label">ไม่บรรลุ</label>
+                          </div>
+                        </div>
+
+                        <!-- อุปสรรค -->
+                        <div class="col-12">
+                          <label class="form-label fw-bold">
+                            ปัญหา/อุปสรรคที่พบ
+                          </label>
+                          <textarea id="cnsBarrier" class="form-control" rows="2"></textarea>
+                        </div>
+
+                        <!-- ความพร้อม -->
+                        <div class="col-12">
+                          <label class="form-label fw-bold">
+                            ความพร้อมในการปฏิบัติตามคำแนะนำ
+                          </label>
+                          <input type="text" id="cnsReadiness" class="form-control">
+                        </div>
+
+                      </div>
+                    </fieldset>
+                    <!-- ================= FOLLOW UP ================= -->
+                    <fieldset class="border p-3 mb-3">
+                      <legend style="font-size:10px;font-weight:bold;">
+                        การติดตามผล
+                      </legend>
+
+                      <div class="row g-2" style="font-size:10px;">
+
+                        <div class="col-md-6">
+                          <label class="form-label fw-bold">
+                            วิธีติดตาม
+                          </label>
+                          <input
+                            type="text"
+                            id="cnsFollowMethod"
+                            class="form-control"
+                            placeholder="โทรศัพท์ / นัด / ออนไลน์"
+                          >
+                        </div>
+
+                        <div class="col-md-3">
+                          <label class="form-label fw-bold">
+                            วันที่นัดครั้งถัดไป
+                          </label>
+                          <input type="date" id="cnsNextDate" class="form-control">
+                        </div>
+
+                        <div class="col-md-3">
+                          <label class="form-label fw-bold">
+                            เวลา
+                          </label>
+                          <input type="time" id="cnsNextTime" class="form-control">
+                        </div>
+
+                      </div>
+                    </fieldset>
+
+              </div>
+              <!-- ================= SECTION F ================= -->
+              <div class="tab-pane fade" id="sectionF" role="tabpanel">
+                <!-- Evaluation -->
+              </div> 
+          </div>
+    
+
+
+
+
+
+
+
+
+
+
+<script>
+(function () {
+  const input = document.getElementById("mainIssueInput");
+  const datalist = document.getElementById("mainIssueHistory");
+  const STORAGE_KEY = "mainIssueHistory";
+
+  if (!input || !datalist) return;
+
+  // โหลดประวัติ
+  function loadHistory() {
+    const history = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+    datalist.innerHTML = "";
+    history.forEach(text => {
+      const opt = document.createElement("option");
+      opt.value = text;
+      datalist.appendChild(opt);
+    });
+  }
+
+  // บันทึกเมื่อออกจากช่อง
+  input.addEventListener("change", () => {
+    const val = input.value.trim();
+    if (!val) return;
+
+    let history = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+
+    if (!history.includes(val)) {
+      history.unshift(val);
+      history = history.slice(0, 20); // เก็บสูงสุด 20 รายการ
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+    }
+
+    loadHistory();
+  });
+
+  loadHistory();
+})();
+</script>
+
+<script>
+document.querySelectorAll('#counselorSectionTab .nav-link')
+  .forEach(tab => {
+    tab.addEventListener('shown.bs.tab', function () {
+      document.querySelectorAll('#counselorSectionTab .nav-link')
+        .forEach(t => {
+          t.style.backgroundColor = '';
+          t.style.color = '#006666';
+          t.style.borderColor = '';
+          t.style.fontWeight = 'normal';
+        });
+
+      this.style.backgroundColor = '#006666';
+      this.style.color = '#fff';
+      this.style.borderColor = '#006666';
+      this.style.fontWeight = 'bold';
+    });
+  });
+</script>
+
+
+

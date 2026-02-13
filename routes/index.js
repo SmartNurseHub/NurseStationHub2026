@@ -38,5 +38,7 @@ safeUse("/appointments", "../modules/appointments/appointments.routes", "Appoint
 safeUse("/nursingRecords", "../modules/nursingRecords/nursingRecords.routes", "NursingRecords");
 safeUse("/lineOA", "../modules/lineOA/lineOA.routes", "LineOA");
 safeUse("/line", "../modules/lineOA/lineOA.routes", "LineOA(alias)");
+safeUse("/satisfaction-survey", "../modules/satisfactionSurvey/satisfactionSurvey.routes", "SatisfactionSurvey");
+
 
 module.exports = router;

@@ -1,5 +1,5 @@
 /*************************************************
- * server.js — PRODUCTION SAFE (Render OK)
+ * server.js — MODULE-BASED VERSION (FIXED)
  *************************************************/
 
 require("dotenv").config();
@@ -26,10 +26,15 @@ app.use("/modules", express.static(path.join(__dirname, "modules")));
 ================================ */
 app.use("/api", require("./routes"));
 
+// ⭐ เพิ่มบรรทัดนี้
+app.use(
+  "/satisfaction-survey",
+  require("./modules/satisfactionSurvey/satisfactionSurvey.routes")
+);
 /* ===============================
-   SPA FALLBACK (❗ ไม่กิน /api)
+   SPA FALLBACK
 ================================ */
-app.get(/^\/(?!api).*/, (req, res) => {
+app.get(/^\/(?!api|satisfaction-survey).*/, (req, res) => {
   res.sendFile(path.join(__dirname, "views/index.html"));
 });
 
