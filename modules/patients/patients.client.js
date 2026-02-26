@@ -289,6 +289,24 @@ function bindSave() {
 }
 
 
+async function loadPatientsSelect() {
+  const res = await fetch("/patients/list");
+  const json = await res.json();
+
+  if (!json.success) return;
+
+  const select = document.getElementById("patientSelect");
+  select.innerHTML = '<option value="">-- เลือกผู้ป่วย --</option>';
+
+  json.data.forEach(p => {
+    select.innerHTML += `
+      <option value="${p.CID}">
+        ${p.CID} - ${p.fullName}
+      </option>
+    `;
+  });
+}
+
 /* =========================================================
    UI
 ========================================================= */

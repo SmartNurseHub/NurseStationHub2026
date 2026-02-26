@@ -1,32 +1,10 @@
-/*************************************************
- * modules/dashboard/dashboard.routes.js
- * DASHBOARD ROUTES
- *************************************************/
-
 const express = require("express");
 const router = express.Router();
+const controller = require("./dashboard.controller");  // ⭐ เพิ่มบรรทัดนี้
 
-/* ===============================
-   GET /api/dashboard/summary
-================================ */
-router.get("/summary", async (req, res) => {
-  try {
-    // TODO: ดึงข้อมูลจริงจาก DB
-    res.json({
-      success: true,
-      data: {
-        patients: 128,
-        appointmentsToday: 5,
-        records: 342,
-        pending: 3
-      }
-    });
-  } catch (err) {
-    res.status(500).json({
-      success: false,
-      message: "Dashboard summary error"
-    });
-  }
-});
+router.get("/summary", controller.getDashboardSummary);
+router.get("/followList", controller.getFollowList);
+router.post("/followList/update", controller.updateFollow);
+router.post("/followList/delete", controller.deleteFollow);
 
 module.exports = router;

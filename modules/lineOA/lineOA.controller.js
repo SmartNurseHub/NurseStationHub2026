@@ -38,6 +38,8 @@ exports.handleWebhook = async (req, res) => {
 exports.getFollowList = async (req, res) => {
   try {
     const rows = await readRows(FOLLOW_SHEET);
+    console.log("RAW FollowList:", rows);
+
     res.json({ data: rows });
   } catch (err) {
     res.status(500).json({ error: err.message });

@@ -112,4 +112,22 @@ exports.searchPatients = async (req, res) => {
   }
 };
 
+exports.getPatientsList = async (req, res) => {
+  try {
+    const data = await service.getAllPatients();  // ✅ ใช้ service
+
+    res.json({
+      success: true,
+      data: data || []
+    });
+
+  } catch (err) {
+    console.error("GET PATIENT LIST ERROR:", err);
+
+    res.status(500).json({
+      success: false,
+      message: "Server error"
+    });
+  }
+};
 

@@ -100,16 +100,36 @@ window.NursingOnlineActions = (() => {
     <td>${r.Activity || "-"}</td>
     <td>${r.Provider1 || "-"}</td>
     <td class="text-center">
-      <button type="button" class="btn btn-warning btn-sm action-edit">✏️</button>
+      <div class="d-flex flex-wrap justify-content-center gap-1" style="max-width:90px; margin:auto;">
 
-      <button class="btn btn-sm btn-info"
-        onclick='handlePrint(${JSON.stringify(r)})'>
-        🖨️
-      </button>
+        <button type="button"
+          class="btn btn-warning btn-sm action-edit"
+          style="width:40px;">
+          ✏️
+        </button>
 
-      <button class="btn btn-sm btn-danger ms-1"
-        onclick="deleteRecord('${r.NSR}')">🗑️</button>
+        <button class="btn btn-sm btn-info"
+          onclick='handlePrint(${JSON.stringify(r)})'
+          style="width:40px;">
+          🖨️
+        </button>
+
+        <button class="btn btn-sm btn-success"
+          onclick="sendReportToPatient('${r.NSR}')"
+          style="width:40px;">
+          📲
+        </button>
+
+        <button class="btn btn-sm btn-danger"
+          onclick="deleteRecord('${r.NSR}')"
+          style="width:40px;">
+          🗑️
+        </button>
+
+      </div>
     </td>
+
+
   `;
   tbody.appendChild(tr);
 });

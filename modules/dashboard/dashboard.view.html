@@ -55,20 +55,174 @@
 
   </div>
 
-  <!-- ===============================
-       CHART SECTION (placeholder)
-  ================================ -->
-  <div class="row mt-4">
-    <div class="col-md-12">
-      <div class="card shadow-sm border-0 p-3">
-        <h6 class="fw-bold mb-3">📊 สถิติการให้บริการ</h6>        
-        <canvas id="dashboardChart" height="100"></canvas>
-      </div>
-       <!-- SUMMARY CONTAINER (สำคัญมาก) -->
-  <div id="dashboardSummary">
-    <div class="text-muted">กำลังโหลดข้อมูล...</div>
-  </div>
-    </div>
+  <div class="card shadow-sm border-0 p-3 mt-4">
+
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h6 class="fw-bold mb-0">📋 รายชื่อผู้ติดตาม LINE OA</h6>
+
+    <button
+      class="btn btn-success btn-sm px-3 shadow-sm rounded-pill"
+      data-bs-toggle="modal"
+      data-bs-target="#addFollowerModal">
+      <i class="bi bi-person-plus-fill me-1"></i>
+      เพิ่มผู้ติดตาม
+    </button>
   </div>
 
 </div>
+
+  <div class="table-responsive">
+    <table class="table table-sm table-bordered align-middle text-center">
+      <thead class="table-light">
+        <tr>
+          <th>CID</th>
+          <th>Name - Surname</th>       
+          <th>LINE Picture</th>
+          <th>LINE Name</th>
+          <th>LINE UID</th>
+           <th>Status</th>         
+          <th>management</th>
+        </tr>
+      </thead>
+      <tbody id="followTableBody">
+        <tr>
+          <td colspan="7" class="text-muted">กำลังโหลดข้อมูล...</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  </div>
+
+<!-- ===============================
+     EDIT FOLLOW MODAL
+================================ -->
+<!-- ADD FOLLOWER MODAL -->
+<div class="modal fade" id="addFollowerModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title fw-bold">
+          <i class="bi bi-person-plus-fill me-1"></i>
+          เพิ่มผู้ติดตาม LINE OA
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+
+      <form id="addFollowerForm">
+        <div class="modal-body">
+
+          <!-- ============================= -->
+          <!-- SECTION 1 : PATIENT DATA -->
+          <!-- ============================= -->
+          <div class="border rounded p-3 mb-3 bg-light">
+            <h6 class="fw-bold text-primary mb-2">
+              1️⃣ ข้อมูลผู้ป่วย (จาก Patients)
+            </h6>
+
+            <div class="row g-2">
+
+              <div class="col-md-4">
+                <label class="form-label">เลือก CID</label>
+                <select id="patientSelect" class="form-select">
+                  <option value="">-- เลือกผู้ป่วย --</option>
+                </select>
+              </div>
+
+              <div class="col-md-4">
+                <label class="form-label">NAME</label>
+                <input type="text" id="p_name" name="NAME" class="form-control" readonly>
+              </div>
+
+              <div class="col-md-4">
+                <label class="form-label">LNAME</label>
+                <input type="text" id="p_lname" name="LNAME" class="form-control" readonly>
+              </div>
+
+              <input type="hidden" id="p_cid" name="CID">
+
+            </div>
+          </div>
+
+          <!-- ============================= -->
+          <!-- SECTION 2 : LINE DATA -->
+          <!-- ============================= -->
+          <div class="border rounded p-3 bg-light">
+            <h6 class="fw-bold text-success mb-2">
+              2️⃣ ข้อมูล LINE (จาก FollowList)
+            </h6>
+
+            <div class="row g-2">
+
+              <div class="col-md-4">
+                <label class="form-label">เลือก LINE User</label>
+                <select id="lineSelect" name="LineUID" class="form-select">
+                  <option value="">-- เลือก LINE UID --</option>
+                </select>
+              </div>
+
+              <div class="col-md-4">
+                <label class="form-label">Display Name</label>
+                <input type="text" id="l_displayName" name="DisplayName" class="form-control" readonly>
+              </div>
+
+              <div class="col-md-4">
+                <label class="form-label">UserId</label>
+                <input type="text" id="l_userId" name="UserId" class="form-control" readonly>
+              </div>
+
+              <div class="col-md-4">
+                <label class="form-label">Status</label>
+                <input type="text" id="l_status" name="Status" class="form-control" readonly>
+              </div>
+
+              <div class="col-md-4">
+                <label class="form-label">Picture</label>
+                <input type="text" id="l_picture" name="Picture" class="form-control" readonly>
+              </div>
+
+              <div class="col-md-4">
+                <label class="form-label">PictureUrl</label>
+                <input type="text" id="l_pictureUrl" name="PictureUrl" class="form-control" readonly>
+              </div>
+              <div class="col-md-12 mt-3 d-flex justify-content-center">
+  <img id="linePreview"
+       src=""
+       alt="LINE Profile Preview"
+       style="width:120px;
+              height:120px;
+              object-fit:cover;
+              border-radius:50%;
+              display:none;
+              border:3px solid #f6f8f6;
+              box-shadow:0 4px 12px rgba(0,0,0,0.2);
+              transition: all 0.3s ease;">
+</div>
+
+            </div>
+          </div>
+
+        </div>
+
+        <div class="modal-footer">
+  <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">
+    ปิด
+  </button>
+
+  <button type="submit" class="btn btn-success">
+    บันทึก
+  </button>
+</div>
+
+      </form>
+
+    </div>
+  </div>
+</div>
+
+
+</div>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="/modules/dashboard/dashboard.client.js"></script>
+<script src="/assets/js/date.utils.js"></script>
+

@@ -45,6 +45,31 @@ function calculateAge(rawDate) {
   return age;
 }
 
+/* ===============================
+   ISO → 12 ก.พ. 2569
+================================ */
+function toThaiShortDate(isoDate) {
+  if (!isoDate) return "";
+
+  const date = new Date(isoDate);
+  if (isNaN(date)) return "";
+
+  const thaiMonthsShort = [
+    "ม.ค.","ก.พ.","มี.ค.","เม.ย.",
+    "พ.ค.","มิ.ย.","ก.ค.","ส.ค.",
+    "ก.ย.","ต.ค.","พ.ย.","ธ.ค."
+  ];
+
+  const d = date.getDate();
+  const m = thaiMonthsShort[date.getMonth()];
+  const y = date.getFullYear() + 543;
+
+  return `${d} ${m} ${y}`;
+}
+
+/* expose */
+window.toThaiShortDate = toThaiShortDate;
+
 /* 🔥 expose to global */
 window.toRawDate = toRawDate;
 window.toDisplayThaiDate = toDisplayThaiDate;

@@ -195,9 +195,32 @@ async function searchPatients(keyword) {
 }
 
 /* =========================================================
+   GET ALL PATIENTS (FOR SELECT LIST)
+========================================================= */
+async function getAllPatients() {
+  const sheets = await getSheets();
+
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEET_PATIENTS}!A2:D`,
+    valueRenderOption: "UNFORMATTED_VALUE",
+  });
+
+  const rows = res.data.values || [];
+
+  return rows.map(r => ({
+    CID: normalizeCID(r[0]),
+    PRENAME: r[1] ?? "",
+    NAME: r[2] ?? "",
+    LNAME: r[3] ?? "",
+    fullName: `${r[1] ?? ""}${r[2] ?? ""} ${r[3] ?? ""}`.trim()
+  }));
+}
+/* =========================================================
    EXPORTS
 ========================================================= */
 module.exports = {
   importPatientsService,
   searchPatients,
+  getAllPatients,   // 👈 เพิ่มตรงนี้
 };
