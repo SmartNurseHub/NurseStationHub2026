@@ -193,9 +193,11 @@ window.handlePrint = handlePrint;
   await loadScriptOnce("/modules/nursingRecords/nursingRecords.online.actions.js");
 
   if (window.NursingOnlineActions) {
-    NursingOnlineActions.loadNursingRecords();
+    await NursingOnlineActions.loadNursingRecords();
     NursingOnlineActions.bindTableActions();
   }
+
+  bindSendResultButton();   // ✅ เพิ่มบรรทัดนี้
 })();
 
 /* =================================================
@@ -223,3 +225,73 @@ async function deleteRecord(nsr) {
 }
 
 window.deleteRecord = deleteRecord;
+
+async function sendReportToPatient(nsr) {
+  if (!confirm("ส่งผลให้ผู้ป่วยผ่าน LINE ใช่หรือไม่?")) return;
+
+  try {
+    const res = await fetch(`/api/lineOA/sendReport/${nsr}`, {
+      method: "POST"
+    });
+
+    const json = await res.json();
+
+    if (json.success) {
+      alert("ส่งผลสำเร็จ ✅");
+    } else {
+      alert("ส่งผลไม่สำเร็จ ❌");
+    }
+  } catch (err) {
+    console.error(err);
+    alert("เกิดข้อผิดพลาด");
+  }
+}
+window.sendReportToPatient = sendReportToPatient;
+
+function bindSendResultButton() {
+  const table = document.getElementById("listTableContainer");
+  if (!table) return;
+
+  table.addEventListener("click", async (e) => {
+    const btn = e.target.closest(".action-send");
+    if (!btn) return;
+
+    const nsr = btn.dataset.nsr;
+    if (!nsr) return alert("ไม่พบ NSR");
+
+    if (!confirm("ต้องการส่งผลตรวจให้ผู้ป่วยหรือไม่?")) return;
+
+    try {
+      btn.disabled = true;
+      btn.innerHTML = "⏳";
+
+      const res = await fetch("/api/lineoa/send-result", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nsr })
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        btn.innerHTML = "✅";
+        alert("ส่งผลเรียบร้อย");
+      } else {
+        btn.innerHTML = "❌";
+        alert("ส่งไม่สำเร็จ");
+      }
+
+    } catch (err) {
+      console.error("SEND ERROR:", err);
+      btn.innerHTML = "❌";
+      alert("Server error");
+    } finally {
+      setTimeout(() => {
+        btn.disabled = false;
+        btn.innerHTML = "📲";
+      }, 1500);
+    }
+  });
+
+  console.log("📲 SendResult button bound");
+}

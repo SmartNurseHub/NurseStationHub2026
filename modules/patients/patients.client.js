@@ -19,10 +19,15 @@ const PatientsImportState = {
    INIT
 ========================================================= */
 function initPatients() {
-  console.log("🧑‍⚕️ initPatients (Large Import Ready)");
+  console.log("🧑‍⚕️ initPatients (Large Import + Manual Ready)");
+
   bindFileInput();
   bindSearch();
   bindSave();
+
+  // NEW
+  bindModeSwitch();
+  bindManualSave();
 }
 
 /* =========================================================
@@ -314,6 +319,113 @@ function showPatientsPreview() {
   document.getElementById("searchSection")?.classList.remove("d-none");
   document.getElementById("previewSection")?.classList.remove("d-none");
 }
+
+/* =========================================================
+   MODE SWITCH (UPLOAD / MANUAL)
+========================================================= */
+function bindModeSwitch() {
+  const btnUpload = document.getElementById("btnModeUpload");
+  const btnManual = document.getElementById("btnModeManual");
+  const uploadSection = document.getElementById("uploadSection");
+  const manualSection = document.getElementById("manualSection");
+
+  if (!btnUpload || !btnManual) return;
+
+  btnUpload.onclick = () => {
+    uploadSection?.classList.remove("d-none");
+    manualSection?.classList.add("d-none");
+  };
+
+  btnManual.onclick = () => {
+    uploadSection?.classList.add("d-none");
+    manualSection?.classList.remove("d-none");
+  };
+}
+
+
+/* =========================================================
+   MANUAL ENTRY SAVE
+========================================================= */
+function bindManualSave() {
+  const btn = document.getElementById("btnAddManual");
+  if (!btn) return;
+
+  btn.onclick = async () => {
+
+    const CID = document.getElementById("manualCid")?.value.trim();
+    const HN = document.getElementById("manualHN")?.value.trim();
+    const PRENAME = document.getElementById("manualPrename")?.value;
+    const NAME = document.getElementById("manualName")?.value.trim();
+    const LNAME = document.getElementById("manualSurname")?.value.trim();
+    const SEX = document.querySelector("input[name='manualSex']:checked")?.value || "";
+    const BIRTH = document.getElementById("manualBirth")?.value;
+    const TELEPHONE = document.getElementById("manualTelephone")?.value.trim();
+    const MOBILE = document.getElementById("manualMobile")?.value.trim();
+
+    /* =========================
+       VALIDATION
+    ========================= */
+    if (!CID || CID.length !== 13) {
+      return Swal.fire("กรุณากรอกเลขบัตร 13 หลัก");
+    }
+
+    if (!NAME || !LNAME) {
+      return Swal.fire("กรุณากรอกชื่อและนามสกุล");
+    }
+
+    const payload = [{
+      CID,
+      PRENAME,
+      NAME,
+      LNAME,
+      HN,
+      SEX,
+      BIRTH: BIRTH ? BIRTH.replace(/-/g,"") : "",
+      BIRTH_THAI: BIRTH ? toDisplayThaiDate(BIRTH) : "",
+      TELEPHONE,
+      MOBILE
+    }];
+
+    try {
+
+      Swal.fire({
+        title: "กำลังบันทึก...",
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+      });
+
+      const res = await fetch("/api/patients/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      const json = await res.json();
+
+      if (!json.success) throw new Error(json.message);
+
+      Swal.fire({
+        icon: "success",
+        title: "บันทึกสำเร็จ",
+        timer: 1500,
+        showConfirmButton: false
+      });
+
+      document.querySelectorAll("#manualSection input").forEach(i => i.value = "");
+      document.querySelectorAll("input[name='manualSex']").forEach(r => r.checked = false);
+
+    } catch (err) {
+      console.error(err);
+      Swal.fire("บันทึกไม่สำเร็จ");
+    }
+  };
+}
+
+
+
+
+
+
 
 /* =========================================================
    EXPORT

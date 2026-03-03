@@ -1,53 +1,77 @@
-const lineService = require("./lineOA.service");
+const service = require("./lineOA.service");
 const { readRows } = require("../../config/google");
 const { FOLLOW_SHEET, USER_SHEET } = require("./lineOA.schema");
-exports.handleWebhook = async (req, res) => {
-  try {
-    console.log("📩 LINE webhook received");
-    console.log(JSON.stringify(req.body, null, 2));
 
-    const events = req.body.events || [];
+/* =================================================
+   LINE WEBHOOK
+================================================= */
+exports.handleWebhook = (req, res) => {
+  console.log("📩 LINE webhook received");
 
-    for (const event of events) {
-      console.log("➡️ event type:", event.type);
+  res.status(200).send("OK");
 
-      switch (event.type) {
-        case "follow":
-        case "unfollow":
-          await lineService.handleFollowEvent(event);
-          break;
+  setImmediate(async () => {
+    try {
+      const events = req.body.events || [];
 
-        case "message":
-          if (event.message.type === "text") {
-            await lineService.handleChatMessage(event);
-          }
-          break;
+      for (const event of events) {
+        if (event.type === "follow") {
+          await service.handleFollowEvent(event);
+        }
+
+        if (event.type === "message" && event.message?.type === "text") {
+          await service.handleChatMessage(event);
+        }
       }
+
+    } catch (err) {
+      console.error("Webhook background error:", err);
+    }
+  });
+};
+
+/* =================================================
+   SEND RESULT BY NSR
+================================================= */
+exports.sendResultByNSR = async (req, res) => {
+  try {
+    const { nsr } = req.body;
+
+    if (!nsr) {
+      return res.status(400).json({
+        success: false,
+        message: "NSR is required"
+      });
     }
 
-    res.status(200).json({ status: "ok" });
+    await service.sendReport(nsr);
+
+    res.json({ success: true });
+
   } catch (err) {
-    console.error("LINE webhook error:", err);
-    res.status(500).json({ error: err.message });
+    console.error("sendResultByNSR error:", err.message);
+    res.status(500).json({
+      success: false,
+      message: err.message
+    });
   }
 };
 
-
-
-// 🔥 READ FOLLOW LIST
+/* =================================================
+   READ FOLLOW LIST
+================================================= */
 exports.getFollowList = async (req, res) => {
   try {
     const rows = await readRows(FOLLOW_SHEET);
-    console.log("RAW FollowList:", rows);
-
     res.json({ data: rows });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
 
-
-// 🔥 READ CHAT LOG
+/* =================================================
+   READ CHAT LOG
+================================================= */
 exports.getUserMessages = async (req, res) => {
   try {
     const rows = await readRows(USER_SHEET);

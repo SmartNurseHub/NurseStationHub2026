@@ -1,11 +1,11 @@
 /*************************************************
  * routes/index.js
- * CENTRAL API ROUTER (SAFE & SCALABLE)
  *************************************************/
 
 const express = require("express");
 const router = express.Router();
 
+/* HEALTH CHECK */
 router.get("/health", (req, res) => {
   res.json({
     status: "ok",
@@ -13,14 +13,8 @@ router.get("/health", (req, res) => {
     time: new Date().toISOString()
   });
 });
-router.use(
-  "/nursingRecords",
-  require("../modules/nursingRecords/nursingRecords.routes")
-);
-/* ===============================
-   MODULE ROUTES
-================================ */
 
+/* SAFE ROUTE LOADER */
 function safeUse(path, modulePath, name) {
   try {
     router.use(path, require(modulePath));
@@ -31,6 +25,7 @@ function safeUse(path, modulePath, name) {
   }
 }
 
+/* MODULE ROUTES */
 safeUse("/dashboard", "../modules/dashboard/dashboard.routes", "Dashboard");
 safeUse("/patients", "../modules/patients/patients.routes", "Patients");
 safeUse("/upload", "../modules/upload/upload.routes", "Upload");
@@ -39,11 +34,9 @@ safeUse("/nursingRecords", "../modules/nursingRecords/nursingRecords.routes", "N
 safeUse("/lineOA", "../modules/lineOA/lineOA.routes", "LineOA");
 safeUse("/line", "../modules/lineOA/lineOA.routes", "LineOA(alias)");
 safeUse("/satisfaction-survey", "../modules/satisfactionSurvey/satisfactionSurvey.routes", "SatisfactionSurvey");
-
 safeUse("/followlist", "../modules/followList/followList.routes", "FollowList");
 safeUse("/lineuid", "../modules/lineUID/lineUID.routes", "LineUID");
-
-// ลบรายการ Follow
+/* FOLLOW DELETE */
 router.post("/followlist/delete", async (req, res) => {
   try {
     const { userId, date } = req.body;
@@ -55,8 +48,6 @@ router.post("/followlist/delete", async (req, res) => {
       });
     }
 
-    // 🔥 TODO: เขียน logic ลบข้อมูลจาก DB / Google Sheet ตรงนี้
-
     return res.json({ success: true });
 
   } catch (err) {
@@ -67,4 +58,5 @@ router.post("/followlist/delete", async (req, res) => {
     });
   }
 });
+
 module.exports = router;

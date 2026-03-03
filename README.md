@@ -34,77 +34,91 @@ git push origin main
 
 
 
-โครงสร้าง
- ┗ NurseStationHub2026
- ┃ ┣ config
- ┃ ┃ ┗ google.js
- ┃ ┣ modules
- ┃ ┃ ┣ appointments
- ┃ ┃ ┃ ┗ appointments.routes.js
- ┃ ┃ ┣ dashboard
- ┃ ┃ ┃ ┣ dashboard.client.js
- ┃ ┃ ┃ ┣ dashboard.controller.js
- ┃ ┃ ┃ ┣ dashboard.routes.js
- ┃ ┃ ┃ ┣ dashboard.service.js
- ┃ ┃ ┃ ┗ dashboard.view.html
- ┃ ┃ ┣ lineOA
- ┃ ┃ ┃ ┣ lineOA.controller.js
- ┃ ┃ ┃ ┣ lineOA.line.service.js
- ┃ ┃ ┃ ┣ lineOA.routes.js
- ┃ ┃ ┃ ┣ lineOA.schema.js
- ┃ ┃ ┃ ┗ lineOA.service.js
- ┃ ┃ ┣ nursingRecords
- ┃ ┃ ┃ ┣ views
- ┃ ┃ ┃ ┃ ┣ nursingRecords.counselor.view.html
- ┃ ┃ ┃ ┃ ┗ nursingRecords.online.view.html
- ┃ ┃ ┃ ┣ audit.service.js
- ┃ ┃ ┃ ┣ nursingRecords.client.js
- ┃ ┃ ┃ ┣ nursingRecords.controller.js
- ┃ ┃ ┃ ┣ nursingRecords.counselor.actions.js
- ┃ ┃ ┃ ┣ nursingRecords.counselor.client.js
- ┃ ┃ ┃ ┣ nursingRecords.online.actions.js
- ┃ ┃ ┃ ┣ nursingRecords.online.client.js
- ┃ ┃ ┃ ┣ nursingRecords.print.js
- ┃ ┃ ┃ ┣ nursingRecords.routes.js
- ┃ ┃ ┃ ┣ nursingRecords.service.js
- ┃ ┃ ┃ ┗ nursingRecords.view.html
- ┃ ┃ ┣ patientCore
- ┃ ┃ ┃ ┗ patientCore.client.js
- ┃ ┃ ┣ patients
- ┃ ┃ ┃ ┣ patients.client.js
- ┃ ┃ ┃ ┣ patients.controller.js
- ┃ ┃ ┃ ┣ patients.routes.js
- ┃ ┃ ┃ ┣ patients.service.js
- ┃ ┃ ┃ ┗ patients.view.html
- ┃ ┃ ┗ upload
- ┃ ┃ ┃ ┗ upload.routes.js
- ┃ ┣ public
- ┃ ┃ ┣ assets
- ┃ ┃ ┃ ┣ css
- ┃ ┃ ┃ ┃ ┗ main.css
- ┃ ┃ ┃ ┣ images
- ┃ ┃ ┃ ┃ ┗ LOGO.png
- ┃ ┃ ┃ ┗ js
- ┃ ┃ ┃ ┃ ┗ date.utils.js
- ┃ ┃ ┣ core
- ┃ ┃ ┃ ┣ app.js
- ┃ ┃ ┃ ┗ patient.shared.js
- ┃ ┃ ┗ js
- ┃ ┃ ┃ ┗ patients.js
- ┃ ┣ routes
- ┃ ┃ ┗ index.js
- ┃ ┣ uploads
+NurseStationHub2026
+ ┣ config
+ ┃ ┗ google.js
+ ┣ modules
+ ┃ ┣ appointments
+ ┃ ┃ ┗ appointments.routes.js
+ ┃ ┣ dashboard
+ ┃ ┃ ┣ dashboard.client.js
+ ┃ ┃ ┣ dashboard.controller.js
+ ┃ ┃ ┣ dashboard.routes.js
+ ┃ ┃ ┣ dashboard.service.js
+ ┃ ┃ ┗ dashboard.view.html
+ ┃ ┣ followList
+ ┃ ┃ ┣ followList.controller.js
+ ┃ ┃ ┣ followList.routes.js
+ ┃ ┃ ┗ followList.service.js
+ ┃ ┣ lineOA
+ ┃ ┃ ┣ lineOA.controller.js
+ ┃ ┃ ┣ lineOA.line.service.js
+ ┃ ┃ ┣ lineOA.routes.js
+ ┃ ┃ ┣ lineOA.schema.js
+ ┃ ┃ ┗ lineOA.service.js
+ ┃ ┣ lineUID
+ ┃ ┃ ┣ lineUID.controller.js
+ ┃ ┃ ┣ lineUID.routes.js
+ ┃ ┃ ┗ lineUID.service.js
+ ┃ ┣ nursingRecords
+ ┃ ┃ ┣ views
+ ┃ ┃ ┃ ┣ nursingRecords.counselor.view.html
+ ┃ ┃ ┃ ┗ nursingRecords.online.view.html
+ ┃ ┃ ┣ audit.service.js
  ┃ ┃ ┣ nursingRecords.client.js
- ┃ ┃ ┣ nursingRecords.counselor.view.html
+ ┃ ┃ ┣ nursingRecords.controller.js
+ ┃ ┃ ┣ nursingRecords.counselor.actions.js
+ ┃ ┃ ┣ nursingRecords.counselor.client.js
+ ┃ ┃ ┣ nursingRecords.online.actions.js
+ ┃ ┃ ┣ nursingRecords.online.client.js
+ ┃ ┃ ┣ nursingRecords.print.js
+ ┃ ┃ ┣ nursingRecords.routes.js
+ ┃ ┃ ┣ nursingRecords.service.js
  ┃ ┃ ┗ nursingRecords.view.html
- ┃ ┣ views
- ┃ ┃ ┗ index.html
- ┃ ┣ .env
- ┃ ┣ cloudflared.exe
- ┃ ┣ package-lock.json
- ┃ ┣ package.json
- ┃ ┣ README.md
- ┃ ┗ server.js
+ ┃ ┣ patientCore
+ ┃ ┃ ┗ patientCore.client.js
+ ┃ ┣ patients
+ ┃ ┃ ┣ patients.client.js
+ ┃ ┃ ┣ patients.controller.js
+ ┃ ┃ ┣ patients.routes.js
+ ┃ ┃ ┣ patients.service.js
+ ┃ ┃ ┗ patients.view.html
+ ┃ ┣ satisfactionSurvey
+ ┃ ┃ ┣ views
+ ┃ ┃ ┃ ┗ satisfactionSurvey.view.html
+ ┃ ┃ ┣ satisfactionSurvey.controller.js
+ ┃ ┃ ┣ satisfactionSurvey.routes.js
+ ┃ ┃ ┣ satisfactionSurvey.schema.js
+ ┃ ┃ ┗ satisfactionSurvey.service.js
+ ┃ ┗ upload
+ ┃ ┃ ┗ upload.routes.js
+ ┣ public
+ ┃ ┣ assets
+ ┃ ┃ ┣ css
+ ┃ ┃ ┃ ┗ main.css
+ ┃ ┃ ┣ images
+ ┃ ┃ ┃ ┗ LOGO.png
+ ┃ ┃ ┗ js
+ ┃ ┃ ┃ ┗ date.utils.js
+ ┃ ┣ core
+ ┃ ┃ ┣ app.js
+ ┃ ┃ ┗ patient.shared.js
+ ┃ ┗ js
+ ┃ ┃ ┗ patients.js
+ ┣ routes
+ ┃ ┗ index.js
+ ┣ uploads
+ ┃ ┣ nursingRecords.client.js
+ ┃ ┣ nursingRecords.counselor.view.html
+ ┃ ┗ nursingRecords.view.html
+ ┣ views
+ ┃ ┗ index.html
+ ┣ .env
+ ┣ cloudflared.exe
+ ┣ package-lock.json
+ ┣ package.json
+ ┣ README.md
+ ┗ server.js
 
 
 

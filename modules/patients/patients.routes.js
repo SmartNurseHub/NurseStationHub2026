@@ -8,8 +8,16 @@ const controller = require("./patients.controller");
 /* =========================
    PATIENTS API
 ========================= */
-router.get("/", controller.getPatientsList); // ⭐ เพิ่มบรรทัดนี้
-router.post("/import", controller.importPatients);
-router.get("/search", controller.searchPatients);
+
+// 🔹 List
+router.get("/", controller.getPatientsList);
 router.get("/list", controller.getPatientsList);
+router.get("/search", controller.searchPatients);
+
+// 🔹 Import (Batch from TXT)
+router.post("/import", controller.importPatients);
+
+// 🔹 NEW: Manual Create (Google Sheet)
+router.post("/create", controller.createPatient);
+
 module.exports = router;

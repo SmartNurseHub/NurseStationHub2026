@@ -216,11 +216,70 @@ async function getAllPatients() {
     fullName: `${r[1] ?? ""}${r[2] ?? ""} ${r[3] ?? ""}`.trim()
   }));
 }
+
+/* =========================================================
+   CREATE PATIENT (MANUAL ENTRY)
+   - Insert 1 ราย
+   - ตรวจซ้ำ CID ก่อน
+========================================================= */
+async function createPatientService(data) {
+  const sheets = await getSheets();
+
+  const CID = normalizeCID(data.CID);
+  if (!CID || CID.length !== 13) {
+    throw new Error("Citizen ID ไม่ถูกต้อง");
+  }
+
+  /* ---------- ตรวจซ้ำ ---------- */
+  const existingRes = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEET_PATIENTS}!A2:A`,
+    valueRenderOption: "UNFORMATTED_VALUE",
+  });
+
+  const existingCID = (existingRes.data.values || [])
+    .map(r => normalizeCID(r[0]));
+
+  if (existingCID.includes(CID)) {
+    throw new Error("มี Citizen ID นี้แล้วในระบบ");
+  }
+
+  /* ---------- เตรียมแถวข้อมูล ---------- */
+  const rowValues = [
+    `'${CID}`,             // A
+    data.PRENAME ?? "",    // B
+    data.NAME ?? "",       // C
+    data.LNAME ?? "",      // D
+    "",                    // E (HN ว่าง)
+    "",                    // F (SEX ว่าง)
+    data.BIRTH ?? "",      // G
+    "",                    // H (BIRTH_THAI ว่าง)
+    "",                    // I (TELEPHONE ว่าง)
+    data.MOBILE ?? "",     // J
+  ];
+
+  /* ---------- Insert ---------- */
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEET_PATIENTS}!A:J`,
+    valueInputOption: "USER_ENTERED",
+    insertDataOption: "INSERT_ROWS",
+    requestBody: {
+      values: [rowValues],
+    },
+  });
+
+  return {
+    inserted: 1,
+    CID,
+  };
+}
 /* =========================================================
    EXPORTS
 ========================================================= */
 module.exports = {
   importPatientsService,
   searchPatients,
-  getAllPatients,   // 👈 เพิ่มตรงนี้
+  getAllPatients,
+  createPatientService, // 👈 เพิ่มตรงนี้
 };

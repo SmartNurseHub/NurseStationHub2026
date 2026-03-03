@@ -92,6 +92,64 @@ exports.importPatients = async (req, res) => {
   }
 };
 
+
+/* =================================================
+   POST /api/patients/create
+   - บันทึกผู้ป่วย 1 ราย (Manual Entry)
+   - ใช้กับ Google Sheet
+   - เรียกจาก patients.client.js
+================================================= */
+exports.createPatient = async (req, res) => {
+  try {
+    const {
+      citizenId,
+      firstName,
+      lastName,
+      birthDate,
+      phone
+    } = req.body;
+
+    /* ---------- Normalize CID ---------- */
+    const CID = normalizeCID(citizenId);
+
+    if (!CID || CID.length !== 13) {
+      return res.status(400).json({
+        success: false,
+        message: "Citizen ID ไม่ถูกต้อง"
+      });
+    }
+
+    if (!firstName || !lastName) {
+      return res.status(400).json({
+        success: false,
+        message: "ข้อมูลไม่ครบ"
+      });
+    }
+
+    /* ---------- ส่งต่อให้ Service ---------- */
+    const result = await service.createPatientService({
+      CID,
+      NAME: firstName,
+      LNAME: lastName,
+      BIRTH: birthDate || "",
+      MOBILE: phone || ""
+    });
+
+    res.json({
+      success: true,
+      data: result
+    });
+
+  } catch (err) {
+    console.error("CREATE PATIENT ERROR:", err);
+
+    res.status(500).json({
+      success: false,
+      message: err.message || "Server error"
+    });
+  }
+};
+
 /* =================================================
    GET /api/patients/search?q=xxx
    - ค้นหาผู้ป่วยแบบ realtime

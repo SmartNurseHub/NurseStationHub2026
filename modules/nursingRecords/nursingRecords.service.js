@@ -6,16 +6,13 @@
  * - Column safe (ไม่มีเลื่อน)
  * - Update merge ไม่ล้างข้อมูลเก่า
  ******************************************************************/
-
-const { google } = require("googleapis");
-const { getAuth } = require("../../config/google");
-
+const { getSheets } = require("../../config/google");
 /* ================= ENV ================= */
 const SHEET_ID   = process.env.SPREADSHEET_ID;
 const SHEET_NAME = process.env.SHEET_NURSING;
 
 /* =========================================================
-   COLUMN ORDER (A → AH)  *** SINGLE SOURCE OF TRUTH ***
+   COLUMN ORDER (A → AJ)  *** SINGLE SOURCE OF TRUTH ***
 ========================================================= */
 const NURSING_COLUMNS = [
   "NSR","Stamp","CID","HN","PRENAME","NAME","LNAME","TELEPHONE","BIRTH",
@@ -23,7 +20,12 @@ const NURSING_COLUMNS = [
   "Follow1Date","Follow1Time","Follow1Route","Provider1","Response1",
   "Follow2Date","Follow2Time","Follow2Route","Provider2","Response2",
   "Follow3Date","Follow3Time","Follow3Route","Provider3","Response3",
-  "Deleted","DeletedBy","DeletedAt","status","remark"
+  "Deleted","DeletedBy","DeletedAt","status","remark",
+
+  "LineSent",
+"LineSentAt",
+"ResultConfirmed",
+"ConfirmedAt"
 ];
 
 /* =========================================================
@@ -68,16 +70,30 @@ function objectToRowArray(data = {}, fallback = []) {
   });
 }
 
+
+function getLastColumnLetter() {
+  const colCount = NURSING_COLUMNS.length;
+  let letter = "";
+  let temp = colCount;
+
+  while (temp > 0) {
+    let mod = (temp - 1) % 26;
+    letter = String.fromCharCode(65 + mod) + letter;
+    temp = Math.floor((temp - mod) / 26);
+  }
+
+  return letter;
+}
+
 /* =========================================================
    GET ALL
 ========================================================= */
 exports.getAll = async () => {
-  const auth = getAuth();
-  const sheets = google.sheets({ version: "v4", auth });
+  const sheets = await getSheets();
 
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: SHEET_ID,
-    range: `${SHEET_NAME}!A2:AH`,
+    range: `${SHEET_NAME}!A2:${getLastColumnLetter()}`,
   });
 
   const rows = res.data.values || [];
@@ -88,8 +104,7 @@ exports.getAll = async () => {
    SAVE (APPEND)
 ========================================================= */
 exports.save = async rawData => {
-  const auth = getAuth();
-  const sheets = google.sheets({ version: "v4", auth });
+  const sheets = await getSheets();
   const now = new Date().toISOString();
 
   const data = normalizeData(rawData);
@@ -118,8 +133,7 @@ exports.save = async rawData => {
    UPDATE BY NSR (SAFE MERGE)
 ========================================================= */
 exports.updateByNSR = async (nsr, rawData) => {
-  const auth = getAuth();
-  const sheets = google.sheets({ version: "v4", auth });
+  const sheets = await getSheets();
 
   const data = normalizeData(rawData);
 
@@ -130,7 +144,9 @@ exports.updateByNSR = async (nsr, rawData) => {
   });
 
   const rows = res.data.values || [];
-  const index = rows.findIndex(r => r[0] === nsr);
+  const index = rows.findIndex(r =>
+  String(r[0]).trim() === String(nsr).trim()
+);
   if (index === -1) throw new Error(`NSR not found: ${nsr}`);
 
   const rowNumber = index + 2;
@@ -138,7 +154,7 @@ exports.updateByNSR = async (nsr, rawData) => {
   // ดึงข้อมูลเดิมทั้งแถว
   const oldRes = await sheets.spreadsheets.values.get({
     spreadsheetId: SHEET_ID,
-    range: `${SHEET_NAME}!A${rowNumber}:AH${rowNumber}`,
+    range: `${SHEET_NAME}!A${rowNumber}:${getLastColumnLetter()}${rowNumber}`,
   });
 
   const oldRow = oldRes.data.values?.[0] || [];
@@ -153,7 +169,7 @@ exports.updateByNSR = async (nsr, rawData) => {
 
   await sheets.spreadsheets.values.update({
     spreadsheetId: SHEET_ID,
-    range: `${SHEET_NAME}!A${rowNumber}:AH${rowNumber}`,
+    range: `${SHEET_NAME}!A${rowNumber}:${getLastColumnLetter()}${rowNumber}`,
     valueInputOption: "USER_ENTERED",
     requestBody: { values: [mergedRow] }
   });
@@ -163,8 +179,7 @@ exports.updateByNSR = async (nsr, rawData) => {
    GET NEXT NSR
 ========================================================= */
 exports.getNextNSR = async () => {
-  const auth = getAuth();
-  const sheets = google.sheets({ version: "v4", auth });
+  const sheets = await getSheets();
 
   const now = new Date();
   const yyyy = now.getFullYear();
@@ -178,7 +193,7 @@ exports.getNextNSR = async () => {
 
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: SHEET_ID,
-    range: `${SHEET_NAME}!A2:A`,
+    range: `${SHEET_NAME}!A2:${getLastColumnLetter()}`,
   });
 
   const rows = res.data.values || [];
@@ -203,10 +218,10 @@ exports.getNextNSR = async () => {
 
 /* =========================================================
    SOFT DELETE
-========================================================= */
+========================================================= 
 exports.deleteByNSR = async (nsr) => {
   console.log("🧨 SERVICE deleteByNSR", nsr);
-  const auth = getAuth();
+  const auth = await getAuth();
   const sheets = google.sheets({ version: "v4", auth });
 
   const res = await sheets.spreadsheets.values.get({
@@ -246,4 +261,40 @@ exports.deleteByNSR = async (nsr) => {
       ],
     },
   });
+};*/
+exports.softDeleteByNSR = async (nsr, user) => {
+  await exports.updateByNSR(nsr, {
+    Deleted: "YES",
+    DeletedBy: user,
+    DeletedAt: new Date().toISOString(),
+    status: "DELETED"
+  });
+};
+
+
+exports.getByNSR = async (nsr) => {
+  const sheets = await getSheets();
+
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: SHEET_ID,
+    range: `${SHEET_NAME}!A2:${getLastColumnLetter()}`,
+  });
+
+  const rows = res.data.values || [];
+
+  const index = rows.findIndex(r =>
+  String(r[0]).trim() === String(nsr).trim()
+);
+
+console.log("🔎 SEARCH NSR:", nsr);
+console.log("🔎 FOUND INDEX:", index);
+
+if (index === -1) {
+  console.log("❌ NSR NOT FOUND IN SHEET");
+  throw new Error(`NSR not found: ${nsr}`);
+}
+
+const found = rows[index];
+
+return rowArrayToObject(found);
 };

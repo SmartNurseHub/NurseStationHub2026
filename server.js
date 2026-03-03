@@ -3,6 +3,7 @@
  *************************************************/
 
 require("dotenv").config();
+console.log("ENV TOKEN =", process.env.LINE_CHANNEL_ACCESS_TOKEN);
 const express = require("express");
 const path = require("path");
 
@@ -32,7 +33,7 @@ app.use(
   require("./modules/satisfactionSurvey/satisfactionSurvey.routes")
 );
 
-
+app.use("/api", require("./routes"));  // ✅ โหลด routes/index.js
 /* ===============================
    SPA FALLBACK
 ================================ */

@@ -1,58 +1,82 @@
 console.log("📅 date.utils.js LOADED");
 
+/* =================================================
+   NORMALIZE TO YYYY-MM-DD
+================================================= */
 function toRawDate(dateStr) {
   if (!dateStr) return "";
+
   const s = String(dateStr).trim();
 
+  // yyyy-mm-dd
   if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-  if (/^\d{8}$/.test(s))
+
+  // yyyymmdd
+  if (/^\d{8}$/.test(s)) {
     return `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}`;
+  }
 
   return "";
 }
 
+/* =================================================
+   FULL THAI DATE
+   2026-02-12 → 12 กุมภาพันธ์ 2569
+================================================= */
 function toDisplayThaiDate(raw) {
-  if (!raw) return "";
-
   const s = toRawDate(raw);
   if (!s) return "";
 
   const [y, m, d] = s.split("-").map(Number);
+
+  if (m < 1 || m > 12) return "";
+
   const thaiMonths = [
     "มกราคม","กุมภาพันธ์","มีนาคม","เมษายน",
     "พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม",
     "กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"
   ];
 
-  return `${d} ${thaiMonths[m-1]} ${y + 543}`;
+  return `${d} ${thaiMonths[m - 1]} ${y + 543}`;
 }
 
+/* =================================================
+   CALCULATE AGE (SAFE VERSION)
+================================================= */
 function calculateAge(rawDate) {
-  if (!rawDate) return "";
+  const s = toRawDate(rawDate);
+  if (!s) return "";
 
-  const d = toRawDate(rawDate).replace(/-/g,"");
-  const birth = new Date(d.slice(0,4), d.slice(4,6)-1, d.slice(6,8));
-  if (isNaN(birth)) return "";
+  const [y, m, d] = s.split("-").map(Number);
+  const birth = new Date(y, m - 1, d);
+
+  if (isNaN(birth.getTime())) return "";
 
   const today = new Date();
+
   let age = today.getFullYear() - birth.getFullYear();
+
   if (
     today.getMonth() < birth.getMonth() ||
     (today.getMonth() === birth.getMonth() &&
      today.getDate() < birth.getDate())
-  ) age--;
+  ) {
+    age--;
+  }
 
-  return age;
+  return age < 0 ? "" : age;
 }
 
-/* ===============================
-   ISO → 12 ก.พ. 2569
-================================ */
-function toThaiShortDate(isoDate) {
-  if (!isoDate) return "";
+/* =================================================
+   SHORT THAI DATE
+   2026-02-12 → 12 ก.พ. 2569
+================================================= */
+function toThaiShortDate(dateInput) {
+  const s = toRawDate(dateInput);
+  if (!s) return "";
 
-  const date = new Date(isoDate);
-  if (isNaN(date)) return "";
+  const [y, m, d] = s.split("-").map(Number);
+  if (m < 1 || m > 12) return "";
 
   const thaiMonthsShort = [
     "ม.ค.","ก.พ.","มี.ค.","เม.ย.",
@@ -60,17 +84,13 @@ function toThaiShortDate(isoDate) {
     "ก.ย.","ต.ค.","พ.ย.","ธ.ค."
   ];
 
-  const d = date.getDate();
-  const m = thaiMonthsShort[date.getMonth()];
-  const y = date.getFullYear() + 543;
-
-  return `${d} ${m} ${y}`;
+  return `${d} ${thaiMonthsShort[m - 1]} ${y + 543}`;
 }
 
-/* expose */
-window.toThaiShortDate = toThaiShortDate;
-
-/* 🔥 expose to global */
+/* =================================================
+   EXPORT GLOBAL (SPA SAFE)
+================================================= */
 window.toRawDate = toRawDate;
 window.toDisplayThaiDate = toDisplayThaiDate;
+window.toThaiShortDate = toThaiShortDate;
 window.calculateAge = calculateAge;

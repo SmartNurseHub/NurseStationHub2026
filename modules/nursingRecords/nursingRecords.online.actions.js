@@ -114,8 +114,9 @@ window.NursingOnlineActions = (() => {
           🖨️
         </button>
 
-        <button class="btn btn-sm btn-success"
-          onclick="sendReportToPatient('${r.NSR}')"
+        <button type="button"
+          class="btn btn-sm btn-success action-send"
+          data-nsr="${r.NSR}"
           style="width:40px;">
           📲
         </button>
@@ -146,29 +147,39 @@ window.NursingOnlineActions = (() => {
      TABLE ACTIONS
   ================================ */
   function bindTableActions() {
-    if (window.__nursingTableBound) return;
-    window.__nursingTableBound = true;
+  if (window.__nursingTableBound) return;
+  window.__nursingTableBound = true;
 
-    document.body.addEventListener("click", e => {
-      const btn = e.target.closest("button");
-      if (!btn) return;
+  document.body.addEventListener("click", async e => {
+    const btn = e.target.closest("button");
+    if (!btn) return;
 
-      const row = btn.closest("tr");
-      if (!row || !row._record) return;
+    const row = btn.closest("tr");
+    if (!row || !row._record) return;
 
-      if (btn.classList.contains("action-edit")) {
-        EditorState.setEdit(row._record);
-        loadSubView("online");
-      }
+    const record = row._record;
 
-      if (btn.classList.contains("action-delete")) {
-        deleteRecord(row._record.NSR);
-      }
-    });
+    if (btn.classList.contains("action-edit")) {
+      EditorState.setEdit(record);
+      loadSubView("online");
+    }
 
-    console.log("🧷 Table actions bound");
+    if (btn.classList.contains("action-delete")) {
+      deleteRecord(record.NSR);
+    }
+
+    if (btn.classList.contains("action-print")) {
+      handlePrint(record);
+    }
+
+    if (btn.classList.contains("action-send")) {
+      await sendReportToPatient(record.NSR, btn);
+    }
+
+  });
+
+  console.log("🧷 Table actions bound");
   }
-
   async function loadNextNSR() {
     if (EditorState.mode === "edit") return;
 
@@ -180,6 +191,45 @@ window.NursingOnlineActions = (() => {
     input.value = json.nsr || "";
   }
 
+
+  async function sendReportToPatient(nsr, button) {
+
+  if (!nsr) return;
+
+  if (!confirm("ยืนยันการส่งผลให้ผู้รับบริการ?")) return;
+
+  try {
+
+    button.disabled = true;
+    button.innerHTML = "⏳";
+
+    const res = await fetch("/api/lineOA/sendReport", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nsr })
+    });
+
+    const data = await res.json();
+
+    if (!data.success) {
+      throw new Error(data.message || "ส่งไม่สำเร็จ");
+    }
+
+    button.innerHTML = "✅";
+    button.classList.remove("btn-success");
+    button.classList.add("btn-secondary");
+
+    console.log("✅ ส่งผลสำเร็จ:", nsr);
+
+  } catch (err) {
+
+    console.error("❌ Send error:", err);
+    alert("เกิดข้อผิดพลาด: " + err.message);
+
+    button.disabled = false;
+    button.innerHTML = "📲";
+  }
+}
   return {
     bindPatientSearch,
     bindTableActions,

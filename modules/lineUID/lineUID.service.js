@@ -74,9 +74,30 @@ async function deleteLineUID(cid) {
 
   return { success: true };
 }
+const { readRows, updateRow } = require("../../config/google");
+const { LINE_UID_SHEET } = require("./lineUID.schema");
 
+async function updateLineUID(userId, patient) {
+  const lineRows = await readRows(LINE_UID_SHEET);
+
+  const index = lineRows.findIndex(r => r[4] === userId);
+
+  if (index !== -1) {
+    lineRows[index][1] = patient[0];
+    lineRows[index][2] = patient[2];
+    lineRows[index][3] = patient[3];
+    lineRows[index][7] = "ACTIVE";
+
+    await updateRow(
+      LINE_UID_SHEET,
+      index + 2,
+      lineRows[index]
+    );
+  }
+}
 module.exports = {
   addLineUID,
   getLineUIDList,
+  updateLineUID,
   deleteLineUID
 };

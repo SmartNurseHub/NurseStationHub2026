@@ -74,7 +74,7 @@ exports.delete = async (req, res) => {
     const { nsr } = req.params;
     console.log("🔥 DELETE API HIT", nsr);
 
-    await service.deleteByNSR(nsr);
+    await service.softDeleteByNSR(nsr, "SYSTEM");
 
     res.json({ success: true });
   } catch (err) {
