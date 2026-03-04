@@ -1,36 +1,53 @@
+/******************************************************************
+ * lineOA.service.js
+ * จัดการ LINE Follow / Message / Send Result
+ ******************************************************************/
+
 const lineAPI = require("./lineOA.line.service");
 const nursingService = require("../nursingRecords/nursingRecords.service");
 const { appendRow, readRows, updateRow } = require("../../config/google");
+const registrationService = require("./lineOA.registration.service");
 
 const LINE_UID_SHEET = "LineUID";
+const USER_SHEET = "UserList";
 
 /* =====================================================
    HANDLE FOLLOW
 ===================================================== */
 exports.handleFollowEvent = async (event) => {
   try {
-    const userId = event.source.userId;
-    const profile = await lineAPI.getProfile(userId);
 
+    const userId = String(event.source.userId).trim();
+    const profile = await lineAPI.getProfile(userId);
     const rows = await readRows(LINE_UID_SHEET);
-    const index = rows.findIndex(r => r[4] === userId);
+
+    const index = rows.findIndex((r, i) =>
+      i > 0 && String(r[4] || "").trim() === userId
+    );
 
     const rowData = [
-      new Date().toISOString(),
-      "",
-      "",
-      "",
-      userId,
-      profile.displayName || "",
-      profile.pictureUrl || "",
-      "PENDING"
+      new Date().toISOString(),   // 0 Timestamp
+      "",                         // 1 cid
+      "",                         // 2 name
+      "",                         // 3 lname
+      userId,                     // 4 userId
+      profile.displayName || "",  // 5 displayName
+      profile.pictureUrl || "",   // 6 pictureUrl
+      "PENDING_CID",              // 7 status
+      ""                          // 8 phone
     ];
 
     if (index !== -1) {
-      await updateRow(LINE_UID_SHEET, index + 2, rowData);
+      await updateRow(LINE_UID_SHEET, index + 1, rowData);
     } else {
       await appendRow(LINE_UID_SHEET, rowData);
     }
+
+    // ✅ ถามอัตโนมัติทันทีหลัง Follow
+    await lineAPI.replyMessage(event.replyToken, {
+      type: "text",
+      text: "สวัสดีค่ะ 👋\nกรุณากรอกเลขบัตรประชาชน 13 หลัก (ตัวเลขติดกัน)"
+    });
 
   } catch (err) {
     console.error("handleFollowEvent error:", err.message);
@@ -43,8 +60,29 @@ exports.handleFollowEvent = async (event) => {
 ===================================================== */
 exports.handleChatMessage = async (event) => {
   try {
-    const userId = event.source.userId;
+
+    const userId = String(event.source.userId).trim();
     const text = event.message.text.trim();
+    const profile = await lineAPI.getProfile(userId);
+
+    /* ========= REGISTRATION FLOW ========= */
+    const handled = await registrationService.handleRegistrationFlow(
+      lineAPI,
+      userId,
+      text,
+      event.replyToken
+    );
+
+    if (handled) return;
+
+    /* ========= บันทึก UserList ========= */
+    await appendRow(USER_SHEET, [
+      new Date().toISOString(),
+      "message",
+      userId,
+      profile.displayName || "",
+      profile.pictureUrl || ""
+    ]);
 
     /* ================= CONFIRM RESULT ================= */
     if (text.startsWith("CONFIRM_RESULT:")) {
@@ -64,57 +102,6 @@ exports.handleChatMessage = async (event) => {
       return;
     }
 
-    /* ================= LINK CID ================= */
-    if (/^\d{13}$/.test(text)) {
-
-  const cid = text;
-  const lineRows = await readRows(LINE_UID_SHEET);
-
-  // เช็คว่ามี CID นี้ ACTIVE แล้วหรือยัง
-  const existingCID = lineRows.find(r =>
-    String(r[1]).trim() === cid &&
-    String(r[7]).trim().toUpperCase() === "ACTIVE"
-  );
-
-  if (existingCID) {
-    await lineAPI.replyMessage(event.replyToken, {
-      type: "text",
-      text: "⚠ เลขบัตรนี้ถูกผูกกับ LINE แล้ว"
-    });
-    return;
-  }
-
-  const profile = await lineAPI.getProfile(userId);
-
-  const newRow = [
-    new Date().toISOString(),
-    cid,             // ใส่ CID เลย
-    "",              // ยังไม่มีชื่อ
-    "",              // ยังไม่มีนามสกุล
-    userId,
-    profile.displayName || "",
-    profile.pictureUrl || "",
-    "ACTIVE"
-  ];
-
-  const pendingIndex = lineRows.findIndex(r =>
-    String(r[4]).trim() === userId
-  );
-
-  if (pendingIndex !== -1) {
-    await updateRow(LINE_UID_SHEET, pendingIndex + 2, newRow);
-  } else {
-    await appendRow(LINE_UID_SHEET, newRow);
-  }
-
-  await lineAPI.replyMessage(event.replyToken, {
-    type: "text",
-    text: "✅ ผูก LINE สำเร็จแล้ว"
-  });
-
-  return;
-}
-
   } catch (err) {
     console.error("handleChatMessage error:", err.message);
   }
@@ -122,7 +109,7 @@ exports.handleChatMessage = async (event) => {
 
 
 /* =====================================================
-   SEND REPORT (ใช้ pushFlexResult ตัวเดียว)
+   SEND REPORT
 ===================================================== */
 exports.sendReport = async (nsr) => {
 
@@ -143,8 +130,8 @@ exports.sendReport = async (nsr) => {
     const lineRows = await readRows(LINE_UID_SHEET);
 
     const userRow = lineRows.find(r =>
-      String(r[1]).trim() === cid &&
-      String(r[7]).trim().toUpperCase() === "ACTIVE"
+      String(r[1] || "").trim() === cid &&
+      String(r[7] || "").trim().toUpperCase() === "ACTIVE"
     );
 
     if (!userRow) throw new Error("ยังไม่ได้ผูก LINE");

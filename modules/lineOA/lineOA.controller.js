@@ -1,7 +1,7 @@
 const service = require("./lineOA.service");
 const { readRows } = require("../../config/google");
 const { FOLLOW_SHEET, USER_SHEET } = require("./lineOA.schema");
-
+const registrationService = require("./lineOA.registration.service");
 /* =================================================
    LINE WEBHOOK
 ================================================= */
@@ -29,6 +29,8 @@ exports.handleWebhook = (req, res) => {
     }
   });
 };
+
+
 
 /* =================================================
    SEND RESULT BY NSR
@@ -80,3 +82,4 @@ exports.getUserMessages = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
