@@ -168,7 +168,7 @@ exports.sendReport = async (nsr) => {
       fullName: `${record.PRENAME || ""}${record.NAME || ""} ${record.LNAME || ""}`,
       dateService: record.DateService,
       list: record.Activity,
-      result: record.Objective,
+      result: record.HealthInform,
       advice: record.HealthAdvice,
       status: record.status,
       fileURL: record.fileURL || null
