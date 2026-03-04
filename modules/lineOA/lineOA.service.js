@@ -67,64 +67,53 @@ exports.handleChatMessage = async (event) => {
     /* ================= LINK CID ================= */
     if (/^\d{13}$/.test(text)) {
 
-      const cid = text;
+  const cid = text;
+  const lineRows = await readRows(LINE_UID_SHEET);
 
-      const patients = await readRows("Patients");
-      const patient = patients.find(p => String(p[0]).trim() === cid);
+  // เช็คว่ามี CID นี้ ACTIVE แล้วหรือยัง
+  const existingCID = lineRows.find(r =>
+    String(r[1]).trim() === cid &&
+    String(r[7]).trim().toUpperCase() === "ACTIVE"
+  );
 
-      if (!patient) {
-        await lineAPI.replyMessage(event.replyToken, {
-          type: "text",
-          text: "❌ ไม่พบเลขบัตรประชาชนในระบบ"
-        });
-        return;
-      }
+  if (existingCID) {
+    await lineAPI.replyMessage(event.replyToken, {
+      type: "text",
+      text: "⚠ เลขบัตรนี้ถูกผูกกับ LINE แล้ว"
+    });
+    return;
+  }
 
-      const lineRows = await readRows(LINE_UID_SHEET);
+  const profile = await lineAPI.getProfile(userId);
 
-      const existingCID = lineRows.find(r =>
-        String(r[1]).trim() === cid &&
-        String(r[7]).trim().toUpperCase() === "ACTIVE"
-      );
+  const newRow = [
+    new Date().toISOString(),
+    cid,             // ใส่ CID เลย
+    "",              // ยังไม่มีชื่อ
+    "",              // ยังไม่มีนามสกุล
+    userId,
+    profile.displayName || "",
+    profile.pictureUrl || "",
+    "ACTIVE"
+  ];
 
-      if (existingCID) {
-        await lineAPI.replyMessage(event.replyToken, {
-          type: "text",
-          text: "⚠ เลขบัตรนี้ถูกผูกกับ LINE แล้ว"
-        });
-        return;
-      }
+  const pendingIndex = lineRows.findIndex(r =>
+    String(r[4]).trim() === userId
+  );
 
-      const profile = await lineAPI.getProfile(userId);
+  if (pendingIndex !== -1) {
+    await updateRow(LINE_UID_SHEET, pendingIndex + 2, newRow);
+  } else {
+    await appendRow(LINE_UID_SHEET, newRow);
+  }
 
-      const newRow = [
-        new Date().toISOString(),
-        patient[0],
-        patient[2],
-        patient[3],
-        userId,
-        profile.displayName || "",
-        profile.pictureUrl || "",
-        "ACTIVE"
-      ];
+  await lineAPI.replyMessage(event.replyToken, {
+    type: "text",
+    text: "✅ ผูก LINE สำเร็จแล้ว"
+  });
 
-      const pendingIndex = lineRows.findIndex(r =>
-        String(r[4]).trim() === userId
-      );
-
-      if (pendingIndex !== -1) {
-        await updateRow(LINE_UID_SHEET, pendingIndex + 2, newRow);
-      } else {
-        await appendRow(LINE_UID_SHEET, newRow);
-      }
-
-      await lineAPI.replyMessage(event.replyToken, {
-        type: "text",
-        text: "✅ ผูก LINE สำเร็จแล้ว"
-      });
-
-      return;
-    }
+  return;
+}
 
   } catch (err) {
     console.error("handleChatMessage error:", err.message);
@@ -168,7 +157,7 @@ exports.sendReport = async (nsr) => {
       fullName: `${record.PRENAME || ""}${record.NAME || ""} ${record.LNAME || ""}`,
       dateService: record.DateService,
       list: record.Activity,
-      result: record.Objective,
+      result: record.HealthInform,
       advice: record.HealthAdvice,
       status: record.status,
       fileURL: record.fileURL || null

@@ -180,6 +180,9 @@ window.NursingOnlineActions = (() => {
 
   console.log("🧷 Table actions bound");
   }
+
+
+
   async function loadNextNSR() {
     if (EditorState.mode === "edit") return;
 
@@ -196,12 +199,31 @@ window.NursingOnlineActions = (() => {
 
   if (!nsr) return;
 
-  if (!confirm("ยืนยันการส่งผลให้ผู้รับบริการ?")) return;
+  const confirmResult = await Swal.fire({
+    title: "ยืนยันการส่งผล?",
+    text: "ระบบจะส่งผลตรวจให้ผู้รับบริการผ่าน LINE OA",
+    icon: "question",
+    showCancelButton: true,
+    confirmButtonText: "✅ ส่งเลย",
+    cancelButtonText: "ยกเลิก",
+    confirmButtonColor: "#2e7d32",
+    cancelButtonColor: "#6c757d",
+    reverseButtons: true
+  });
+
+  if (!confirmResult.isConfirmed) return;
 
   try {
 
     button.disabled = true;
     button.innerHTML = "⏳";
+
+    Swal.fire({
+      title: "กำลังส่งผล...",
+      text: "กรุณารอสักครู่",
+      allowOutsideClick: false,
+      didOpen: () => Swal.showLoading()
+    });
 
     const res = await fetch("/api/lineOA/sendReport", {
       method: "POST",
@@ -210,6 +232,7 @@ window.NursingOnlineActions = (() => {
     });
 
     const data = await res.json();
+    Swal.close();
 
     if (!data.success) {
       throw new Error(data.message || "ส่งไม่สำเร็จ");
@@ -219,12 +242,25 @@ window.NursingOnlineActions = (() => {
     button.classList.remove("btn-success");
     button.classList.add("btn-secondary");
 
+    await Swal.fire({
+      icon: "success",
+      title: "ส่งผลสำเร็จ",
+      text: "ผู้รับบริการได้รับผลเรียบร้อยแล้ว",
+      confirmButtonColor: "#2e7d32"
+    });
+
     console.log("✅ ส่งผลสำเร็จ:", nsr);
 
   } catch (err) {
 
     console.error("❌ Send error:", err);
-    alert("เกิดข้อผิดพลาด: " + err.message);
+
+    Swal.fire({
+      icon: "error",
+      title: "เกิดข้อผิดพลาด",
+      text: err.message,
+      confirmButtonColor: "#d33"
+    });
 
     button.disabled = false;
     button.innerHTML = "📲";

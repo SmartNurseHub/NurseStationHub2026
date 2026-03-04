@@ -227,23 +227,70 @@ async function deleteRecord(nsr) {
 window.deleteRecord = deleteRecord;
 
 async function sendReportToPatient(nsr) {
-  if (!confirm("ส่งผลให้ผู้ป่วยผ่าน LINE ใช่หรือไม่?")) return;
+
+  // 🔹 Confirm Dialog
+  const confirmResult = await Swal.fire({
+    title: "ยืนยันการส่งผลตรวจ?",
+    text: "ระบบจะส่งผลให้ผู้ป่วยผ่าน LINE OA",
+    icon: "question",
+    showCancelButton: true,
+    confirmButtonText: "✅ ส่งเลย",
+    cancelButtonText: "ยกเลิก",
+    confirmButtonColor: "#2e7d32",
+    cancelButtonColor: "#d33",
+    reverseButtons: true
+  });
+
+  if (!confirmResult.isConfirmed) return;
 
   try {
+
+    // 🔹 แสดง Loading
+    Swal.fire({
+      title: "กำลังส่งผล...",
+      text: "กรุณารอสักครู่",
+      allowOutsideClick: false,
+      didOpen: () => {
+        Swal.showLoading();
+      }
+    });
+
     const res = await fetch(`/api/lineOA/sendReport/${nsr}`, {
       method: "POST"
     });
 
     const json = await res.json();
+    Swal.close();
 
     if (json.success) {
-      alert("ส่งผลสำเร็จ ✅");
+
+      await Swal.fire({
+        icon: "success",
+        title: "ส่งผลสำเร็จ",
+        text: "ผู้ป่วยได้รับผลเรียบร้อยแล้ว",
+        confirmButtonColor: "#2e7d32"
+      });
+
     } else {
-      alert("ส่งผลไม่สำเร็จ ❌");
+
+      Swal.fire({
+        icon: "error",
+        title: "ส่งผลไม่สำเร็จ",
+        text: json.message || "เกิดข้อผิดพลาดจากระบบ",
+        confirmButtonColor: "#d33"
+      });
+
     }
+
   } catch (err) {
     console.error(err);
-    alert("เกิดข้อผิดพลาด");
+
+    Swal.fire({
+      icon: "error",
+      title: "Server Error",
+      text: "ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้",
+      confirmButtonColor: "#d33"
+    });
   }
 }
 window.sendReportToPatient = sendReportToPatient;
@@ -257,13 +304,44 @@ function bindSendResultButton() {
     if (!btn) return;
 
     const nsr = btn.dataset.nsr;
-    if (!nsr) return alert("ไม่พบ NSR");
 
-    if (!confirm("ต้องการส่งผลตรวจให้ผู้ป่วยหรือไม่?")) return;
+    if (!nsr) {
+      return Swal.fire({
+        icon: "warning",
+        title: "ไม่พบข้อมูล",
+        text: "ไม่พบ NSR ของรายการนี้",
+        confirmButtonColor: "#3085d6"
+      });
+    }
+
+    // 🔹 Confirm Dialog
+    const confirmResult = await Swal.fire({
+      title: "ยืนยันการส่งผลตรวจ?",
+      text: "ระบบจะส่งผลตรวจให้ผู้ป่วยผ่าน LINE OA",
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonColor: "#28a745",
+      cancelButtonColor: "#d33",
+      confirmButtonText: "✅ ส่งเลย",
+      cancelButtonText: "ยกเลิก",
+      reverseButtons: true
+    });
+
+    if (!confirmResult.isConfirmed) return;
 
     try {
       btn.disabled = true;
       btn.innerHTML = "⏳";
+
+      // 🔹 Loading Popup
+      Swal.fire({
+        title: "กำลังส่งผลตรวจ...",
+        text: "กรุณารอสักครู่",
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        }
+      });
 
       const res = await fetch("/api/lineoa/send-result", {
         method: "POST",
@@ -272,19 +350,40 @@ function bindSendResultButton() {
       });
 
       const data = await res.json();
+      Swal.close();
 
       if (data.success) {
         btn.innerHTML = "✅";
-        alert("ส่งผลเรียบร้อย");
+
+        await Swal.fire({
+          icon: "success",
+          title: "ส่งผลเรียบร้อย",
+          text: "ผู้ป่วยได้รับผลตรวจแล้ว",
+          confirmButtonColor: "#28a745"
+        });
+
       } else {
         btn.innerHTML = "❌";
-        alert("ส่งไม่สำเร็จ");
+
+        Swal.fire({
+          icon: "error",
+          title: "ส่งไม่สำเร็จ",
+          text: data.message || "เกิดข้อผิดพลาด",
+          confirmButtonColor: "#d33"
+        });
       }
 
     } catch (err) {
       console.error("SEND ERROR:", err);
       btn.innerHTML = "❌";
-      alert("Server error");
+
+      Swal.fire({
+        icon: "error",
+        title: "Server Error",
+        text: "ไม่สามารถติดต่อเซิร์ฟเวอร์ได้",
+        confirmButtonColor: "#d33"
+      });
+
     } finally {
       setTimeout(() => {
         btn.disabled = false;
