@@ -107,7 +107,7 @@ exports.pushFlexResult = async ({
             action: {
               type: "uri",
               label: "⭐ ประเมินความพึงพอใจ",
-              uri: "https://yourdomain.com/satisfaction"
+              uri: "https://liff.line.me/2007902507-7OKhdnNW"
             }
           }
         ]
