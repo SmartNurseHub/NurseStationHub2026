@@ -53,6 +53,12 @@ const VIEW_CONFIG = {
     view: "/modules/reports/reports.view.html",
     script: "/modules/reports/reports.client.js",
     init: "initReports"
+  },
+  /* ✅ ADD THIS */
+  vaccination: {
+    view: "/modules/vaccination/vaccination.view.html",
+    script: "/modules/vaccination/vaccination.client.js",
+    init: "initVaccination"
   }
 };
 

@@ -1,0 +1,371 @@
+<!-- ===================================== -->
+<!-- 💉 VACCINATION ACTION MENU -->
+<!-- ===================================== -->
+
+<div class="d-flex justify-content-center mb-3">
+  <div class="btn-group">
+
+    <!-- ADD VACCINE -->
+    <div class="dropdown me-2">
+      <button class="btn dropdown-toggle"
+        style="background-color:#006666;color:#fff;font-size:12px;"
+        data-bs-toggle="dropdown">
+        💉 บันทึกการให้วัคซีน
+      </button>
+
+      <ul class="dropdown-menu">
+        <li>
+          <a href="javascript:void(0)"
+             class="dropdown-item open-tab"
+             data-tab="addVaccine"
+             style="font-size:12px;">
+            ➕ เพิ่มการฉีดวัคซีน
+          </a>
+        </li>
+      </ul>
+    </div>
+
+    <!-- HISTORY -->
+    <div class="dropdown me-2">
+      <button class="btn dropdown-toggle"
+        style="background-color:#006666;color:#fff;font-size:12px;"
+        data-bs-toggle="dropdown">
+        📋 ประวัติการฉีด
+      </button>
+
+      <ul class="dropdown-menu">
+
+        <li>
+          <a href="javascript:void(0)"
+             class="dropdown-item open-tab"
+             data-tab="timeline"
+             style="font-size:12px;">
+            🕒 แบบ Timeline
+          </a>
+        </li>
+
+        <li>
+          <a href="javascript:void(0)"
+             class="dropdown-item open-tab"
+             data-tab="table"
+             style="font-size:12px;">
+            📊 แบบตาราง
+          </a>
+        </li>
+
+      </ul>
+    </div>
+
+    <!-- CERTIFICATE -->
+    <div class="dropdown me-2">
+      <button class="btn dropdown-toggle"
+        style="background-color:#006666;color:#fff;font-size:12px;"
+        data-bs-toggle="dropdown">
+        📄 เอกสารรับรอง
+      </button>
+
+      <ul class="dropdown-menu">
+        <li>
+          <a href="javascript:void(0)"
+             class="dropdown-item"
+             id="exportVaccinePDF"
+             style="font-size:12px;">
+            🖨 ออกใบรับรอง PDF
+          </a>
+        </li>
+      </ul>
+    </div>
+
+    <!-- VACCINE MASTER -->
+    <div class="dropdown">
+      <button class="btn dropdown-toggle"
+        style="background-color:#006666;color:#fff;font-size:12px;"
+        data-bs-toggle="dropdown">
+        🛠 จัดการวัคซีน
+      </button>
+
+      <ul class="dropdown-menu">
+        <li>
+          <a href="javascript:void(0)"
+             class="dropdown-item open-tab"
+             data-tab="vaccineMaster"
+             style="font-size:12px;">
+            📦 Vaccine Master
+          </a>
+        </li>
+      </ul>
+    </div>
+
+  </div>
+</div>
+
+<div class="container-fluid p-3">
+
+<!-- ===================================== -->
+<!-- 👤 PATIENT HEADER -->
+<!-- ===================================== -->
+
+<div class="card mb-3 shadow-sm">
+  <div class="card-body d-flex justify-content-between align-items-center flex-wrap">
+
+    <div>
+      <h5 id="vaccinePatientName">👤 ยังไม่ได้เลือกผู้รับบริการ</h5>
+
+      <div class="text-muted small">
+        เลขประจำตัวประชาชน: <span id="vaccineCID">-</span> |
+        วันเกิด: <span id="vaccineBirthDate">-</span> |
+        อายุ: <span id="vaccineAge">-</span> ปี |
+        เบอร์โทรศัพท์: <span id="vaccinePhone">-</span>
+      </div>
+      <input type="hidden" id="vaccineCIDInput">
+    </div>
+
+    <button class="btn btn-outline-primary btn-sm mt-2 mt-md-0" id="searchPatientBtn">
+      🔎 ค้นหาผู้รับบริการ
+    </button>
+
+  </div>
+</div>
+
+<!-- ===================================== -->
+<!-- TAB: ADD VACCINE -->
+<!-- ===================================== -->
+
+<div id="addVaccineTab" class="vaccine-tab">
+
+<div class="row">
+
+<!-- LEFT FORM -->
+
+<div class="col-lg-6">
+<div class="card shadow-sm">
+
+<div class="card-header bg-primary text-white" style="font-size:14px;">
+➕ บันทึกการให้วัคซีน
+</div>
+
+<div class="card-body">
+
+<form id="vaccinationForm">
+
+
+<div class="row mb-3">
+
+  <div class="col-md-6">
+    <label class="form-label" style="font-size:10px;">VCN No.</label>
+    <input type="text" id="cn" class="form-control" style="font-size:10px;" readonly>
+  </div>
+
+  <div class="col-md-6">
+    <label class="form-label" style="font-size:10px;">วันที่บันทึก</label>
+    <input type="date" id="recordDate" class="form-control" style="font-size:10px;">
+  </div>
+  
+</div>
+
+<div class="mb-3">
+  <label class="form-label" style="font-size:10px;">วัคซีน</label>
+  <select class="form-select" id="vaccineType"  style="font-size:10px;">
+  <option value="">-- เลือกวัคซีน --</option>
+  </select>
+</div>
+
+<div class="row mb-3">
+
+  <div class="col-md-6">
+    <label class="form-label" style="font-size:10px;">เข็มที่</label>
+    <input type="number" class="form-control" id="doseNumber" style="font-size:10px;">
+  </div>
+
+  <div class="col-md-6">
+    <label class="form-label" style="font-size:10px;">Lot Number</label>
+    <input type="text" id="lotNumber" class="form-control" style="font-size:10px;">
+  </div> 
+
+</div>
+
+
+
+<!-- Provider -->
+<div class="row mb-3">
+
+  <div class="col-md-8">
+    <label class="form-label" style="font-size:10px;">ชื่อผู้ให้บริการ</label>
+    <input 
+      type="text"
+      id="providerName"
+      class="form-control"
+      placeholder="เช่น ธนชนัญ เกณฑ์คง"
+      style="font-size:10px;">
+  </div>
+
+  <div class="col-md-4">
+    <label class="form-label" style="font-size:10px;">บทบาทผู้ให้บริการ</label>
+    <select id="providerRole" class="form-select" style="font-size:10px;">
+      <option value="">-- เลือก --</option>
+      <option value="MD">แพทย์</option>
+      <option value="RN">พยาบาล</option>
+      <option value="PHN">นักวิชาการสาธารณสุข</option>
+    </select>
+  </div>
+
+</div>
+
+<!-- Location -->
+<div class="row mb-3">
+
+  <div class="col-md-8">
+    <label class="form-label" style="font-size:10px;">รายละเอียดสถานที่</label>
+    <input
+      type="text"
+      id="locationDetail"
+      class="form-control"
+      placeholder="เช่น มิตรไมตรีคลินิกเวชกรรม (เขาน้อย)"
+      style="font-size:10px;">
+  </div>
+
+  <div class="col-md-4">
+    <label class="form-label" style="font-size:10px;">ประเภทสถานที่</label>
+    <select id="serviceLocation" class="form-select" style="font-size:10px;">
+      <option value="">-- เลือก --</option>
+      <option value="HOSPITAL">โรงพยาบาล</option>
+      <option value="CLINIC">คลินิก</option>
+      <option value="HOME">บ้านผู้ป่วย</option>
+    </select>
+  </div>
+
+</div>
+
+<div class="alert alert-info small" id="nextDoseInfo">
+📅 ระบบจะคำนวณเข็มถัดไปอัตโนมัติ
+</div>
+
+<button type="submit" class="btn btn-success w-100">
+💾 บันทึกวัคซีน
+</button>
+
+</form>
+
+</div>
+</div>
+</div>
+
+<!-- RIGHT PREVIEW -->
+
+<div class="col-lg-6">
+<div class="card shadow-sm">
+
+<div class="card-header bg-light">
+📝 ประวัติล่าสุด
+</div>
+
+<div class="card-body">
+<div id="latestVaccinePreview">
+ยังไม่มีข้อมูล
+</div>
+</div>
+
+</div>
+</div>
+
+</div>
+</div>
+
+<!-- ===================================== -->
+<!-- TAB: TIMELINE -->
+<!-- ===================================== -->
+
+<div id="timelineTab" class="vaccine-tab d-none">
+
+<div class="card shadow-sm">
+
+<div class="card-header bg-secondary text-white">
+🕒 ประวัติการฉีดแบบ Timeline
+</div>
+
+<div class="card-body">
+<div id="vaccinationTimeline">
+ยังไม่มีข้อมูล
+</div>
+</div>
+
+</div>
+</div>
+
+<!-- ===================================== -->
+<!-- TAB: TABLE -->
+<!-- ===================================== -->
+
+<div id="tableTab" class="vaccine-tab d-none">
+
+<div class="card shadow-sm">
+
+<div class="card-header bg-dark text-white">
+📋 ประวัติการฉีดทั้งหมด
+</div>
+
+<div class="card-body">
+
+<div class="table-responsive">
+
+<table class="table table-bordered table-sm">
+
+<thead class="table-light">
+<tr>
+<th>วันที่</th>
+<th>วัคซีน</th>
+<th>เข็ม</th>
+<th>Lot</th>
+<th>Provider</th>
+<th>สถานที่</th>
+<th>เข็มถัดไป</th>
+<th>จัดการ</th>
+</tr>
+</thead>
+
+<tbody id="vaccinationTable">
+</tbody>
+
+</table>
+
+</div>
+</div>
+</div>
+</div>
+
+<!-- ===================================== -->
+<!-- PATIENT SEARCH MODAL -->
+<!-- ===================================== -->
+
+<div class="modal fade" id="patientSearchModal" tabindex="-1">
+
+<div class="modal-dialog modal-lg">
+
+<div class="modal-content">
+
+<div class="modal-header">
+<h5 class="modal-title">ค้นหาผู้ป่วย</h5>
+<button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+</div>
+
+<div class="modal-body">
+
+<table class="table table-striped">
+
+<thead>
+<tr>
+<th>CID</th>
+<th>ชื่อ</th>
+<th>เลือก</th>
+</tr>
+</thead>
+
+<tbody id="patientSearchTable"></tbody>
+
+</table>
+
+</div>
+
+</div>
+</div>
+</div>

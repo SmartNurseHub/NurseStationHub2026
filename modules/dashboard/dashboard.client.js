@@ -60,13 +60,14 @@ async function loadLineUIDTable() {
           <td>${row.name} ${row.lname}</td>
 
           <td>
-            <img src="${row.picture}"
-                onerror="this.src='https://via.placeholder.com/45';"
-                style="width:45px;
-                        height:45px;
-                        object-fit:cover;
-                        border-radius:50%;
-                        border:2px solid #28a745;">
+            <img
+              src="${row.picture ? row.picture : '/images/logoperson.png'}"
+              onerror="this.src='/images/logoperson.png';"
+              style="width:45px;
+                    height:45px;
+                    object-fit:cover;
+                    border-radius:50%;
+                    border:2px solid #28a745;">
           </td>
 
           <td>${row.displayName}</td>

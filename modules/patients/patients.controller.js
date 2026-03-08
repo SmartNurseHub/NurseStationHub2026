@@ -189,3 +189,41 @@ exports.getPatientsList = async (req, res) => {
   }
 };
 
+
+/* =================================================
+   GET /api/patients/:cid
+   - ค้นหาผู้ป่วยด้วย CID
+   - ใช้โดย Vaccination / NursingRecords
+================================================= */
+exports.getPatientByCID = async (req, res) => {
+  try {
+
+    const cid = req.params.cid;
+
+    const patient = await service.getPatientByCID(cid);
+
+    if (!patient) {
+      return res.status(404).json({
+        success:false,
+        message:"Patient not found"
+      });
+    }
+
+    res.json({
+      success:true,
+      data:patient
+    });
+
+  } catch(err){
+
+    console.error("getPatientByCID error", err);
+
+    res.status(500).json({
+      success:false,
+      message:"Server error"
+    });
+
+  }
+};
+
+

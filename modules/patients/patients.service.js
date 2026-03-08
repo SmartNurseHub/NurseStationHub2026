@@ -198,25 +198,35 @@ async function searchPatients(keyword) {
    GET ALL PATIENTS (FOR SELECT LIST)
 ========================================================= */
 async function getAllPatients() {
+
   const sheets = await getSheets();
 
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
-    range: `${SHEET_PATIENTS}!A2:D`,
+    range: `${SHEET_PATIENTS}!A2:J`,
     valueRenderOption: "UNFORMATTED_VALUE",
   });
 
   const rows = res.data.values || [];
 
   return rows.map(r => ({
+
     CID: normalizeCID(r[0]),
     PRENAME: r[1] ?? "",
     NAME: r[2] ?? "",
     LNAME: r[3] ?? "",
-    fullName: `${r[1] ?? ""}${r[2] ?? ""} ${r[3] ?? ""}`.trim()
-  }));
-}
+    HN: r[4] ?? "",
+    SEX: r[5] ?? "",
+    BIRTH: r[6] ?? "",
+    BIRTH_THAI: r[7] ?? "",
+    TELEPHONE: r[8] ?? "",
+    MOBILE: r[9] ?? "",
 
+    fullName: `${r[1] ?? ""}${r[2] ?? ""} ${r[3] ?? ""}`.trim()
+
+  }));
+
+}
 /* =========================================================
    CREATE PATIENT (MANUAL ENTRY)
    - Insert 1 ราย
@@ -274,6 +284,16 @@ async function createPatientService(data) {
     CID,
   };
 }
+
+async function getPatientByCID(cid) {
+
+  const patients = await getAllPatients();
+
+  const patient = patients.find(p => p.CID === cid);
+
+  return patient || null;
+
+}
 /* =========================================================
    EXPORTS
 ========================================================= */
@@ -281,5 +301,6 @@ module.exports = {
   importPatientsService,
   searchPatients,
   getAllPatients,
-  createPatientService, // 👈 เพิ่มตรงนี้
+  createPatientService,
+  getPatientByCID
 };

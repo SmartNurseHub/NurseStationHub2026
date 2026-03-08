@@ -38,6 +38,15 @@ NurseStationHub2026
  ┣ config
  ┃ ┗ google.js
  ┣ modules
+   ┣ vaccination
+    ├ vaccination.routes.js
+    ├ vaccination.controller.js
+    ├ vaccination.service.js
+    ├ vaccination.engine.js
+    ├ vaccination.reminder.service.js
+    ├ vaccination.certificate.service.js
+    ├ vaccination.client.js
+    └ vaccination.view.html
  ┃ ┣ appointments
  ┃ ┃ ┗ appointments.routes.js
  ┃ ┣ dashboard
@@ -123,6 +132,8 @@ NurseStationHub2026
 
 
 
+
+
  const questions = [
   "ระยะเวลารอรับบริการมีความเหมาะสม",
   "ขั้นตอนการรับบริการเป็นไปอย่างต่อเนื่อง ไม่ซับซ้อน",
@@ -135,3 +146,26 @@ NurseStationHub2026
   "ความรู้สึกปลอดภัยและความเชื่อมั่นในคลินิก",
   "โดยรวมแล้ว ท่านพึงพอใจกับการเข้ารับบริการครั้งนี้เพียงใด"
 ];
+
+
+ลงทะเบียนผู้รับบริการ
+        ↓
+เจ้าหน้าที่บันทึกการฉีดวัคซีน
+        ↓
+ระบบคำนวณวันฉีดครั้งถัดไป
+        ↓
+สร้างวันนัด
+        ↓
+สร้างวันแจ้งเตือน (1เดือน /7วัน /3วัน /1วัน)
+        ↓
+Scheduler ตรวจทุกวัน
+        ↓
+ส่ง LINE/SMS แจ้งเตือน
+        ↓
+ผู้รับบริการมาฉีด
+        ↓
+เจ้าหน้าที่บันทึกการฉีด
+        ↓
+ระบบสร้างนัดครั้งถัดไป
+        ↓
+ทำซ้ำจนกว่าจะครบโดส

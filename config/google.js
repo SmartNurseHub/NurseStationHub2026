@@ -1,5 +1,5 @@
 /******************************************************************
- * config/google.js  (FULL SYSTEM SAFE VERSION)
+ * config/google.js  (FULL SYSTEM SAFE VERSION - CLEAN)
  ******************************************************************/
 const { google } = require("googleapis");
 
@@ -42,7 +42,7 @@ async function readRows(sheetName) {
 
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: process.env.SPREADSHEET_ID,
-    range: sheetName, // ✅ อ่านทั้งหมด
+    range: sheetName,
   });
 
   return res.data.values || [];
@@ -56,7 +56,7 @@ async function getSheetRows(sheetName) {
 
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: process.env.SPREADSHEET_ID,
-    range: `${sheetName}!A2:ZZ`, // ✅ รองรับ 702 columns
+    range: `${sheetName}!A2:ZZ`,
   });
 
   return res.data.values || [];
@@ -98,8 +98,6 @@ async function updateRow(sheetName, rowNumber, values) {
   const sheets = await getSheets();
 
   const columnCount = values.length;
-
-  // รองรับเกิน 26 columns
   const endColumn = getColumnLetter(columnCount);
 
   await sheets.spreadsheets.values.update({
@@ -165,14 +163,26 @@ function getColumnLetter(col) {
   return letter;
 }
 
+/* ============================================================
+   GET ALL SHEET NAMES
+============================================================ */
+async function getSheetNames() {
+  const sheets = await getSheets();
 
+  const res = await sheets.spreadsheets.get({
+    spreadsheetId: process.env.SPREADSHEET_ID,
+  });
+
+  return res.data.sheets.map(s => s.properties.title);
+}
 
 module.exports = {
-  getSheets,   // ✅ ต้องใส่ตัวนี้กลับ
+  getSheets,
   readRows,
   appendRow,
   updateRow,
   findRowByCID,
   getSheetRows,
   deleteRow,
+  getSheetNames
 };

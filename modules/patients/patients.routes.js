@@ -14,6 +14,9 @@ router.get("/", controller.getPatientsList);
 router.get("/list", controller.getPatientsList);
 router.get("/search", controller.searchPatients);
 
+// 🔹 Find by CID
+router.get("/:cid", controller.getPatientByCID);
+
 // 🔹 Import (Batch from TXT)
 router.post("/import", controller.importPatients);
 
