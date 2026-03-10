@@ -35,18 +35,9 @@ git push origin main
 
 
 NurseStationHub2026
- ┣ config
+ ┣config
  ┃ ┗ google.js
  ┣ modules
-   ┣ vaccination
-    ├ vaccination.routes.js
-    ├ vaccination.controller.js
-    ├ vaccination.service.js
-    ├ vaccination.engine.js
-    ├ vaccination.reminder.service.js
-    ├ vaccination.certificate.service.js
-    ├ vaccination.client.js
-    └ vaccination.view.html
  ┃ ┣ appointments
  ┃ ┃ ┗ appointments.routes.js
  ┃ ┣ dashboard
@@ -62,12 +53,14 @@ NurseStationHub2026
  ┃ ┣ lineOA
  ┃ ┃ ┣ lineOA.controller.js
  ┃ ┃ ┣ lineOA.line.service.js
+ ┃ ┃ ┣ lineOA.registration.service.js
  ┃ ┃ ┣ lineOA.routes.js
  ┃ ┃ ┣ lineOA.schema.js
  ┃ ┃ ┗ lineOA.service.js
  ┃ ┣ lineUID
  ┃ ┃ ┣ lineUID.controller.js
  ┃ ┃ ┣ lineUID.routes.js
+ ┃ ┃ ┣ lineUID.schema.js
  ┃ ┃ ┗ lineUID.service.js
  ┃ ┣ nursingRecords
  ┃ ┃ ┣ views
@@ -76,8 +69,6 @@ NurseStationHub2026
  ┃ ┃ ┣ audit.service.js
  ┃ ┃ ┣ nursingRecords.client.js
  ┃ ┃ ┣ nursingRecords.controller.js
- ┃ ┃ ┣ nursingRecords.counselor.actions.js
- ┃ ┃ ┣ nursingRecords.counselor.client.js
  ┃ ┃ ┣ nursingRecords.online.actions.js
  ┃ ┃ ┣ nursingRecords.online.client.js
  ┃ ┃ ┣ nursingRecords.print.js
@@ -99,8 +90,17 @@ NurseStationHub2026
  ┃ ┃ ┣ satisfactionSurvey.routes.js
  ┃ ┃ ┣ satisfactionSurvey.schema.js
  ┃ ┃ ┗ satisfactionSurvey.service.js
- ┃ ┗ upload
+ ┃ ┣ upload
  ┃ ┃ ┗ upload.routes.js
+ ┃ ┗ vaccination
+ ┃ ┃ ┣ vaccination.certificate.service.js
+ ┃ ┃ ┣ vaccination.client.js
+ ┃ ┃ ┣ vaccination.controller.js
+ ┃ ┃ ┣ vaccination.engine.js
+ ┃ ┃ ┣ vaccination.reminder.service.js
+ ┃ ┃ ┣ vaccination.routes.js
+ ┃ ┃ ┣ vaccination.service.js
+ ┃ ┃ ┗ vaccination.view.html
  ┣ public
  ┃ ┣ assets
  ┃ ┃ ┣ css
@@ -112,14 +112,20 @@ NurseStationHub2026
  ┃ ┣ core
  ┃ ┃ ┣ app.js
  ┃ ┃ ┗ patient.shared.js
- ┃ ┗ js
+ ┃ ┣ images
+ ┃ ┃ ┣ LOGO.png
+ ┃ ┃ ┗ README.md
+ ┃ ┣ js
  ┃ ┃ ┗ patients.js
+ ┃ ┗ favicon.ico
  ┣ routes
  ┃ ┗ index.js
  ┣ uploads
  ┃ ┣ nursingRecords.client.js
  ┃ ┣ nursingRecords.counselor.view.html
  ┃ ┗ nursingRecords.view.html
+ ┣ utils
+ ┃ ┗ flexBuilder.js
  ┣ views
  ┃ ┗ index.html
  ┣ .env

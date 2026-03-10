@@ -1,5 +1,5 @@
 /*************************************************
- * server.js — MODULE-BASED VERSION (FIXED)
+ * server.js — NurseStationHub (STABLE)
  *************************************************/
 
 require("dotenv").config();
@@ -8,7 +8,8 @@ const express = require("express");
 const path = require("path");
 const cron = require("node-cron");
 
-const { checkAndSendReminders } = require("./modules/vaccination/vaccination.reminder.service");
+const { checkAndSendReminders } =
+  require("./modules/vaccination/vaccination.reminder.service");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -28,7 +29,7 @@ app.use(express.urlencoded({ extended: true, limit: "5mb" }));
 
 app.use(express.static(path.join(__dirname, "public")));
 app.use("/modules", express.static(path.join(__dirname, "modules")));
-
+app.use("/views", express.static(path.join(__dirname, "views")));
 
 /* ===============================
    API ROUTES
@@ -36,19 +37,16 @@ app.use("/modules", express.static(path.join(__dirname, "modules")));
 
 app.use("/api", require("./routes"));
 
-/* ✅ PATIENT MODULE */
 app.use(
   "/api/patient",
   require("./modules/patients/patients.routes")
 );
 
-/* ✅ VACCINATION MODULE (แก้ตรงนี้) */
 app.use(
   "/api/vaccination",
   require("./modules/vaccination/vaccination.routes")
 );
 
-/* SATISFACTION SURVEY */
 app.use(
   "/satisfaction-survey",
   require("./modules/satisfactionSurvey/satisfactionSurvey.routes")
@@ -82,11 +80,15 @@ cron.schedule("0 8 * * *", async () => {
    SPA FALLBACK
 ================================ */
 
-app.get(/^\/(?!api|satisfaction-survey).*/, (req, res) => {
+app.get("*", (req, res) => {
+
+  if (req.path.includes(".")) {
+    return res.status(404).end();
+  }
 
   res.sendFile(
-    path.join(__dirname, "views/index.html")
-  );
+  path.join(__dirname, "views/index.html")
+);
 
 });
 

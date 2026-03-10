@@ -1,8 +1,40 @@
+function formatBullet(text) {
+
+  if (!text) return ["-"];
+
+  return String(text)
+    .split("\n")
+    .map(t => t.trim())
+    .filter(Boolean)
+    .map(t => "• " + t);
+}
+
+
+function splitLongText(text, limit = 500) {
+
+  if (!text) return ["-"];
+
+  const arr = [];
+  let str = String(text);
+
+  while (str.length > limit) {
+    arr.push(str.slice(0, limit));
+    str = str.slice(limit);
+  }
+
+  arr.push(str);
+
+  return arr;
+}
+
+
 function buildFlex(record) {
+
   const result = record.HealthInform || "-";
   let color = "#00796B";
 
   const lower = result.toLowerCase();
+
   if (lower.includes("ปกติ")) color = "#2E7D32";
   else if (lower.includes("ติดตาม")) color = "#F9A825";
   else if (lower.includes("ผิดปกติ") || lower.includes("พบ")) color = "#C62828";
@@ -42,4 +74,10 @@ function buildFlex(record) {
     }
   };
 }
-module.exports = buildFlex;
+
+
+module.exports = {
+  formatBullet,
+  splitLongText,
+  buildFlex
+};

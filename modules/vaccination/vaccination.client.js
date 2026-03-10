@@ -17,9 +17,9 @@ window.initVaccination = async function () {
     setupTabs();
     setupForm();
     setupPatientSearch();
-
     await loadVaccineMaster();
-
+    await loadNextVCN();
+    await loadLatestPreview();
   } catch (err) {
     console.error("❌ initVaccination error:", err);
   }
@@ -268,6 +268,7 @@ function setupForm() {
       }
 
       alert("✅ บันทึกสำเร็จ");
+      loadNextVCN();
 
       form.reset();
 
@@ -424,9 +425,9 @@ async function loadTimeline(patientId) {
 
       row.innerHTML = `
         <div class="card-body">
-          <b>${v.vaccine_name}</b><br>
-          Dose: ${v.dose_number}<br>
-          Date: ${v.vaccination_date}
+          <b>${v.vaccineCode}</b><br>
+          Dose: ${v.doseNo}<br>
+          Date: ${v.dateService}
         </div>
       `;
 
@@ -477,7 +478,7 @@ async function loadLatestVaccines(cid){
 
       div.className = "badge bg-info me-2 mb-2";
 
-      div.textContent = `${v.vaccine_name} (เข็ม ${v.dose_number})`;
+      div.textContent = `${v.vaccineCode} (เข็ม ${v.doseNo})`;
 
       container.appendChild(div);
 
@@ -514,11 +515,11 @@ async function loadVaccinationTable(cid){
       const tr = document.createElement("tr");
 
       tr.innerHTML = `
-        <td>${v.vaccination_date}</td>
-        <td>${v.vaccine_name}</td>
-        <td>${v.dose_number}</td>
-        <td>${v.lot_number || "-"}</td>
-        <td>${v.provider_name || "-"}</td>
+        <td>${v.dateService}</td>
+        <td>${v.vaccineCode}</td>
+        <td>${v.doseNo}</td>
+        <td>${v.lotNumber || "-"}</td>
+        <td>${v.providerName || "-"}</td>
       `;
 
       table.appendChild(tr);
@@ -528,6 +529,59 @@ async function loadVaccinationTable(cid){
   }catch(err){
 
     console.error("❌ loadVaccinationTable error",err);
+
+  }
+
+}
+
+/* =========================================================
+   LOAD NEXT VCN
+========================================================= */
+async function loadNextVCN(){
+
+  try{
+
+    const res = await fetch("/api/vaccination/next-vcn");
+    const result = await res.json();
+
+    if(!result.success) return;
+
+    const input = document.getElementById("cn");
+
+    if(input){
+      input.value = result.data.vcn;
+    }
+
+  }catch(err){
+
+    console.error("❌ loadNextVCN error",err);
+
+  }
+
+}
+
+/* =========================================================
+   LOAD NEXT VCN
+========================================================= */
+
+async function loadNextVCN(){
+
+  try{
+
+    const res = await fetch("/api/vaccination/next-vcn");
+    const result = await res.json();
+
+    if(!result.success) return;
+
+    const el = document.getElementById("cn");
+
+    if(el){
+      el.value = result.data.vcn;
+    }
+
+  }catch(err){
+
+    console.error("❌ loadNextVCN error",err);
 
   }
 

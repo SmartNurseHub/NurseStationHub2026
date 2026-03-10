@@ -89,10 +89,7 @@ exports.handleChatMessage = async (event) => {
 
       const nsr = text.split(":")[1]?.trim();
 
-      await nursingService.updateByNSR(nsr, {
-        ResultConfirmed: "YES",
-        ConfirmedAt: new Date().toISOString()
-      });
+      await nursingService.markResultConfirmed(nsr);
 
       await lineAPI.replyMessage(event.replyToken, {
         type: "text",
@@ -120,49 +117,29 @@ exports.sendReport = async (nsr) => {
     throw new Error("ผลนี้กำลังส่งหรือส่งไปแล้ว");
   }
 
-  await nursingService.updateByNSR(nsr, {
-    LineSent: "LOCKED"
+  const cid = String(record.CID).trim();
+  const lineRows = await readRows(LINE_UID_SHEET);
+
+  const userRow = lineRows.find(r =>
+    String(r[1] || "").trim() === cid &&
+    String(r[7] || "").trim().toUpperCase() === "ACTIVE"
+  );
+
+  if (!userRow) throw new Error("ยังไม่ได้ผูก LINE");
+
+  const userId = userRow[4];
+
+  await lineAPI.pushFlexResult({
+    userId,
+    nsr,
+    fullName: `${record.PRENAME || ""}${record.NAME || ""} ${record.LNAME || ""}`,
+    dateService: record.DateService,
+    list: record.Activity,
+    result: record.HealthInform,
+    advice: record.HealthAdvice,
+    status: record.status,
+    fileURL: record.fileURL || null
   });
+  return true;
 
-  try {
-
-    const cid = String(record.CID).trim();
-    const lineRows = await readRows(LINE_UID_SHEET);
-
-    const userRow = lineRows.find(r =>
-      String(r[1] || "").trim() === cid &&
-      String(r[7] || "").trim().toUpperCase() === "ACTIVE"
-    );
-
-    if (!userRow) throw new Error("ยังไม่ได้ผูก LINE");
-
-    const userId = userRow[4];
-
-    await lineAPI.pushFlexResult({
-      userId,
-      nsr,
-      fullName: `${record.PRENAME || ""}${record.NAME || ""} ${record.LNAME || ""}`,
-      dateService: record.DateService,
-      list: record.Activity,
-      result: record.HealthInform,
-      advice: record.HealthAdvice,
-      status: record.status,
-      fileURL: record.fileURL || null
-    });
-
-    await nursingService.updateByNSR(nsr, {
-      LineSent: "YES",
-      LineSentAt: new Date().toISOString()
-    });
-
-    return true;
-
-  } catch (err) {
-
-    await nursingService.updateByNSR(nsr, {
-      LineSent: "ERROR"
-    });
-
-    throw err;
-  }
 };

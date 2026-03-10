@@ -75,6 +75,17 @@
               <label style="font-size:10px;" class="form-label mb-0">การให้คำแนะนำ</label>
               <textarea style="font-size:10px;"class="form-control"id="HealthAdvice"name="HealthAdvice"rows="2"data-type="advice"></textarea>
             </div>
+            <div class="col-12">
+              <label style="font-size:10px;" class="form-label mb-0">ไฟล์แนบ (Google Drive URL)</label>
+              <input
+                style="font-size:10px;"
+                type="text"
+                class="form-control"
+                id="fileURL"
+                name="fileURL"
+                placeholder="https://drive.google.com/file/d/xxxxx/view"
+              >
+            </div>
 
             <!-- Follow-ups Tabs -->
             <ul class="nav nav-tabs mb-2" id="followUpTabs" role="tablist">
@@ -180,7 +191,12 @@
                   </div>
                   <div class="col-4">
                     <label style="font-size:10px;">ผู้ให้บริการ:</label>
-                    <input style="font-size:10px;" class="form-control form-control-sm"id="Provider3" name="Provider3" rows="1" data-type="provider"></input>
+                    <textarea style="font-size:10px;"
+                    class="form-control form-control-sm"
+                    id="Provider3"
+                    name="Provider3"
+                    rows="1"
+                    data-type="provider"></textarea>
                   </div>
                   <div class="col-12">
                     <label style="font-size:10px;">ผลการประเมิน:</label>

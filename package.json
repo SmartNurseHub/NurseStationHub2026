@@ -8,6 +8,7 @@
     "dev": "nodemon server.js"
   },
   "dependencies": {
+    "@line/bot-sdk": "^10.6.0",
     "axios": "^1.13.6",
     "body-parser": "^2.2.2",
     "crypto": "^1.0.1",

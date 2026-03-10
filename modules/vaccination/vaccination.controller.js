@@ -5,7 +5,6 @@
 
 const service = require("./vaccination.service");
 
-
 /* =====================================================
    GET VACCINE MASTER
 ===================================================== */
@@ -307,6 +306,56 @@ exports.getVaccinationHistory = async (req, res) => {
     res.status(500).json({
       success: false,
       message: err.message
+    });
+
+  }
+
+};
+
+/* =====================================================
+   GET NEXT VCN
+===================================================== */
+exports.getNextVCN = async (req, res) => {
+
+  try {
+
+    const data = await service.getNextVCN();
+
+    res.json({
+      success: true,
+      data
+    });
+
+  } catch (err) {
+
+    console.error("❌ getNextVCN error:", err);
+
+    res.status(500).json({
+      success: false,
+      message: err.message
+    });
+
+  }
+
+};
+
+exports.getLatestVaccination = async (req, res) => {
+
+  try {
+
+    const data = await service.getLatest();
+
+    res.json({
+      success: true,
+      data
+    });
+
+  } catch (err) {
+
+    console.error(err);
+
+    res.status(500).json({
+      success: false
     });
 
   }

@@ -1,36 +1,24 @@
-const axios = require("axios");
+/******************************************************************
+ * LINE OA SERVICE
+ * push result via LINE
+ ******************************************************************/
 
-const LINE_API = "https://api.line.me/v2/bot";
+const line = require("@line/bot-sdk");
 
-const client = axios.create({
-  baseURL: LINE_API,
-  headers: {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}`
-  }
+const client = new line.Client({
+  channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN
 });
 
-/* =====================================================
-   GET PROFILE
-===================================================== */
-exports.getProfile = async (userId) => {
-  const res = await client.get(`/profile/${userId}`);
-  return res.data;
-};
+const { formatBullet } = require("../../utils/flexBuilder");
 
-/* =====================================================
-   REPLY MESSAGE
-===================================================== */
-exports.replyMessage = async (replyToken, message) => {
-  await client.post("/message/reply", {
-    replyToken,
-    messages: [message]
-  });
-};
+/* 🔧 FIX: เรียก nursing service */
+const nursingService = require("../nursingRecords/nursingRecords.service");
 
-/* =====================================================
+
+/* =================================================
    PUSH FLEX RESULT
-===================================================== */
+================================================= */
+
 exports.pushFlexResult = async ({
   userId,
   nsr,
@@ -39,48 +27,211 @@ exports.pushFlexResult = async ({
   list,
   result,
   advice,
-  status
+  fileURL
 }) => {
 
-  /* ================= RESULT COLOR AUTO ================= */
+  if (!userId) throw new Error("LINE userId not found");
+
+  /* ================= RESULT TRIAGE COLOR ================= */
 
   let resultColor = "#2E7D32";
+  let resultIcon = "🟢";
 
   if (result) {
-    const lower = result.toLowerCase();
 
-    if (lower.includes("ปกติ"))
+    const lower = Array.isArray(result)
+      ? result.join(" ").toLowerCase()
+      : String(result).toLowerCase();
+
+    if (lower.includes("ปกติ")) {
       resultColor = "#2E7D32";
+      resultIcon = "🟢";
+    }
 
-    else if (lower.includes("ติดตาม") || lower.includes("สงสัย"))
-      resultColor = "#F9A825";
+    else if (lower.includes("ติดตาม") || lower.includes("เสี่ยง")) {
+      resultColor = "#FF6600";
+      resultIcon = "🟡";
+    }
 
     else if (
       lower.includes("ผิดปกติ") ||
       lower.includes("พบ") ||
       lower.includes("เชื้อ")
-    )
+    ) {
       resultColor = "#C62828";
+      resultIcon = "🔴";
+    }
+
   }
 
-  /* ================= FORMAT LIST ================= */
+  /* ================= FORMAT TEXT ================= */
 
-  const listText = list
-    ? "• " + list.replace(/,/g, "\n• ")
-    : "-";
+  const listLines = formatBullet(list);
+  const resultLines = formatBullet(result);
+  const adviceLines = formatBullet(advice);
 
-  const adviceText = advice
-    ? "• " + advice.replace(/,/g, "\n• ")
-    : "-";
+  /* ================= FLEX BODY ================= */
+
+  const contents = [
+
+    {
+      type: "text",
+      text: "📋 ผลการตรวจสุขภาพ",
+      weight: "bold",
+      size: "xl",
+      align: "center",
+      color: "#1B5E20"
+    },
+
+    {
+      type: "text",
+      text: fullName || "-",
+      align: "center",
+      size: "md",
+      margin: "sm",
+      color: "#0D47A1"
+    },
+
+    { type: "separator", margin: "md" },
+
+    /* ---------- TEST LIST ---------- */
+
+    {
+      type: "text",
+      text: "📄 รายการตรวจ",
+      weight: "bold",
+      color: "#0288D1",
+      margin: "md"
+    },
+
+    { type: "separator", margin: "md" },
+
+    ...listLines.map(t => ({
+      type: "text",
+      text: t,
+      size: "sm",
+      wrap: true
+    })),
+
+    { type: "separator", margin: "md" },
+
+    /* ---------- SERVICE DATE ---------- */
+
+    {
+      type: "box",
+      layout: "vertical",
+      margin: "md",
+      spacing: "xs",
+      contents: [
+
+        {
+          type: "text",
+          text: "📅 วันที่ตรวจ",
+          weight: "bold",
+          color: "#0288D1",
+          size: "lg"
+        },
+
+        { type: "separator", margin: "sm" },
+
+        {
+          type: "text",
+          text: dateService || "-",
+          size: "sm",
+          color: "#555555"
+        }
+
+      ]
+    },
+
+    { type: "separator", margin: "md" },
+
+    /* ---------- RESULT ---------- */
+
+    {
+      type: "text",
+      text: "📊 ผลตรวจ",
+      weight: "bold",
+      color: "#0288D1",
+      margin: "lg"
+    },
+
+    { type: "separator", margin: "md" },
+
+    {
+      type: "text",
+      text: `${resultIcon} สรุปผล`,
+      weight: "bold",
+      size: "sm",
+      color: resultColor
+    },
+
+    ...resultLines.map(t => ({
+      type: "text",
+      text: t,
+      wrap: true,
+      size: "sm",
+      color: resultColor
+    })),
+
+    { type: "separator", margin: "md" },
+
+    /* ---------- ADVICE ---------- */
+
+    {
+      type: "text",
+      text: "💡 คำแนะนำจากพยาบาล",
+      weight: "bold",
+      color: "#0288D1",
+      margin: "lg"
+    },
+
+    { type: "separator", margin: "md" },
+
+    ...adviceLines.map(t => ({
+      type: "text",
+      text: t,
+      wrap: true,
+      size: "sm"
+    }))
+
+  ];
+
+  /* ================= FILE ATTACHMENT ================= */
+
+  if (fileURL) {
+
+    contents.push(
+
+      { type: "separator", margin: "lg" },
+
+      {
+        type: "button",
+        style: "primary",
+        color: "#0288D1",
+        margin: "md",
+        action: {
+          type: "uri",
+          label: "📎 เปิดไฟล์ผลตรวจ",
+          uri: fileURL
+        }
+      }
+
+    );
+
+  }
+
+  /* ================= FLEX MESSAGE ================= */
 
   const flex = {
+
     type: "flex",
-    altText: "แจ้งผลการตรวจ",
+    altText: "แจ้งผลการตรวจสุขภาพ",
+
     contents: {
+
       type: "bubble",
       size: "mega",
-
-      /* ================= HERO IMAGE ================= */
 
       hero: {
         type: "image",
@@ -90,113 +241,12 @@ exports.pushFlexResult = async ({
         aspectMode: "cover"
       },
 
-      /* ================= BODY ================= */
-
       body: {
         type: "box",
         layout: "vertical",
-        spacing: "md",
-        contents: [
-
-          {
-            type: "text",
-            text: "📋 แจ้งผลการตรวจ",
-            weight: "bold",
-            size: "xl",
-            color: "#1B5E20",
-            align: "center"
-          },
-
-          { type: "separator" },
-
-          {
-            type: "text",
-            text: fullName || "-",
-            weight: "bold",
-            size: "xl",
-            color: "#0D47A1",
-            align: "center"
-          },
-
-          {
-            type: "box",
-            layout: "vertical",
-            margin: "md",
-            spacing: "sm",
-            contents: [
-
-              {
-                type: "text",
-                text: "🧪 รายการตรวจ",
-                weight: "bold"
-              },
-
-              {
-                type: "text",
-                text: listText,
-                wrap: true
-              },
-
-              {
-                type: "text",
-                text: "📅 วันที่ตรวจ",
-                weight: "bold",
-                margin: "md"
-              },
-
-              {
-                type: "text",
-                text: dateService || "-"
-              },
-
-              {
-                type: "text",
-                text: "📊 ผลตรวจ",
-                weight: "bold",
-                margin: "md"
-              },
-
-              {
-                type: "text",
-                text: result || "-",
-                wrap: true,
-                weight: "bold",
-                color: resultColor
-              },
-
-              {
-                type: "text",
-                text: "💡 คำแนะนำ",
-                weight: "bold",
-                margin: "md"
-              },
-
-              {
-                type: "text",
-                text: adviceText,
-                wrap: true
-              },
-
-              {
-                type: "text",
-                text: "📌 สถานะ",
-                weight: "bold",
-                margin: "md"
-              },
-
-              {
-                type: "text",
-                text: status || "ACTIVE",
-                color: "#1976D2",
-                weight: "bold"
-              }
-
-            ]
-          }
-        ]
+        spacing: "sm",
+        contents
       },
-
-      /* ================= FOOTER ================= */
 
       footer: {
         type: "box",
@@ -206,14 +256,11 @@ exports.pushFlexResult = async ({
 
           {
             type: "text",
-            text: "รบกวนกด ✅ ยืนยันรับผลแล้ว และ ⭐ ประเมินความพึงพอใจ\nทุกคำติชมของท่านมีคุณค่า 🙏",
-            wrap: true,
+            text: "กรุณากดยืนยันรับผลตรวจ\nและประเมินความพึงพอใจ\nเพื่อเป็นข้อมูลในการปรับปรุงบริการให้ดียิ่งขึ้น",
             size: "sm",
             align: "center",
-            color: "#666666"
+            color: "#757575"
           },
-
-          { type: "separator", margin: "md" },
 
           {
             type: "button",
@@ -229,22 +276,41 @@ exports.pushFlexResult = async ({
           {
             type: "button",
             style: "secondary",
-            color: "#FFA500",
+            color: "#F9A825",
             action: {
               type: "uri",
               label: "⭐ ประเมินความพึงพอใจ",
-              uri:
-                "https://liff.line.me/2007902507-7OKhdnNW?nsr=" + nsr
+              uri: "https://liff.line.me/2007902507-7OKhdnNW?nsr=" + nsr
             }
           }
 
         ]
       }
+
     }
+
   };
 
-  await client.post("/message/push", {
-    to: userId,
-    messages: [flex]
-  });
+  /* ================= PUSH ================= */
+
+  await client.pushMessage(userId, flex);
+
+  /* 🔧 FIX สำคัญ — บันทึกว่า LINE ส่งผลแล้ว */
+
+  if (nsr) {
+
+    try {
+
+      await nursingService.markLineSent(nsr);
+      
+      console.log("✅ LineSent updated:", nsr);
+
+    } catch (err) {
+
+      console.error("❌ markLineSent failed:", err);
+
+    }
+
+  }
+
 };

@@ -30,7 +30,7 @@ exports.handleRegistrationFlow = async (lineAPI, userId, text, replyToken) => {
     if (!/^\d{13}$/.test(text)) {
       await lineAPI.replyMessage(replyToken, {
         type: "text",
-        text: "กรุณากรอกเลขบัตรประชาชน 13 หลัก (ตัวเลขติดกัน)"
+        text: "กรุณากรอกเลขบัตรประชาชน 13 หลัก"
       });
       return true;
     }

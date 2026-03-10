@@ -2,7 +2,16 @@
  * nursingRecords.online.actions.js
  ************************************************************/
 console.log("⚙️ nursingRecords.online.actions.js LOADED");
-
+function formatBullet(text) {
+  if (!text) return "";
+  
+  return String(text)
+    .split("\n")
+    .map(t => t.trim())
+    .filter(Boolean)
+    .map(t => "• " + t)
+    .join("\n");
+}
 /* ================================
    GLOBAL EDITOR STATE
 ================================ */
@@ -32,8 +41,10 @@ window.NursingOnlineActions = (() => {
      PATIENT SEARCH
   ================================ */
   function bindPatientSearch() {
+
     const input = document.getElementById("patientSearch");
     const resultBox = document.getElementById("searchResults");
+
     if (!input || !resultBox) return;
 
     const hideResults = () => {
@@ -42,234 +53,305 @@ window.NursingOnlineActions = (() => {
     };
 
     input.addEventListener("input", e => {
+
       const keyword = e.target.value.trim();
-      if (!keyword) return hideResults();
+
+      if (!keyword) {
+        hideResults();
+        return;
+      }
 
       PatientCore.searchPatientCore(keyword, rows => {
+
         PatientCore.renderPatientResults(
           resultBox,
           rows,
           patient => {
+
             if (window.fillNursingForm) {
               window.fillNursingForm(patient);
-              // 🔧 เพิ่มโค้ด (2026-01-29 22:40)
             }
+
             hideResults();
+
           }
         );
+
       });
+
     });
 
     input.addEventListener("blur", () => {
       setTimeout(hideResults, 200);
     });
+
   }
 
   /* ================================
      LOAD TABLE
   ================================ */
   async function loadNursingRecords() {
+
     const tbody = document.getElementById("nursingTableBody");
+
     if (!tbody) return;
 
     tbody.innerHTML =
       `<tr><td colspan="7" class="text-center">⏳ กำลังโหลด...</td></tr>`;
 
     try {
+
       const res  = await fetch("/api/nursingRecords");
       const json = await res.json();
-      const rows = Array.isArray(json) ? json : (json.data || []);
+
+      const rows = Array.isArray(json)
+        ? json
+        : (json.data || []);
 
       tbody.innerHTML = "";
 
       if (!rows.length) {
+
         tbody.innerHTML =
           `<tr><td colspan="7" class="text-center text-muted">ไม่มีข้อมูล</td></tr>`;
+
         return;
       }
 
       rows.forEach(r => {
-  const tr = document.createElement("tr");
-  tr._record = r;
 
-  tr.innerHTML = `
-    <td>${r.NSR || ""}</td>
-    <td>${r.DateService || "-"}</td>
-    <td>${r.HN || "-"}</td>
-    <td>${r.NAME || ""} ${r.LNAME || ""}</td>
-    <td>${r.Activity || "-"}</td>
-    <td>${r.Provider1 || "-"}</td>
-    <td class="text-center">
-      <div class="d-flex flex-wrap justify-content-center gap-1" style="max-width:90px; margin:auto;">
+        const tr = document.createElement("tr");
+        tr._record = r;
 
-        <button type="button"
-          class="btn btn-warning btn-sm action-edit"
-          style="width:40px;">
-          ✏️
-        </button>
+        tr.innerHTML = `
+          <td>${r.NSR || ""}</td>
+          <td>${r.DateService || "-"}</td>
+          <td>${r.HN || "-"}</td>
+          <td>${r.NAME || ""} ${r.LNAME || ""}</td>
+          <td>${r.Activity || "-"}</td>
+          <td>${r.Provider1 || "-"}</td>
 
-        <button class="btn btn-sm btn-info"
-          onclick='handlePrint(${JSON.stringify(r)})'
-          style="width:40px;">
-          🖨️
-        </button>
+          <td class="text-center">
+            <div class="d-flex flex-wrap justify-content-center gap-1"
+                 style="max-width:90px; margin:auto;">
 
-        <button type="button"
-          class="btn btn-sm btn-success action-send"
-          data-nsr="${r.NSR}"
-          style="width:40px;">
-          📲
-        </button>
+              <button
+                type="button"
+                class="btn btn-warning btn-sm action-edit"
+                style="width:40px;">
+                ✏️
+              </button>
 
-        <button class="btn btn-sm btn-danger"
-          onclick="deleteRecord('${r.NSR}')"
-          style="width:40px;">
-          🗑️
-        </button>
+              <button
+                type="button"
+                class="btn btn-sm btn-info action-print"
+                style="width:40px;">
+                🖨️
+              </button>
 
-      </div>
-    </td>
+              <button
+                type="button"
+                class="btn btn-sm btn-success action-send"
+                data-nsr="${r.NSR}"
+                style="width:40px;">
+                📲
+              </button>
 
+              <button
+                type="button"
+                class="btn btn-sm btn-danger action-delete"
+                style="width:40px;">
+                🗑️
+              </button>
 
-  `;
-  tbody.appendChild(tr);
-});
+            </div>
+          </td>
+        `;
 
+        tbody.appendChild(tr);
+
+      });
 
     } catch (err) {
+
       console.error(err);
+
       tbody.innerHTML =
-        `<tr><td colspan="7" class="text-center text-danger">โหลดข้อมูลไม่สำเร็จ</td></tr>`;
+        `<tr><td colspan="7" class="text-center text-danger">
+           โหลดข้อมูลไม่สำเร็จ
+         </td></tr>`;
+
     }
+
   }
 
   /* ================================
      TABLE ACTIONS
   ================================ */
   function bindTableActions() {
-  if (window.__nursingTableBound) return;
-  window.__nursingTableBound = true;
 
-  document.body.addEventListener("click", async e => {
-    const btn = e.target.closest("button");
-    if (!btn) return;
+    if (window.__nursingTableBound) return;
+    window.__nursingTableBound = true;
 
-    const row = btn.closest("tr");
-    if (!row || !row._record) return;
+    document.body.addEventListener("click", async e => {
 
-    const record = row._record;
+      const btn = e.target.closest("button");
 
-    if (btn.classList.contains("action-edit")) {
-      EditorState.setEdit(record);
-      loadSubView("online");
-    }
+      if (!btn) return;
 
-    if (btn.classList.contains("action-delete")) {
-      deleteRecord(record.NSR);
-    }
+      const row = btn.closest("tr");
 
-    if (btn.classList.contains("action-print")) {
-      handlePrint(record);
-    }
+      if (!row || !row._record) return;
 
-    if (btn.classList.contains("action-send")) {
-      await sendReportToPatient(record.NSR, btn);
-    }
+      const record = row._record;
 
-  });
+      if (btn.classList.contains("action-edit")) {
 
-  console.log("🧷 Table actions bound");
+        EditorState.setEdit(record);
+
+        loadSubView("online");
+
+      }
+
+      if (btn.classList.contains("action-delete")) {
+
+        deleteRecord(record.NSR);
+
+      }
+
+      if (btn.classList.contains("action-print")) {
+
+        handlePrint(record);
+
+      }
+
+      if (btn.classList.contains("action-send")) {
+
+        await sendReportToPatient(record.NSR, btn);
+
+      }
+
+    });
+
+    console.log("🧷 Table actions bound");
+
   }
 
-
-
+  /* ================================
+     LOAD NEXT NSR
+  ================================ */
   async function loadNextNSR() {
+
     if (EditorState.mode === "edit") return;
 
     const input = document.getElementById("NSR");
+
     if (!input) return;
 
-    const res = await fetch("/api/nursingRecords/next-nsr");
-    const json = await res.json();
-    input.value = json.nsr || "";
-  }
+    try {
 
+      const res  = await fetch("/api/nursingRecords/next-nsr");
+      const json = await res.json();
 
-  async function sendReportToPatient(nsr, button) {
+      input.value = json.nsr || "";
 
-  if (!nsr) return;
+    } catch (err) {
 
-  const confirmResult = await Swal.fire({
-    title: "ยืนยันการส่งผล?",
-    text: "ระบบจะส่งผลตรวจให้ผู้รับบริการผ่าน LINE OA",
-    icon: "question",
-    showCancelButton: true,
-    confirmButtonText: "✅ ส่งเลย",
-    cancelButtonText: "ยกเลิก",
-    confirmButtonColor: "#2e7d32",
-    cancelButtonColor: "#6c757d",
-    reverseButtons: true
-  });
+      console.error("❌ loadNextNSR failed", err);
 
-  if (!confirmResult.isConfirmed) return;
-
-  try {
-
-    button.disabled = true;
-    button.innerHTML = "⏳";
-
-    Swal.fire({
-      title: "กำลังส่งผล...",
-      text: "กรุณารอสักครู่",
-      allowOutsideClick: false,
-      didOpen: () => Swal.showLoading()
-    });
-
-    const res = await fetch("/api/lineOA/sendReport", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nsr })
-    });
-
-    const data = await res.json();
-    Swal.close();
-
-    if (!data.success) {
-      throw new Error(data.message || "ส่งไม่สำเร็จ");
     }
 
-    button.innerHTML = "✅";
-    button.classList.remove("btn-success");
-    button.classList.add("btn-secondary");
-
-    await Swal.fire({
-      icon: "success",
-      title: "ส่งผลสำเร็จ",
-      text: "ผู้รับบริการได้รับผลเรียบร้อยแล้ว",
-      confirmButtonColor: "#2e7d32"
-    });
-
-    console.log("✅ ส่งผลสำเร็จ:", nsr);
-
-  } catch (err) {
-
-    console.error("❌ Send error:", err);
-
-    Swal.fire({
-      icon: "error",
-      title: "เกิดข้อผิดพลาด",
-      text: err.message,
-      confirmButtonColor: "#d33"
-    });
-
-    button.disabled = false;
-    button.innerHTML = "📲";
   }
-}
+
+  /* ================================
+     SEND REPORT TO PATIENT
+  ================================ */
+  async function sendReportToPatient(nsr, button) {
+
+    if (!nsr) return;
+
+    const confirmResult = await Swal.fire({
+      title: "ยืนยันการส่งผล?",
+      text: "ระบบจะส่งผลตรวจให้ผู้รับบริการผ่าน LINE OA",
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonText: "ส่งเลย",
+      cancelButtonText: "ยกเลิก",
+      confirmButtonColor: "#2e7d32",
+      cancelButtonColor: "#6c757d",
+      reverseButtons: true
+    });
+
+    if (!confirmResult.isConfirmed) return;
+
+    try {
+
+      button.disabled = true;
+      button.innerHTML = "⏳";
+
+      Swal.fire({
+        title: "กำลังส่งผล...",
+        text: "กรุณารอสักครู่",
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+      });
+
+      const res = await fetch("/api/lineOA/sendReport", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ nsr })
+      });
+
+      const data = await res.json();
+
+      Swal.close();
+
+      if (!data.success) {
+        throw new Error(data.message || "ส่งไม่สำเร็จ");
+      }
+
+      button.innerHTML = "✅";
+
+      button.classList.remove("btn-success");
+      button.classList.add("btn-secondary");
+
+      await Swal.fire({
+        icon: "success",
+        title: "ส่งผลสำเร็จ",
+        text: "ผู้รับบริการได้รับผลเรียบร้อยแล้ว",
+        confirmButtonColor: "#2e7d32"
+      });
+
+      console.log("✅ ส่งผลสำเร็จ:", nsr);
+
+    } catch (err) {
+
+      console.error("❌ Send error:", err);
+
+      Swal.fire({
+        icon: "error",
+        title: "เกิดข้อผิดพลาด",
+        text: err.message
+      });
+
+      button.disabled = false;
+      button.innerHTML = "📲";
+
+    }
+
+  }
+  
+
+  /* ================================
+     EXPORT
+  ================================ */
   return {
     bindPatientSearch,
     bindTableActions,
     loadNursingRecords,
     loadNextNSR
   };
+
 })();

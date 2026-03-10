@@ -61,8 +61,8 @@ async function loadLineUIDTable() {
 
           <td>
             <img
-              src="${row.picture ? row.picture : '/images/logoperson.png'}"
-              onerror="this.src='/images/logoperson.png';"
+              src="${row.picture ? row.picture : '/assets/images/LOGO.png'}"
+              onerror="this.src='/assets/images/LOGO.png';"
               style="width:45px;
                     height:45px;
                     object-fit:cover;

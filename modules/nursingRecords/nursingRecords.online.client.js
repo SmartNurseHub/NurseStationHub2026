@@ -77,20 +77,22 @@ function fillEditForm(r) {
 
   /* ===== BASIC ===== */
   const basicMap = {
-    NSR: r.NSR,
-    HN: r.HN,
-    CID: r.CID,
-    PRENAME: r.PRENAME,
-    NAME: r.NAME,
-    LNAME: r.LNAME,
-    BIRTH: normalizeDate(r.BIRTH),
-    TELEPHONE: r.TELEPHONE,
-    DateService: normalizeDate(r.DateService),
-    Activity: r.Activity,
-    Objective: r.Objective,
-    HealthInform: r.HealthInform,
-    HealthAdvice: r.HealthAdvice
-  };
+  NSR: r.NSR,
+  HN: r.HN,
+  CID: r.CID,
+  PRENAME: r.PRENAME,
+  NAME: r.NAME,
+  LNAME: r.LNAME,
+  BIRTH: normalizeDate(r.BIRTH),
+  TELEPHONE: r.TELEPHONE,
+  DateService: normalizeDate(r.DateService),
+  Activity: r.Activity,
+  Objective: r.Objective,
+  HealthInform: r.HealthInform,
+  HealthAdvice: r.HealthAdvice,
+
+  fileURL: r.fileURL   // ✅ เพิ่มบรรทัดนี้
+};
 
   Object.entries(basicMap).forEach(([id,val])=>{
     const el = document.getElementById(id);
@@ -192,7 +194,21 @@ function bindFormSubmit() {
 }
   })};
 
+document
+.getElementById("nursingForm")
+.addEventListener("submit", function(){
 
+document
+.querySelectorAll("textarea[data-type]")
+.forEach(t => {
+
+if(t.value.trim()){
+saveNursingHistory(t.value.trim())
+}
+
+})
+
+})
 
 
 /* ================================

@@ -93,6 +93,20 @@ async function genVCN() {
 }
 
 /* =========================================================
+   GET NEXT VCN (FOR FORM DISPLAY)
+========================================================= */
+
+async function getNextVCN() {
+
+  const vcn = await genVCN();
+
+  return {
+    vcn
+  };
+
+}
+
+/* =========================================================
    LOAD VACCINE MASTER
 ========================================================= */
 
@@ -417,6 +431,61 @@ async function getVaccinationHistory(cid) {
 }
 
 /* =========================================================
+   GET NEXT VCN
+========================================================= */
+
+async function getNextVCN() {
+
+  const vcn = await genVCN();
+
+  return {
+    vcn
+  };
+
+}
+
+
+exports.getLatest = async () => {
+
+  const rows = await sheet.getRows("VaccinationRecords");
+
+  if (!rows.length) return null;
+
+  return rows[rows.length - 1];
+
+};
+async function loadLatestPreview(){
+
+  try{
+
+    const res = await fetch("/api/vaccination/latest");
+    const json = await res.json();
+
+    const box = document.getElementById("latestVaccinePreview");
+
+    if(!json.data){
+      box.innerHTML = "ยังไม่มีข้อมูล";
+      return;
+    }
+
+    const v = json.data;
+
+    box.innerHTML = `
+      <div>
+        <b>VCN:</b> ${v.vcn}<br>
+        <b>Patient:</b> ${v.patient_name}<br>
+        <b>Vaccine:</b> ${v.vaccine_code}<br>
+        <b>Dose:</b> ${v.dose}<br>
+        <b>Date:</b> ${v.date}
+      </div>
+    `;
+
+  }catch(err){
+    console.error("preview error",err);
+  }
+
+}
+/* =========================================================
    EXPORT
 ========================================================= */
 
@@ -428,8 +497,9 @@ module.exports = {
   saveVaccination,
   getVaccinationTimeline,
 
-  // ⭐ เพิ่มสองตัวนี้
   getLatestVaccines,
-  getVaccinationHistory
+  getVaccinationHistory,
+
+  getNextVCN,
 
 };
