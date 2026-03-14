@@ -79,11 +79,13 @@ async function loadLineUIDTable() {
           </td>
 
           <td>
-            <button class="btn btn-sm btn-danger delete-btn"
-                    data-cid="${row.cid}">
-              Delete
-            </button>
-          </td>
+  <button 
+    class="btn btn-sm btn-danger delete-btn"
+    data-cid="${row.cid}"
+    style="font-size:10px;padding:2px 8px;">
+    Delete
+  </button>
+</td>
         </tr>
       `;
     });

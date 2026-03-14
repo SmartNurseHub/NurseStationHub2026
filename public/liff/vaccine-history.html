@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>ประวัติวัคซีน</title>
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+</head>
+
+<body>
+
+<h2>📜 ประวัติวัคซีน</h2>
+
+<div id="history"></div>
+
+<script>
+
+async function init(){
+
+  await liff.init({ liffId:"2007902507-vaccine-history" });
+
+  const profile = await liff.getProfile();
+
+  const res = await fetch("/api/vaccine/history/"+profile.userId);
+
+  const data = await res.json();
+
+  render(data);
+
+}
+
+function render(list){
+
+  const el = document.getElementById("history");
+
+  el.innerHTML = "";
+
+  list.forEach(v=>{
+
+    const div = document.createElement("div");
+
+    div.innerHTML = `
+    <hr>
+    💉 ${v.vaccineCode} เข็ม ${v.doseNo}<br>
+    📅 ${v.dateService}
+    `;
+
+    el.appendChild(div);
+
+  });
+
+}
+
+init();
+
+</script>
+
+</body>
+</html>

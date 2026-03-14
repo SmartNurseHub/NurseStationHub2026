@@ -1,5 +1,5 @@
 /*****************************************************************
- * vaccination.service.js (STABLE VERSION)
+ * vaccination.service.js (AUTO SCHEDULE + ADVANCED VERSION)
  *****************************************************************/
 
 const { getSheets } = require("../../config/google");
@@ -7,12 +7,12 @@ const { getSheets } = require("../../config/google");
 /* =========================================================
    SHEETS
 ========================================================= */
-
 const SHEET_MASTER = "VaccineMaster";
 const SHEET_RECORD = "VaccinationRecords";
 const SHEET_APPOINT = "VaccinationAppointments";
 const SHEET_PATIENT = "Patients";
-
+const SHEET_SCHEDULE = "Vaccine_Schedule";
+const SHEET_REMINDER = "Reminder";
 /* =========================================================
    UTIL
 ========================================================= */
@@ -61,8 +61,7 @@ function calculateAge(birthDate) {
 }
 
 /* =========================================================
-   GEN VCN FORMAT
-   VCNYYYYMM-00001
+   GEN VCN
 ========================================================= */
 
 async function genVCN() {
@@ -93,16 +92,33 @@ async function genVCN() {
 }
 
 /* =========================================================
-   GET NEXT VCN (FOR FORM DISPLAY)
+   GEN APPOINTMENT ID
 ========================================================= */
 
-async function getNextVCN() {
+async function genAPID() {
 
-  const vcn = await genVCN();
+  const sheets = await getSheets();
+  const spreadsheetId = process.env.SPREADSHEET_ID;
 
-  return {
-    vcn
-  };
+  const now = new Date();
+
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+
+  const prefix = `VAP${y}${m}`;
+
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: `${SHEET_APPOINT}!A2:A`
+  });
+
+  const rows = res.data.values || [];
+
+  const count = rows.filter(r => r[0] && r[0].startsWith(prefix)).length + 1;
+
+  const running = String(count).padStart(5, "0");
+
+  return `${prefix}-${running}`;
 
 }
 
@@ -117,7 +133,7 @@ async function getVaccineMaster() {
 
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId,
-    range: `${SHEET_MASTER}!A2:I`
+    range: `${SHEET_MASTER}!A2:E`
   });
 
   const rows = res.data.values || [];
@@ -127,14 +143,37 @@ async function getVaccineMaster() {
     code: r[0],
     name: r[1],
     totalDose: Number(r[2] || 0),
-    intervalDays: Number(r[3] || 0),
-    minIntervalDays: Number(r[4] || 0),
-    allowBooster: r[5] === "TRUE",
-    ageMinMonths: Number(r[6] || 0),
-    ageMaxMonths: Number(r[7] || 0),
-    active: r[8] === "TRUE"
+    allowBooster: r[3] === "TRUE",
+    active: r[4] === "TRUE"
 
   }));
+
+}
+
+/* =========================================================
+   LOAD VACCINE SCHEDULE
+========================================================= */
+
+async function getVaccineSchedule(vaccineCode) {
+
+  const sheets = await getSheets();
+  const spreadsheetId = process.env.SPREADSHEET_ID;
+
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: `${SHEET_SCHEDULE}!A2:C`
+  });
+
+  const rows = res.data.values || [];
+
+  return rows
+    .filter(r => r[0] === vaccineCode)
+    .map(r => ({
+      vaccineCode: r[0],
+      doseNo: Number(r[1] || 0),
+      intervalDays: Number(r[2] || 0)
+    }))
+    .sort((a, b) => a.doseNo - b.doseNo);
 
 }
 
@@ -180,63 +219,118 @@ async function getPatient(cid) {
 }
 
 /* =========================================================
-   GET VACCINATION RECORDS
+   LOAD APPOINTMENTS
 ========================================================= */
 
-async function getVaccinationRecords(cid) {
+async function getAppointmentsByVaccine(cid, vaccineCode){
 
   const sheets = await getSheets();
   const spreadsheetId = process.env.SPREADSHEET_ID;
 
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId,
-    range: `${SHEET_RECORD}!A2:N`
+    range: `${SHEET_APPOINT}!A2:N`
   });
 
   const rows = res.data.values || [];
 
-  return rows
-    .filter(r => r[1] === cid)
-    .map(r => ({
-
-      vcn: r[0],
-      cid: r[1],
-      hn: r[2],
-      vaccineCode: r[3],
-      doseNo: Number(r[4] || 0),
-      dateService: r[5],
-      providerRole: r[6],
-      providerName: r[7],
-      locationType: r[8],
-      locationDetail: r[9],
-      lotNumber: r[10],
-      nextDueDate: r[11],
-      status: r[12],
-      createdAt: r[13]
-
-    }));
+  return rows.filter(r =>
+    r[1] === cid &&
+    r[3] === vaccineCode
+  );
 
 }
 
 /* =========================================================
-   CALCULATE NEXT DOSE
+   CREATE APPOINTMENTS
 ========================================================= */
 
-function calculateNextDose(master, doseNo) {
+async function createVaccinationAppointments(patient, vaccineCode, dateService, currentDose) {
 
-  if (!master) return null;
+  const sheets = await getSheets();
+  const spreadsheetId = process.env.SPREADSHEET_ID;
 
-  if (doseNo >= master.totalDose) {
+  const schedule = await getVaccineSchedule(vaccineCode);
 
-    if (master.allowBooster) {
-      return doseNo + 1;
+  if (!schedule.length) return;
+
+  const exists = await getAppointmentsByVaccine(patient.cid, vaccineCode);
+
+  const rows = [];
+
+  for (const s of schedule) {
+
+    if (s.doseNo <= currentDose) continue;
+
+    if (exists.some(e => Number(e[4]) === s.doseNo)) {
+      continue;
     }
 
-    return null;
+    const apid = await genAPID();
 
+    const due = addDays(dateService, s.intervalDays);
+
+   rows.push([
+  apid,
+  patient.cid,
+  patient.hn || "",
+  vaccineCode,
+  s.doseNo,
+  toISO(due),
+  "PENDING",
+  new Date().toISOString(),
+  ""
+]);
+
+await createReminder(
+  patient,
+  vaccineCode,
+  s.doseNo,
+  due,
+  apid
+);
   }
 
-  return doseNo + 1;
+  if (!rows.length) return;
+
+  await sheets.spreadsheets.values.append({
+    spreadsheetId,
+    range: `${SHEET_APPOINT}!A2`,
+    valueInputOption: "USER_ENTERED",
+    requestBody: { values: rows }
+  });
+
+}
+
+/* =========================================================
+   GEN REMINDER ID
+========================================================= */
+
+async function genREMID() {
+
+  const sheets = await getSheets();
+  const spreadsheetId = process.env.SPREADSHEET_ID;
+
+  const now = new Date();
+
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+
+  const prefix = `REM${y}${m}`;
+
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: `${SHEET_REMINDER}!A2:A`
+  });
+
+  const rows = res.data.values || [];
+
+  const count =
+    rows.filter(r => r[0] && r[0].startsWith(prefix)).length + 1;
+
+  const running = String(count).padStart(5, "0");
+
+  return `${prefix}-${running}`;
 
 }
 
@@ -257,8 +351,6 @@ async function saveVaccination(data) {
   const locationDetail = data.locationDetail || "";
   const lotNumber = data.lotNumber || "";
 
-  /* ---------------- VALIDATION ---------------- */
-
   if (!cid) throw new Error("CID required");
   if (!vaccineCode) throw new Error("vaccineCode required");
   if (!doseNo) throw new Error("doseNo required");
@@ -267,57 +359,35 @@ async function saveVaccination(data) {
   const sheets = await getSheets();
   const spreadsheetId = process.env.SPREADSHEET_ID;
 
-  /* ---------------- LOAD MASTER ---------------- */
-
   const masterList = await getVaccineMaster();
   const master = masterList.find(v => v.code === vaccineCode);
 
-  if (!master) {
-    throw new Error("Vaccine not found");
-  }
-
-  /* ---------------- LOAD PATIENT ---------------- */
+  if (!master) throw new Error("Vaccine not found");
 
   const patient = await getPatient(cid);
 
-  if (!patient) {
-    throw new Error("Patient not found");
-  }
-
-  /* ---------------- CALCULATE NEXT DOSE ---------------- */
-
-  const nextDose = calculateNextDose(master, doseNo);
-
-  let nextDue = null;
-
-  if (nextDose && master.intervalDays) {
-    nextDue = addDays(dateService, master.intervalDays);
-  }
+  if (!patient) throw new Error("Patient not found");
 
   const vcn = await genVCN();
 
-  /* ======================================================
-     SAVE RECORD
-  ====================================================== */
-
   const recordRow = [
 
-    vcn,
-    cid,
-    patient.hn,
-    vaccineCode,
-    doseNo,
-    dateService,
-    providerRole,
-    providerName,
-    locationType,
-    locationDetail,
-    lotNumber,
-    nextDue ? toISO(nextDue) : "",
-    "COMPLETED",
-    new Date().toISOString()
+  vcn,               // VCN
+  cid,               // CID
+  patient.hn,        // HN
+  vaccineCode,       // VaccineCode
+  doseNo,            // DoseNo
+  dateService,       // DateService
+  providerRole,      // ProviderRole
+  providerName,      // ProviderName
+  locationType,      // LocationType
+  locationDetail,    // LocationDetail
+  lotNumber,         // LotNumber
+  "",                // NextDueDate
+  "COMPLETED",       // Status
+  new Date().toISOString() // CreatedAt
 
-  ];
+];
 
   await sheets.spreadsheets.values.append({
     spreadsheetId,
@@ -326,67 +396,76 @@ async function saveVaccination(data) {
     requestBody: { values: [recordRow] }
   });
 
-  /* ======================================================
-     CREATE NEXT APPOINTMENT
-  ====================================================== */
+  await completeAppointment(
+  cid,
+  vaccineCode,
+  doseNo
+);
 
-  if (nextDose && nextDue) {
+await createVaccinationAppointments(
+  patient,
+  vaccineCode,
+  dateService,
+  doseNo
+);
 
-    const appointRow = [
-
-      vcn,
-      cid,
-      patient.hn,
-      vaccineCode,
-      nextDose,
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      toISO(nextDue),
-      "PENDING",
-      new Date().toISOString()
-
-    ];
-
-    await sheets.spreadsheets.values.append({
-      spreadsheetId,
-      range: `${SHEET_APPOINT}!A2`,
-      valueInputOption: "USER_ENTERED",
-      requestBody: { values: [appointRow] }
-    });
-
-  }
-
-  return {
-    success: true,
-    nextDose,
-    nextDue: nextDue ? toISO(nextDue) : null
-  };
+  return { success: true };
 
 }
 
 /* =========================================================
-   TIMELINE
+   RECORDS
+========================================================= */
+
+async function getVaccinationRecords(cid) {
+
+  const sheets = await getSheets();
+  const spreadsheetId = process.env.SPREADSHEET_ID;
+
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: `${SHEET_RECORD}!A2:N`
+  });
+
+  const rows = res.data.values || [];
+
+  return rows
+    .filter(r => r[1] === cid)
+    .map(r => ({
+      vcn: r[0],
+      cid: r[1],
+      hn: r[2],
+      vaccineCode: r[3],
+      doseNo: Number(r[4] || 0),
+      dateService: r[5],
+      providerRole: r[6],
+      providerName: r[7],
+      locationType: r[8],
+      locationDetail: r[9],
+      lotNumber: r[10],
+      nextDueDate: r[11],
+      status: r[12],
+      createdAt: r[13]
+    }));
+
+}
+
+/* =========================================================
+   TIMELINE / HISTORY / LATEST
 ========================================================= */
 
 async function getVaccinationTimeline(cid) {
 
   const records = await getVaccinationRecords(cid);
 
-  records.sort((a, b) => {
-    return new Date(a.dateService) - new Date(b.dateService);
-  });
+  records.sort((a, b) =>
+    new Date(a.dateService) - new Date(b.dateService)
+  );
 
   return records;
 
 }
 
-/* =====================================================
-   LATEST VACCINES
-===================================================== */
 async function getLatestVaccines(cid) {
 
   const records = await getVaccinationRecords(cid);
@@ -396,7 +475,9 @@ async function getLatestVaccines(cid) {
   records.forEach(r => {
 
     if (!map[r.vaccineCode]) {
+
       map[r.vaccineCode] = r;
+
     } else {
 
       const oldDate = new Date(map[r.vaccineCode].dateService);
@@ -414,75 +495,242 @@ async function getLatestVaccines(cid) {
 
 }
 
-/* =====================================================
-   VACCINATION HISTORY
-===================================================== */
-
 async function getVaccinationHistory(cid) {
 
   const records = await getVaccinationRecords(cid);
 
-  records.sort((a, b) => {
-    return new Date(b.dateService) - new Date(a.dateService);
-  });
+  records.sort((a, b) =>
+    new Date(b.dateService) - new Date(a.dateService)
+  );
 
   return records;
 
 }
 
 /* =========================================================
-   GET NEXT VCN
+   NEXT VCN
 ========================================================= */
 
 async function getNextVCN() {
 
   const vcn = await genVCN();
 
-  return {
-    vcn
-  };
+  return { vcn };
 
 }
 
 
-exports.getLatest = async () => {
 
-  const rows = await sheet.getRows("VaccinationRecords");
+async function getAppointments(cid){
 
-  if (!rows.length) return null;
+  const sheets = await getSheets();
+  const spreadsheetId = process.env.SPREADSHEET_ID;
 
-  return rows[rows.length - 1];
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: `${SHEET_APPOINT}!A2:N`
+  });
 
-};
-async function loadLatestPreview(){
+  const rows = res.data.values || [];
 
-  try{
+  return rows
+    .filter(r => r && String(r[1]) === String(cid))   // ⭐ แก้ตรงนี้
+    .map(r => ({
+      apid: r[0] || "",
+      cid: r[1] || "",
+      hn: r[2] || "",
+      vaccineCode: r[3] || "",
+      doseNo: Number(r[4] || 0),
+      appointmentDate: r[5] || "",
+      status: r[6] || ""
+    }))
+    .sort((a,b)=>
+      new Date(a.appointmentDate) -
+      new Date(b.appointmentDate)
+    );
 
-    const res = await fetch("/api/vaccination/latest");
-    const json = await res.json();
+}
 
-    const box = document.getElementById("latestVaccinePreview");
+async function completeAppointment(cid, vaccineCode, doseNo){
 
-    if(!json.data){
-      box.innerHTML = "ยังไม่มีข้อมูล";
-      return;
-    }
+  const sheets = await getSheets();
+  const spreadsheetId = process.env.SPREADSHEET_ID;
 
-    const v = json.data;
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: `${SHEET_APPOINT}!A2:N`
+  });
 
-    box.innerHTML = `
-      <div>
-        <b>VCN:</b> ${v.vcn}<br>
-        <b>Patient:</b> ${v.patient_name}<br>
-        <b>Vaccine:</b> ${v.vaccine_code}<br>
-        <b>Dose:</b> ${v.dose}<br>
-        <b>Date:</b> ${v.date}
-      </div>
-    `;
+  const rows = res.data.values || [];
 
-  }catch(err){
-    console.error("preview error",err);
+  const index = rows.findIndex(r =>
+    r[1] === cid &&
+    r[3] === vaccineCode &&
+    Number(r[4]) === Number(doseNo) &&
+    r[6] === "PENDING"
+  );
+
+  if(index === -1) return;
+
+  rows[index][6] = "DONE";
+  rows[index][8] = new Date().toISOString();
+
+  const rowNumber = index + 2;
+
+  await sheets.spreadsheets.values.update({
+    spreadsheetId,
+    range: `${SHEET_APPOINT}!A${rowNumber}:N${rowNumber}`,
+    valueInputOption: "USER_ENTERED",
+    requestBody: { values: [rows[index]] }
+  });
+
+}
+
+
+/******************************************************************
+ DELETE VACCINATION (REAL ROW DELETE)
+******************************************************************/
+
+async function deleteVaccination(vcn){
+
+  const sheets = await getSheets();
+  const spreadsheetId = process.env.SPREADSHEET_ID;
+
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: `${SHEET_RECORD}!A2:A`
+  });
+
+  const rows = res.data.values || [];
+
+  const index = rows.findIndex(r => r[0] === vcn);
+
+  if(index === -1){
+    throw new Error("Vaccination record not found");
   }
+
+  // แถวจริงใน sheet (A1 header)
+  const rowNumber = index + 1; // header
+  const startIndex = rowNumber;
+  const endIndex = rowNumber + 1;
+
+  const meta = await sheets.spreadsheets.get({
+    spreadsheetId
+  });
+
+  const sheet = meta.data.sheets.find(
+    s => s.properties.title === SHEET_RECORD
+  );
+
+  const sheetId = sheet.properties.sheetId;
+
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId,
+    requestBody:{
+      requests:[
+        {
+          deleteDimension:{
+            range:{
+              sheetId: sheetId,
+              dimension:"ROWS",
+              startIndex:startIndex,
+              endIndex:endIndex
+            }
+          }
+        }
+      ]
+    }
+  });
+
+  return { success:true };
+
+}
+
+async function createReminder(patient, vaccineCode, doseNo, appointmentDate, apid){
+
+  const sheets = await getSheets();
+  const spreadsheetId = process.env.SPREADSHEET_ID;
+
+  const notify30 = addDays(appointmentDate,-30);
+  const notify7  = addDays(appointmentDate,-7);
+  const notify1  = addDays(appointmentDate,-1);
+  const notify0  = new Date(appointmentDate); // ⭐ วันนัด
+
+  const rem1 = await genREMID();
+  const rem2 = await genREMID();
+  const rem3 = await genREMID();
+  const rem4 = await genREMID();
+
+  const rows = [
+
+    [
+      rem1,
+      apid,
+      patient.cid,
+      patient.hn || "",
+      vaccineCode,
+      doseNo,
+      toISO(appointmentDate),
+      toISO(notify30),
+      "BEFORE_30_DAY",
+      "LINE",
+      "PENDING",
+      new Date().toISOString()
+    ],
+
+    [
+      rem2,
+      apid,
+      patient.cid,
+      patient.hn || "",
+      vaccineCode,
+      doseNo,
+      toISO(appointmentDate),
+      toISO(notify7),
+      "BEFORE_7_DAY",
+      "LINE",
+      "PENDING",
+      new Date().toISOString()
+    ],
+
+    [
+      rem3,
+      apid,
+      patient.cid,
+      patient.hn || "",
+      vaccineCode,
+      doseNo,
+      toISO(appointmentDate),
+      toISO(notify1),
+      "BEFORE_1_DAY",
+      "LINE",
+      "PENDING",
+      new Date().toISOString()
+    ],
+
+    [
+      rem4,
+      apid,
+      patient.cid,
+      patient.hn || "",
+      vaccineCode,
+      doseNo,
+      toISO(appointmentDate),
+      toISO(notify0),
+      "DAY_OF_APPOINTMENT",
+      "LINE",
+      "PENDING",
+      new Date().toISOString()
+    ]
+
+  ];
+
+  await sheets.spreadsheets.values.append({
+    spreadsheetId,
+    range: `${SHEET_REMINDER}!A2`,
+    valueInputOption:"USER_ENTERED",
+    requestBody:{ values:rows }
+  });
 
 }
 /* =========================================================
@@ -495,11 +743,18 @@ module.exports = {
   getPatient,
   getVaccinationRecords,
   saveVaccination,
-  getVaccinationTimeline,
-
-  getLatestVaccines,
-  getVaccinationHistory,
 
   getNextVCN,
+
+  getVaccinationTimeline,
+  getLatestVaccines,
+  getVaccinationHistory,
+  getAppointments,
+
+  deleteVaccination,   // ⭐ ต้องมี
+
+  timeline: getVaccinationTimeline,
+  latest: getLatestVaccines,
+  history: getVaccinationHistory
 
 };

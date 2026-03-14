@@ -59,49 +59,63 @@ exports.handleFollowEvent = async (event) => {
    HANDLE MESSAGE
 ===================================================== */
 exports.handleChatMessage = async (event) => {
+
   try {
 
-    const userId = String(event.source.userId).trim();
-    const text = event.message.text.trim();
-    const profile = await lineAPI.getProfile(userId);
+    let payload = "";
 
-    /* ========= REGISTRATION FLOW ========= */
-    const handled = await registrationService.handleRegistrationFlow(
-      lineAPI,
-      userId,
-      text,
-      event.replyToken
-    );
+    if (event.type === "message") {
+      payload = (event.message?.text || "").trim();
+    }
 
-    if (handled) return;
+    if (event.type === "postback") {
+      payload = (event.postback?.data || "").trim();
+    }
 
-    /* ========= บันทึก UserList ========= */
-    await appendRow(USER_SHEET, [
-      new Date().toISOString(),
-      "message",
-      userId,
-      profile.displayName || "",
-      profile.pictureUrl || ""
-    ]);
+    console.log("PAYLOAD:", payload);
 
-    /* ================= CONFIRM RESULT ================= */
-    if (text.startsWith("CONFIRM_RESULT:")) {
+    /* ===== CONFIRM RESULT ===== */
 
-      const nsr = text.split(":")[1]?.trim();
+    if (payload.startsWith("CONFIRM_RESULT:")) {
+
+      const nsr = payload.split(":")[1]?.trim();
+
+      console.log("CONFIRM NSR:", nsr);
+
+      const record = await nursingService.getByNSR(nsr);
+
+      if (record.ResultConfirmed === "YES") {
+
+        await lineAPI.replyMessage(event.replyToken,{
+          type:"text",
+          text:"ℹ️ ระบบบันทึกการยืนยันไว้แล้วค่ะ"
+        });
+
+        return;
+      }
 
       await nursingService.markResultConfirmed(nsr);
 
-      await lineAPI.replyMessage(event.replyToken, {
-        type: "text",
-        text: "✅ ระบบบันทึกการยืนยันเรียบร้อยแล้ว ขอบพระคุณค่ะ 🙏"
+      await lineAPI.replyMessage(event.replyToken,{
+        type:"text",
+        text:"✅ ระบบบันทึกการยืนยันการรับผลตรวจเรียบร้อยแล้ว ขอบพระคุณค่ะ 🙏"
       });
 
       return;
+
     }
 
   } catch (err) {
-    console.error("handleChatMessage error:", err.message);
+
+    console.error("Confirm error:", err);
+
+    await lineAPI.replyMessage(event.replyToken,{
+      type:"text",
+      text:"❌ เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง"
+    });
+
   }
+
 };
 
 
@@ -141,5 +155,12 @@ exports.sendReport = async (nsr) => {
     fileURL: record.fileURL || null
   });
   return true;
+
+};
+exports.confirmResult = async (nsr) => {
+
+  console.log("Confirm result:", nsr);
+
+  await nursingService.markResultConfirmed(nsr);
 
 };

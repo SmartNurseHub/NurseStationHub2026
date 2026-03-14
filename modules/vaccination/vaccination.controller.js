@@ -154,37 +154,15 @@ exports.addVaccination = async (req, res) => {
 
   try {
 
-    const {
-      cid,
-      vaccineCode,
-      doseNo,
-      dateService
-    } = req.body;
+    console.log("📥 vaccination input:", req.body);
 
-    /* VALIDATION */
+    const result = await service.saveVaccination(req.body);
 
-    if (!cid || !vaccineCode || !doseNo || !dateService) {
-
-      return res.status(400).json({
-        success: false,
-        message: "cid, vaccineCode, doseNo, dateService required"
-      });
-
-    }
-
-    /* SAVE */
-
-    const result =
-      await service.saveVaccination(req.body);
-
-    res.json({
-      success: true,
-      data: result
-    });
+    res.json(result);
 
   } catch (err) {
 
-    console.error("❌ addVaccination error:", err);
+    console.error("❌ saveVaccination error:", err);
 
     res.status(500).json({
       success: false,
@@ -357,6 +335,90 @@ exports.getLatestVaccination = async (req, res) => {
     res.status(500).json({
       success: false
     });
+
+  }
+
+};
+
+exports.timeline = async (req,res)=>{
+
+  const cid = req.params.cid;
+
+  const data = await service.timeline(cid);
+
+  res.json({
+    success:true,
+    data
+  });
+
+};
+
+exports.latest = async (req,res)=>{
+
+  const cid = req.params.cid;
+
+  const data = await service.latest(cid);
+
+  res.json({
+    success:true,
+    data
+  });
+
+};
+
+exports.history = async (req,res)=>{
+
+  const cid = req.params.cid;
+
+  const data = await service.history(cid);
+
+  res.json({
+    success:true,
+    data
+  });
+
+};
+
+exports.getAppointments = async (req, res) => {
+
+  try {
+
+    const { cid } = req.params;
+
+    const data = await service.getAppointments(cid);
+
+    res.json({
+      success: true,
+      data
+    });
+
+  } catch (err) {
+
+    console.error("❌ getAppointments error:", err);
+
+    res.status(500).json({
+      success: false,
+      message: err.message
+    });
+
+  }
+
+};
+
+exports.deleteVaccination = async (req, res) => {
+
+  try {
+
+    const { vcn } = req.params;
+
+    const result = await service.deleteVaccination(vcn);
+
+    res.json(result);
+
+  } catch (err) {
+
+    console.error(err);
+    res.status(500).json({ error: err.message });
 
   }
 

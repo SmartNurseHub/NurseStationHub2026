@@ -52,12 +52,15 @@ app.use(
   require("./modules/satisfactionSurvey/satisfactionSurvey.routes")
 );
 
-
+app.use(
+  "/lineoa",
+  require("./modules/lineOA/lineOA.routes")
+);
 /* ===============================
    CRON JOB — Vaccination Reminder
 ================================ */
 
-cron.schedule("0 8 * * *", async () => {
+cron.schedule("0 10 * * *", async () => {
 
   console.log("🔔 Vaccination reminder job started");
 
@@ -75,7 +78,22 @@ cron.schedule("0 8 * * *", async () => {
 
 });
 
+app.get("/test-reminder", async (req,res)=>{
 
+  try{
+
+    await checkAndSendReminders();
+
+    res.send("✅ Reminder job executed");
+
+  }catch(err){
+
+    console.error(err);
+    res.status(500).send("error");
+
+  }
+
+});
 /* ===============================
    SPA FALLBACK
 ================================ */

@@ -7,28 +7,64 @@ const { formatBullet, buildFlex } = require("../../utils/flexBuilder");
    LINE WEBHOOK
 ================================================= */
 exports.handleWebhook = (req, res) => {
+
   console.log("📩 LINE webhook received");
+  console.log("BODY:", JSON.stringify(req.body, null, 2));
 
   res.status(200).send("OK");
 
   setImmediate(async () => {
+
     try {
+
       const events = req.body.events || [];
 
       for (const event of events) {
-        if (event.type === "follow") {
-          await service.handleFollowEvent(event);
-        }
 
-        if (event.type === "message" && event.message?.type === "text") {
-          await service.handleChatMessage(event);
-        }
+  console.log("EVENT TYPE:", event.type);
+
+  try {
+
+    if (event.type === "follow") {
+      console.log("FOLLOW USER:", event.source.userId);
+      await service.handleFollowEvent(event);
+    }
+
+    if (event.type === "message" && event.message?.type === "text") {
+      console.log("MESSAGE:", event.message.text);
+      await service.handleChatMessage(event);
+    }
+
+    if (event.type === "postback") {
+
+      const data = event.postback?.data;
+      console.log("POSTBACK:", data);
+
+      if (data?.startsWith("CONFIRM_RESULT:")) {
+
+        const nsr = data.replace("CONFIRM_RESULT:", "");
+
+        console.log("CONFIRM NSR:", nsr);
+
+        await service.confirmResult(nsr, event.source.userId);
       }
+
+    }
+
+  } catch(err){
+
+    console.error("EVENT ERROR:", err);
+
+  }
+
+}
 
     } catch (err) {
       console.error("Webhook background error:", err);
     }
+
   });
+
 };
 
 

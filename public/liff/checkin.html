@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Check-in คลินิก</title>
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+</head>
+
+<body>
+
+<h2>🏥 Check-in ก่อนมาถึง</h2>
+
+<button onclick="checkin()">Check-in</button>
+
+<div id="msg"></div>
+
+<script>
+
+async function init(){
+
+  await liff.init({ liffId:"2007902507-checkin" });
+
+}
+
+init();
+
+async function checkin(){
+
+  const profile = await liff.getProfile();
+
+  const res = await fetch("/api/checkin",{
+
+    method:"POST",
+
+    headers:{
+      "Content-Type":"application/json"
+    },
+
+    body: JSON.stringify({
+
+      lineUid: profile.userId
+
+    })
+
+  });
+
+  const data = await res.json();
+
+  document.getElementById("msg").innerText = "Check-in สำเร็จ";
+
+}
+
+</script>
+
+</body>
+</html>

@@ -69,7 +69,8 @@ safeUse("/vaccination", "../modules/vaccination/vaccination.routes", "Vaccinatio
 
 safeUse("/satisfaction-survey", "../modules/satisfactionSurvey/satisfactionSurvey.routes", "SatisfactionSurvey");
 
-
+const vaccinationRoutes = require("../modules/vaccination/vaccination.routes");
+router.use("/vaccination", vaccinationRoutes);
 /* =================================
    FOLLOWLIST DELETE SAFE API
 ================================= */

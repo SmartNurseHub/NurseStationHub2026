@@ -87,7 +87,7 @@ exports.pushFlexResult = async ({
       type: "text",
       text: fullName || "-",
       align: "center",
-      size: "md",
+      size: "lg",
       margin: "sm",
       color: "#0D47A1"
     },
@@ -101,7 +101,7 @@ exports.pushFlexResult = async ({
       text: "📄 รายการตรวจ",
       weight: "bold",
       color: "#0288D1",
-      margin: "md"
+      size: "lg"
     },
 
     { type: "separator", margin: "md" },
@@ -153,7 +153,7 @@ exports.pushFlexResult = async ({
       text: "📊 ผลตรวจ",
       weight: "bold",
       color: "#0288D1",
-      margin: "lg"
+      size: "lg"
     },
 
     { type: "separator", margin: "md" },
@@ -182,8 +182,8 @@ exports.pushFlexResult = async ({
       type: "text",
       text: "💡 คำแนะนำจากพยาบาล",
       weight: "bold",
-      color: "#0288D1",
-      margin: "lg"
+          color: "#0288D1",
+          size: "lg"
     },
 
     { type: "separator", margin: "md" },
@@ -256,10 +256,12 @@ exports.pushFlexResult = async ({
 
           {
             type: "text",
-            text: "กรุณากดยืนยันรับผลตรวจ\nและประเมินความพึงพอใจ\nเพื่อเป็นข้อมูลในการปรับปรุงบริการให้ดียิ่งขึ้น",
-            size: "sm",
+            text: "กรุณากดยืนยันรับผลตรวจ\nและประเมินความพึงพอใจ\nเพื่อเป็นข้อมูลในการปรับปรุง\nบริการให้ดียิ่งขึ้น",
             align: "center",
-            color: "#757575"
+            size: "sm",
+            margin: "sm",
+            color: "#0D47A1",
+            wrap: true
           },
 
           {
@@ -312,5 +314,179 @@ exports.pushFlexResult = async ({
     }
 
   }
+
+};
+
+/******************************************************************
+ * PUSH VACCINE REMINDER
+ ******************************************************************/
+
+exports.pushVaccineReminder = async ({
+  userId,
+  fullName,
+  vaccineCode,
+  doseNo,
+  appointmentDate,
+  notifyType
+}) => {
+
+  if (!userId) throw new Error("LINE userId not found");
+
+  let icon = "📅";
+  let title = "แจ้งเตือนนัดฉีดวัคซีน";
+
+  if (notifyType === "BEFORE_30_DAY") icon = "🗓";
+  if (notifyType === "BEFORE_7_DAY") icon = "⏰";
+  if (notifyType === "BEFORE_1_DAY") icon = "🔔";
+  if (notifyType === "DAY_OF_APPOINTMENT") icon = "🚨";
+
+  const flex = {
+    type: "flex",
+    altText: "แจ้งเตือนนัดฉีดวัคซีน",
+
+    contents: {
+      type: "bubble",
+      size: "mega",
+
+      hero: {
+        type: "image",
+        url: "https://drive.google.com/uc?export=view&id=1O366lb3XphBKeVv51F5nNHIOEvdEh-jI",
+        size: "full",
+        aspectRatio: "20:13",
+        aspectMode: "cover"
+      },
+
+      body: {
+        type: "box",
+        layout: "vertical",
+        spacing: "md",
+        contents: [
+
+          {
+            type: "text",
+            text: "💉 ระบบนัดวัคซีน",
+            weight: "bold",
+            size: "xl",
+            align: "center",
+            color: "#1B5E20"
+          },
+
+          {
+            type: "text",
+            text: title,
+            align: "center",
+            size: "md",
+            color: "#0D47A1"
+          },
+
+          { type: "separator", margin: "md" },
+
+          {
+            type: "text",
+            text: `👤 ${fullName || "-"}`,
+            size: "sm",
+            wrap: true
+          },
+
+          {
+            type: "text",
+            text: `💉 วัคซีน: ${vaccineCode || "-"} (เข็มที่ ${doseNo || "-"})`,
+            size: "sm"
+          },
+
+          {
+            type: "text",
+            text: `${icon} วันนัด: ${appointmentDate || "-"}`,
+            weight: "bold",
+            size: "sm"
+          },
+
+          { type: "separator", margin: "md" },
+
+          {
+            type: "text",
+            text: "กรุณามารับบริการตามวันนัด\nหากไม่สะดวกสามารถติดต่อเจ้าหน้าที่",
+            size: "sm",
+            wrap: true,
+            align: "center"
+          }
+
+        ]
+      },
+
+      footer: {
+  type: "box",
+  layout: "vertical",
+  spacing: "sm",
+  contents: [
+
+    {
+      type: "button",
+      style: "primary",
+      color: "#2E7D32",
+      action: {
+        type: "message",
+        label: "✅ ยืนยันว่าจะมารับบริการ",
+        text: "CONFIRM_VACCINE_APPOINTMENT"
+      }
+    },
+
+    {
+      type: "button",
+      style: "secondary",
+      action: {
+        type: "uri",
+        label: "📅 เลื่อนนัดวัคซีน",
+        uri: "https://liff.line.me/2007902507-reschedule?vaccine=HBV"
+      }
+    },
+
+    {
+      type: "button",
+      style: "secondary",
+      action: {
+        type: "uri",
+        label: "📜 เปิดประวัติวัคซีน",
+        uri: "https://liff.line.me/2007902507-vaccine-history"
+      }
+    },
+
+    {
+      type: "button",
+      style: "secondary",
+      action: {
+        type: "uri",
+        label: "🏥 Check-in ก่อนมาถึง",
+        uri: "https://liff.line.me/2007902507-checkin"
+      }
+    },
+
+    {
+      type: "button",
+      style: "secondary",
+      action: {
+        type: "uri",
+        label: "📍 เปิดแผนที่คลินิก",
+        uri: "https://maps.app.goo.gl/HAu5GbXGviYF4VXd8"
+      }
+    },
+
+    {
+      type: "button",
+      style: "secondary",
+      action: {
+        type: "uri",
+        label: "☎️ โทร 038-068952",
+        uri: "tel:038068952"
+      }
+    }
+
+  ]
+}
+
+    }
+  };
+
+  await client.pushMessage(userId, flex);
 
 };

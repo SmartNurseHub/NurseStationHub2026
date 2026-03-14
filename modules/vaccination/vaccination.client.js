@@ -1,118 +1,113 @@
-/************************************************************
- * vaccination.client.js
- * CLIENT SIDE (FULL STABLE FIXED)
- ************************************************************/
+/*****************************************************************
+ VACCINATION MODULE (PRODUCTION STABLE)
+ NurseStationHub
+*****************************************************************/
 
-console.log("💉 vaccination.client.js loaded");
+console.log("💉 Vaccination Module Loaded");
 
-/* =========================================================
-   INIT
-========================================================= */
-window.initVaccination = async function () {
+/*****************************************************************
+ GLOBAL STATE
+*****************************************************************/
 
-  console.log("🚀 Init Vaccination Module");
+const VaccineState = {currentCID: null,currentPatient: null,vaccineMaster: [],appointments: [],history: []};
 
-  try {
+/*****************************************************************
+ INIT
+*****************************************************************/
 
-    setupTabs();
-    setupForm();
-    setupPatientSearch();
-    await loadVaccineMaster();
-    await loadNextVCN();
-    await loadLatestPreview();
-  } catch (err) {
-    console.error("❌ initVaccination error:", err);
+window.initVaccination = async function(){
+  console.log("🚀 initVaccination");
+  bindTabs();bindPatientSearch();bindForm();await loadVaccineMaster();await loadNextVCN();};
+
+/*****************************************************************
+ UTIL
+*****************************************************************/
+
+function calculateAge(birth){
+  if(!birth) return "-";
+  if(birth.length === 6){
+    const d = birth.substring(0,2);
+    const m = birth.substring(2,4);
+    const y = Number(birth.substring(4,6)) + 2500 - 543;
+    birth = `${y}-${m}-${d}`;
   }
 
-};
-
-/* =========================================================
-   PRENAME
-========================================================= */
-function getPrename(code) {
-
-  const map = {
-    1: "ด.ช.",
-    2: "ด.ญ.",
-    3: "นาย",
-    4: "นาง",
-    5: "น.ส."
-  };
-
-  return map[code] || "";
-
-}
-
-/* =========================================================
-   AGE
-========================================================= */
-function calculateAge(birthDate){
-
-  if(!birthDate || birthDate === "-") return "-";
-
-  const birth = new Date(birthDate);
-
-  if(isNaN(birth)) return "-";
-
-  const today = new Date();
-
-  let age = today.getFullYear() - birth.getFullYear();
-
-  const m = today.getMonth() - birth.getMonth();
-
-  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
+  const b = new Date(birth);
+  const t = new Date();
+  let age = t.getFullYear() - b.getFullYear();
+  if(
+    t.getMonth() < b.getMonth() ||
+    (t.getMonth() === b.getMonth() && t.getDate() < b.getDate())
+  ){
     age--;
   }
 
   return age;
+}
+
+function getFullName(p){
+
+  const prename = {
+    1:"ด.ช.",
+    2:"ด.ญ.",
+    3:"นาย",
+    4:"นาง",
+    5:"น.ส."
+  };
+
+  return `${prename[p.PRENAME]||""} ${p.NAME} ${p.LNAME}`;
 
 }
 
-/* =========================================================
-   SET PATIENT
-========================================================= */
-function setPatientInfo(p){
+function formatThaiDate(date){
 
-  if(!p) return;
+  if(!date) return "-";
 
-  const birth =
-    p.BIRTH ||
-    p.Birth ||
-    p.birth ||
-    p.BIRTHDATE ||
-    p.birthDate ||
-    "";
+  const months = [
+    "ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.",
+    "ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."
+  ];
 
-  const phone =
-    p.MOBILE ||
-    p.mobile ||
-    p.phone ||
-    p.telephone ||
-    "";
+  const d = new Date(date);
 
-  const age = calculateAge(birth);
+  if(isNaN(d)) return date;
 
-  const birthEl = document.getElementById("vaccineBirthDate");
-  const ageEl = document.getElementById("vaccineAge");
-  const phoneEl = document.getElementById("vaccinePhone");
+  const day = d.getDate();
+  const month = months[d.getMonth()];
+  const year = d.getFullYear()+543;
 
-  if(birthEl) birthEl.textContent = birth || "-";
-  if(ageEl) ageEl.textContent = age || "-";
-  if(phoneEl) phoneEl.textContent = phone || "-";
+  return `${day} ${month} ${year}`;
+}
+
+function getVaccineName(code){
+
+  const v = VaccineState.vaccineMaster
+    .find(v=>v.code===code);
+
+  return v ? v.name : code;
 
 }
 
-/* =========================================================
-   TAB
-========================================================= */
-function setupTabs() {
+/*****************************************************************
+ TAB SYSTEM
+*****************************************************************/
 
-  document.querySelectorAll(".open-tab").forEach(btn => {
+function bindTabs(){
 
-    btn.addEventListener("click", () => {
+  document.querySelectorAll(".open-tab").forEach(btn=>{
+
+    btn.addEventListener("click",()=>{
 
       const tab = btn.dataset.tab;
-      showTab(tab);
+
+      document
+      .querySelectorAll(".vaccine-tab")
+      .forEach(el=>el.classList.add("d-none"));
+
+      const target =
+        document.getElementById(tab+"Tab");
+
+      if(target) target.classList.remove("d-none");
 
     });
 
@@ -120,352 +115,258 @@ function setupTabs() {
 
 }
 
-function showTab(tab) {
+/*****************************************************************
+ PATIENT SEARCH
+*****************************************************************/
 
-  document.querySelectorAll(".vaccine-tab").forEach(el => {
-    el.classList.add("d-none");
-  });
+function bindPatientSearch(){
 
-  const target = document.getElementById(tab + "Tab");
+  const btn =
+  document.getElementById("searchPatientBtn");
 
-  if (target) target.classList.remove("d-none");
+  if(!btn) return;
 
-}
-
-/* =========================================================
-   LOAD MASTER
-========================================================= */
-async function loadVaccineMaster() {
-
-  try {
-
-    const res = await fetch("/api/vaccination/master");
-    const result = await res.json();
-
-    if (!result.success) return;
-
-    const vaccines = result.data;
-    const select = document.getElementById("vaccineType");
-
-    if (!select) return;
-
-    select.innerHTML = `<option value="">-- เลือกวัคซีน --</option>`;
-
-    vaccines.forEach(v => {
-
-      const opt = document.createElement("option");
-
-      opt.value = v.code;
-      opt.textContent = `${v.name} (${v.code})`;
-
-      select.appendChild(opt);
-
-    });
-
-  } catch (err) {
-
-    console.error("❌ loadVaccineMaster error:", err);
-
-  }
+  btn.addEventListener("click", openPatientModal);
 
 }
 
-/* =========================================================
-   FORM SUBMIT
-========================================================= */
-function setupForm() {
+async function openPatientModal(){
 
-  const form = document.getElementById("vaccinationForm");
-  if (!form) return;
+  const res = await fetch("/api/patients/list");
+  const result = await res.json();
 
-  const submitBtn = form.querySelector("button[type='submit']");
+  if(!result.success) return;
 
-  form.addEventListener("submit", async e => {
+  const table =
+  document.getElementById("patientSearchTable");
 
-    e.preventDefault();
+  if(!table) return;
 
-    if(submitBtn) submitBtn.disabled = true;
+  table.innerHTML = "";
 
-    const payload = {
+  result.data.forEach(p => {
 
-      cid: document.getElementById("vaccineCIDInput").value.trim(),
+    const tr = document.createElement("tr");
+    tr.style.fontSize = "10px";
 
-      vaccineCode:
-        document.getElementById("vaccineType").value,
+    const name = getFullName(p);
 
-      doseNo: Number(
-        document.getElementById("doseNumber").value
-      ),
+    tr.innerHTML = `
+<td>${p.CID || "-"}</td>
+<td>${name}</td>
+<td>${p.BIRTH_THAI || "-"}</td>
+<td>${formatThaiDate(p.BIRTH_THAI || p.BIRTH)}</td>
+<td>${p.TELEPHONE || p.MOBILE || "-"}</td>
+<td>
+<button class="btn btn-success btn-sm" style="font-size:10px;padding:2px 8px;">
+เลือก
+</button>
+</td>
+`;
 
-      dateService:
-        document.getElementById("recordDate").value,
+    tr.querySelector("button")
+      .addEventListener("click", () => selectPatient(p));
 
-      lotNumber:
-        document.getElementById("lotNumber").value.trim(),
+    table.appendChild(tr);
+    
 
-      providerRole:
-        document.getElementById("providerRole").value,
-
-      providerName:
-        document.getElementById("providerName").value.trim(),
-
-      locationDetail:
-        document.getElementById("locationDetail").value.trim(),
-
-      locationType:
-        document.getElementById("serviceLocation").value
-
-    };
-
-    /* VALIDATION */
-
-    if(!payload.cid){
-      alert("กรุณาเลือกผู้ป่วย");
-      submitBtn.disabled=false;
-      return;
-    }
-
-    if(!payload.vaccineCode){
-      alert("กรุณาเลือกวัคซีน");
-      submitBtn.disabled=false;
-      return;
-    }
-
-    if(!payload.doseNo){
-      alert("กรุณาระบุเข็มที่");
-      submitBtn.disabled=false;
-      return;
-    }
-
-    if(!payload.dateService){
-      alert("กรุณาระบุวันที่ให้บริการ");
-      submitBtn.disabled=false;
-      return;
-    }
-
-    try {
-
-      const res = await fetch("/api/vaccination/add", {
-
-        method: "POST",
-
-        headers: {
-          "Content-Type": "application/json"
-        },
-
-        body: JSON.stringify(payload)
-
-      });
-
-      const result = await res.json();
-
-      if (!result.success) {
-
-        alert(result.error || "❌ บันทึกไม่สำเร็จ");
-        submitBtn.disabled=false;
-        return;
-
-      }
-
-      alert("✅ บันทึกสำเร็จ");
-      loadNextVCN();
-
-      form.reset();
-
-      if (payload.cid) {
-
-        loadTimeline(payload.cid);
-        loadLatestVaccines(payload.cid);
-        loadVaccinationTable(payload.cid);
-
-      }
-
-    } catch (err) {
-
-      console.error("❌ save vaccination error", err);
-      alert("Server Error");
-
-    }
-
-    if(submitBtn) submitBtn.disabled=false;
+  
 
   });
 
-}
-
-/* =========================================================
-   PATIENT SEARCH
-========================================================= */
-function setupPatientSearch() {
-
-  const btn = document.getElementById("searchPatientBtn");
-  if (!btn) return;
-
-  btn.addEventListener("click", async () => {
-
-    try {
-
-      const res = await fetch("/api/patients/list");
-      const result = await res.json();
-
-      if (!result.success) return;
-
-      const table = document.getElementById("patientSearchTable");
-      if(!table) return;
-
-      table.innerHTML = "";
-
-      result.data.forEach(p => {
-
-        const tr = document.createElement("tr");
-
-        const name =
-          `${getPrename(p.PRENAME)} ${p.NAME} ${p.LNAME}`;
-
-        tr.innerHTML = `
-          <td>${p.CID}</td>
-          <td>${name}</td>
-          <td>
-            <button class="btn btn-sm btn-success selectPatient">
-              เลือก
-            </button>
-          </td>
-        `;
-
-        tr.querySelector(".selectPatient").onclick = () => {
-          selectPatient(p);
-        };
-
-        table.appendChild(tr);
-
-      });
-
-      const modalEl = document.getElementById("patientSearchModal");
-      if(!modalEl) return;
-
-      const modal = new bootstrap.Modal(modalEl);
-      modal.show();
-
-    } catch (err) {
-
-      console.error("❌ search patient error", err);
-
-    }
-
-  });
+  new bootstrap.Modal(
+    document.getElementById("patientSearchModal")
+  ).show();
 
 }
 
-/* =========================================================
-   SELECT PATIENT
-========================================================= */
-function selectPatient(p) {
+/*****************************************************************
+ SELECT PATIENT
+*****************************************************************/
 
-  const name =
-    `${getPrename(p.PRENAME)} ${p.NAME} ${p.LNAME}`;
+function selectPatient(p){
 
-  document.getElementById("vaccinePatientName").textContent =
-    `👤 ${name}`;
+  VaccineState.currentCID = p.CID;
+  VaccineState.currentPatient = p;
 
-  document.getElementById("vaccineCID").textContent = p.CID;
-  document.getElementById("vaccineCIDInput").value = p.CID;
+  const name = getFullName(p);
+  const birth = p.BIRTH;
+  const age = calculateAge(birth);
 
-  setPatientInfo(p);
+  setText("vaccinePatientName","👤 "+name);
+  setText("vaccineCID",p.CID);
+  setText("vaccineBirthDate",birth);
+  setText("vaccineAge",age);
+  setText("vaccinePhone",p.MOBILE);
 
-  const modalEl = document.getElementById("patientSearchModal");
+  setText("p_cid",p.CID);
+  setText("p_name",name);
+  setText("p_birth",birth);
+  setText("p_age",age);
 
-  if(modalEl){
+  const cidInput =
+  document.getElementById("vaccineCIDInput");
 
-    const modal = bootstrap.Modal.getInstance(modalEl);
-    if(modal) modal.hide();
-
-  }
+  if(cidInput) cidInput.value = p.CID;
 
   loadTimeline(p.CID);
-  loadLatestVaccines(p.CID);
   loadVaccinationTable(p.CID);
+  loadLatestVaccines(p.CID);
+  loadAppointments(p.CID);
 
-}
+  const modal =
+  bootstrap.Modal.getInstance(
+  document.getElementById("patientSearchModal")
+  );
 
-/* =========================================================
-   LOAD TIMELINE
-========================================================= */
-async function loadTimeline(patientId) {
-
-  try {
-
-    const res = await fetch(`/api/vaccination/timeline/${patientId}`);
-    const result = await res.json();
-
-    if(!result.success) return;
-
-    const data = result.data;
-
-    const timeline = document.getElementById("vaccineTimeline");
-    if (!timeline) return;
-
-    timeline.innerHTML = "";
-
-    if (!data.length) {
-
-      timeline.innerHTML = `
-        <div class="text-muted">
-          ยังไม่มีประวัติวัคซีน
-        </div>
-      `;
-
-      return;
-    }
-
-    data.forEach(v => {
-
-      const row = document.createElement("div");
-
-      row.className = "card mb-2";
-
-      row.innerHTML = `
-        <div class="card-body">
-          <b>${v.vaccineCode}</b><br>
-          Dose: ${v.doseNo}<br>
-          Date: ${v.dateService}
-        </div>
-      `;
-
-      timeline.appendChild(row);
-
-    });
-
-  } catch (err) {
-
-    console.error("❌ loadTimeline error:", err);
-
+  if(modal){
+    document.activeElement.blur();
+    modal.hide();
   }
 
 }
 
-/* =========================================================
-   LOAD LATEST VACCINES
-========================================================= */
-async function loadLatestVaccines(cid){
+function setText(id,val){
+
+  const el=document.getElementById(id);
+  if(el) el.textContent=val||"-";
+
+}
+
+/*****************************************************************
+ LOAD VACCINE MASTER
+*****************************************************************/
+
+async function loadVaccineMaster(){
+
+  const res =
+  await fetch("/api/vaccination/master");
+
+  const result = await res.json();
+
+  if(!result.success) return;
+
+  VaccineState.vaccineMaster=result.data;
+
+  const select =
+  document.getElementById("vaccineType");
+
+  select.innerHTML=
+  `<option value="">-- เลือกวัคซีน --</option>`;
+
+  result.data.forEach(v=>{
+
+    const opt=document.createElement("option");
+
+    opt.value=v.code;
+    opt.textContent=`${v.name} (${v.code})`;
+
+    select.appendChild(opt);
+
+  });
+
+}
+
+/*****************************************************************
+ FORM
+*****************************************************************/
+
+function bindForm(){
+
+  const form =
+  document.getElementById("vaccinationForm");
+
+  if(!form) return;
+
+  form.addEventListener("submit",saveVaccine);
+
+}
+
+async function saveVaccine(e){
+
+  e.preventDefault();
+
+  const payload={
+
+    cid:VaccineState.currentCID,
+
+    vaccineCode:
+      document.getElementById("vaccineType").value,
+
+    doseNo:Number(
+      document.getElementById("doseNumber").value
+    ),
+
+    dateService:
+      document.getElementById("recordDate").value,
+
+    providerRole:
+      document.getElementById("providerRole").value,
+
+    providerName:
+      document.getElementById("providerName").value,
+
+    locationType:
+      document.getElementById("locationType").value,
+
+    locationDetail:
+      document.getElementById("locationDetail").value,
+
+    lotNumber:
+      document.getElementById("lotNumber").value
+
+  };
+
+  const res = await fetch("/api/vaccination/add",{
+    method:"POST",
+    headers:{
+      "Content-Type":"application/json"
+    },
+    body:JSON.stringify(payload)
+  });
+
+  const result = await res.json();
+
+  if(!result.success){
+    alert(result.error || "บันทึกไม่สำเร็จ");
+    return;
+  }
+
+  alert("บันทึกสำเร็จ");
+
+  document.getElementById("vaccinationForm").reset();
+
+  loadTimeline(payload.cid);
+  loadVaccinationTable(payload.cid);
+  loadLatestVaccines(payload.cid);
+  loadAppointments(payload.cid);
+
+}
+/*****************************************************************
+ TIMELINE
+*****************************************************************/
+
+async function loadTimeline(cid){
 
   try{
 
-    const res = await fetch(`/api/vaccination/latest/${cid}`);
+    const res =
+      await fetch(`/api/vaccination/timeline/${cid}`);
+
     const result = await res.json();
 
-    if(!result.success) return;
+    const box =
+      document.getElementById("vaccinationTimeline");
 
-    const container = document.getElementById("latestVaccines");
+    if(!box) return;
 
-    if(!container) return;
+    box.innerHTML = "";
 
-    container.innerHTML = "";
+    if(!result.success || !result.data || result.data.length === 0){
 
-    if(!result.data.length){
-
-      container.innerHTML = `
+      box.innerHTML = `
         <div class="text-muted">
-          ยังไม่มีข้อมูลวัคซีนล่าสุด
+          ยังไม่มีประวัติการฉีดวัคซีน
         </div>
       `;
 
@@ -474,115 +375,341 @@ async function loadLatestVaccines(cid){
 
     result.data.forEach(v => {
 
-      const div = document.createElement("div");
+      const item = document.createElement("div");
 
-      div.className = "badge bg-info me-2 mb-2";
+      item.className =
+        "border rounded p-2 mb-2 bg-light";
 
-      div.textContent = `${v.vaccineCode} (เข็ม ${v.doseNo})`;
+      const vaccine =
+        getVaccineName(v.vaccineCode);
 
-      container.appendChild(div);
+      const dose =
+        v.doseNo ?? "-";
+
+      const date =
+        formatThaiDate(v.dateService);
+
+      item.innerHTML = `
+        <div class="fw-bold">
+          💉 ${vaccine}
+        </div>
+
+        <div class="small text-muted">
+          เข็ม ${dose}
+        </div>
+
+        <div>
+          วันที่ฉีด : ${date}
+        </div>
+      `;
+
+      box.appendChild(item);
 
     });
 
-  }catch(err){
+  }
+  catch(err){
 
-    console.error("❌ loadLatestVaccines error",err);
+    console.error("Timeline error:",err);
 
   }
 
 }
 
-/* =========================================================
-   LOAD VACCINATION TABLE
-========================================================= */
+/*****************************************************************
+ HISTORY TABLE
+*****************************************************************/
+
 async function loadVaccinationTable(cid){
 
+  const res =
+  await fetch(`/api/vaccination/history/${cid}`);
+
+  const result = await res.json();
+
+  if(!result.success) return;
+
+  const table =
+  document.getElementById("vaccinationHistoryTable");
+
+  table.innerHTML="";
+
+  result.data.forEach(v=>{
+
+    const tr=document.createElement("tr");
+
+    tr.innerHTML = `
+
+<td style="font-size:10px;width:15%;">${v.vcn || "-"}</td>
+
+<td style="font-size:10px;width:10%;">
+${formatThaiDate(v.dateService)}
+</td>
+
+<td style="font-size:10px;width:15%;">
+${getVaccineName(v.vaccineCode)}
+</td>
+
+<td style="font-size:10px;width:5%;">
+${v.doseNo}
+</td>
+
+<td style="font-size:10px;width:10%;">
+${v.lotNumber || "-"}
+</td>
+
+<td style="font-size:10px;width:15%;">
+${v.providerName || "-"}
+</td>
+
+<td style="font-size:10px;width:15%;">
+${v.locationDetail || "-"}
+</td>
+
+<td style="width:10%;">
+
+<button class="btn btn-success btn-sm send-line"
+style="font-size:10px;padding:2px 6px;">
+📲
+</button>
+
+<button 
+class="btn btn-outline-danger btn-sm delete-vaccine"
+data-id="${v.vcn}"
+style="font-size:10px;padding:2px 6px;">
+🗑
+</button>
+
+</td>
+
+`;
+
+    table.appendChild(tr);
+
+  // ⭐ ผูก event ปุ่มลบ
+  tr.querySelector(".delete-vaccine")
+  .addEventListener("click", () => {
+    deleteVaccine(v.vcn);
+  });
+
+  });
+
+}
+
+/*****************************************************************
+ LATEST VACCINE
+*****************************************************************/
+
+async function loadLatestVaccines(cid){
+
+  const res=
+  await fetch(`/api/vaccination/latest/${cid}`);
+
+  const result=await res.json();
+
+  if(!result.success) return;
+
+  const box=
+  document.getElementById("latestVaccines");
+
+  if(!box) return;
+
+  box.innerHTML="";
+
+  result.data.forEach(v=>{
+
+    const badge=document.createElement("span");
+
+    badge.className="badge bg-info me-2";
+
+    badge.textContent=
+      `${v.vaccineCode} เข็ม ${v.doseNo}`;
+
+    box.appendChild(badge);
+
+  });
+
+}
+
+/*****************************************************************
+ APPOINTMENTS
+*****************************************************************/
+
+async function loadAppointments(cid){
+
+  console.log("📡 loadAppointments CID:", cid);
+
+  const res = await fetch(`/api/vaccination/appointments/${cid}`);
+  const result = await res.json();
+
+  console.log("📦 API RESULT:", result);
+
+  const table = document.getElementById("appointmentTable");
+  if(!table) return;
+
+  table.innerHTML = "";
+
+  if(!result.success || !result.data || result.data.length === 0){
+
+    console.log("⚠️ ไม่มีข้อมูลนัด");
+
+    table.innerHTML = `
+      <tr>
+        <td colspan="5" class="text-center text-muted">
+          ไม่มีนัดวัคซีน
+        </td>
+      </tr>`;
+    return;
+  }
+
+  console.log("📋 APPOINTMENT DATA:", result.data);
+
+  result.data.forEach((row,i)=>{
+
+  console.log("🔎 ROW", i, row);
+
+  const vaccine =
+    row.vaccineCode ??
+    row.VaccineCode ??
+    row[3] ??
+    "-";
+
+  const dose =
+    row.doseNo ??
+    row.DoseNo ??
+    row[4] ??
+    "-";
+
+  const date =
+    row.appointmentDate ??
+    row.AppointmentDate ??
+    row[5] ??
+    "-";
+
+  const status =
+    row.status ??
+    row.Status ??
+    row[6] ??
+    "-";
+
+  console.log("🧪 Parsed:",{
+    vaccine,dose,date,status
+  });
+
+  const tr = document.createElement("tr");
+
+  tr.innerHTML = `
+<td>${getVaccineName(vaccine)}</td>
+<td>เข็ม ${dose}</td>
+<td>${formatThaiDate(date)}</td>
+<td>${statusBadge(status)}</td>
+<td>
+  <button
+    style="
+      background:#198754;
+      color:#fff;
+      border:none;
+      padding:6px 16px;
+      font-size:10px;
+      border-radius:6px;
+      font-weight:500;
+      cursor:pointer;
+    "
+    onclick="fillAppointment('${row.cid}','${row.vaccineCode}','${row.doseNo}','${row.apid}')"
+  >
+    ฉีดตามนัด
+  </button>
+</td>
+`;
+
+  table.appendChild(tr);
+
+});
+document.getElementById("apid").value = apid;
+}
+function statusBadge(status){
+
+  if(status==="PENDING")
+    return `<span class="badge bg-warning" style="font-size:10px;">รอนัด</span>`;
+
+  if(status==="DONE")
+    return `<span class="badge bg-success" style="font-size:10px;">ฉีดแล้ว</span>`;
+
+  return `<span class="badge bg-secondary" style="font-size:10px;">${status}</span>`;
+}
+
+
+/*****************************************************************
+ NEXT VCN
+*****************************************************************/
+
+async function loadNextVCN(){
+
+  const res=
+  await fetch("/api/vaccination/next-vcn");
+
+  const result=await res.json();
+
+  if(!result.success) return;
+
+  const input=document.getElementById("cn");
+
+  if(input) input.value=result.data.vcn;
+
+}
+
+function fillAppointment(cid,vaccineCode,doseNo){
+
+  console.log("CID:",cid);
+  console.log("Vaccine:",vaccineCode);
+  console.log("Dose:",doseNo);
+
+  const cidInput = document.getElementById("cid");
+  const vaccineInput = document.getElementById("vaccineType");
+  const doseInput = document.getElementById("doseNumber");
+  const dateInput = document.getElementById("recordDate");
+
+  if(cidInput) cidInput.value = cid;
+  if(vaccineInput) vaccineInput.value = vaccineCode;
+  if(doseInput) doseInput.value = doseNo;
+
+  if(dateInput){
+    dateInput.value = new Date().toISOString().split("T")[0];
+  }
+
+  document
+    .getElementById("vaccinationForm")
+    ?.scrollIntoView({behavior:"smooth"});
+}
+
+async function deleteVaccine(vcn){
+
+  if(!confirm("ต้องการลบรายการนี้หรือไม่ ?")) return;
+
   try{
 
-    const res = await fetch(`/api/vaccination/history/${cid}`);
-    const result = await res.json();
-
-    if(!result.success) return;
-
-    const table = document.getElementById("vaccinationHistoryTable");
-
-    if(!table) return;
-
-    table.innerHTML = "";
-
-    result.data.forEach(v => {
-
-      const tr = document.createElement("tr");
-
-      tr.innerHTML = `
-        <td>${v.dateService}</td>
-        <td>${v.vaccineCode}</td>
-        <td>${v.doseNo}</td>
-        <td>${v.lotNumber || "-"}</td>
-        <td>${v.providerName || "-"}</td>
-      `;
-
-      table.appendChild(tr);
-
+    const res = await fetch(`/api/vaccination/delete/${vcn}`,{
+      method:"DELETE"
     });
 
-  }catch(err){
-
-    console.error("❌ loadVaccinationTable error",err);
-
-  }
-
-}
-
-/* =========================================================
-   LOAD NEXT VCN
-========================================================= */
-async function loadNextVCN(){
-
-  try{
-
-    const res = await fetch("/api/vaccination/next-vcn");
     const result = await res.json();
 
-    if(!result.success) return;
+    if(!result.success){
+      alert(result.error || "ลบไม่สำเร็จ");
+      return;
+    }
 
-    const input = document.getElementById("cn");
+    alert("ลบสำเร็จ");
 
-    if(input){
-      input.value = result.data.vcn;
+    if(VaccineState.currentCID){
+      loadTimeline(VaccineState.currentCID);
+      loadVaccinationTable(VaccineState.currentCID);
+      loadLatestVaccines(VaccineState.currentCID);
     }
 
   }catch(err){
-
-    console.error("❌ loadNextVCN error",err);
-
-  }
-
-}
-
-/* =========================================================
-   LOAD NEXT VCN
-========================================================= */
-
-async function loadNextVCN(){
-
-  try{
-
-    const res = await fetch("/api/vaccination/next-vcn");
-    const result = await res.json();
-
-    if(!result.success) return;
-
-    const el = document.getElementById("cn");
-
-    if(el){
-      el.value = result.data.vcn;
-    }
-
-  }catch(err){
-
-    console.error("❌ loadNextVCN error",err);
-
+    console.error(err);
+    alert("เกิดข้อผิดพลาด");
   }
 
 }

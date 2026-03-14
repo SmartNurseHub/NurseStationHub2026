@@ -4,38 +4,74 @@
 
 const { readRows } = require("../../config/google");
 const lineService = require("../lineOA/lineOA.service");
-const SHEET = "Vaccination";
+
+const SHEET_REMINDER = "Reminder";
+const SHEET_LINEUID = "LineUID";
 
 async function checkAndSendReminders() {
 
   try {
 
-    const rows = await readRows(SHEET);
+    const reminderRows = await readRows(SHEET_REMINDER);
+    const lineRows = await readRows(SHEET_LINEUID);
 
-    if (!rows || rows.length <= 1) return;
+    if (!reminderRows || reminderRows.length <= 1) return;
 
-    const today = new Date().toISOString().slice(0,10);
+    const today = new Date().toLocaleDateString("sv-SE");
 
-    for (let i = 1; i < rows.length; i++) {
+    /* =============================
+       สร้าง map CID → LINE UID
+    ============================= */
 
-      const r = rows[i];
+    const lineMap = {};
 
-      const cid = r[1];
-      const name = r[2];
+    for (let i = 1; i < lineRows.length; i++) {
+
+      const cid = lineRows[i][1];
+      const userId = lineRows[i][4];
+
+      if (cid && userId) {
+        lineMap[cid] = userId;
+      }
+
+    }
+
+    /* =============================
+       ตรวจ reminder
+    ============================= */
+
+    for (let i = 1; i < reminderRows.length; i++) {
+
+      const r = reminderRows[i];
+
+      const reminderId = r[0];
+      const cid = r[2];
       const vaccine = r[4];
-      const nextDate = r[6];
-      const lineUID = r[8];
+      const dose = r[5];
+      const appointmentDate = r[6];
+      const notifyDate = r[7];
+      const status = r[10];
 
-      if (!nextDate || !lineUID) continue;
+      const userId = lineMap[cid];
 
-      if (nextDate === today) {
+      if (!notifyDate || !userId) continue;
 
-        await lineService.pushMessage(lineUID,{
+      if (
+        notifyDate === today &&
+        status === "PENDING"
+      ) {
+
+        await lineService.pushMessage(userId,{
           type:"text",
-          text:`💉 แจ้งเตือนวัคซีน\n\nคุณ ${name}\nถึงกำหนดรับวัคซีน ${vaccine} วันนี้`
+          text:`💉 แจ้งเตือนนัดวัคซีน
+
+วัคซีน ${vaccine}
+เข็มที่ ${dose}
+
+📅 วันนัด ${appointmentDate}`
         });
 
-        console.log("Reminder sent:", cid);
+        console.log("Reminder sent:", reminderId);
 
       }
 

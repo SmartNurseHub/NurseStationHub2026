@@ -169,11 +169,13 @@ exports.save = async rawData => {
 ========================================================= */
 exports.updateByNSR = async (nsr, data) => {
 
+  console.log("Updating NSR:", nsr);
+
   const sheets = await getSheets();
 
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: SHEET_ID,
-    range: `${SHEET_NAME}!A2:A`
+    range: `${SHEET_NAME}!A2:${getLastColumnLetter()}`
   });
 
   const rows = res.data.values || [];
@@ -182,11 +184,15 @@ exports.updateByNSR = async (nsr, data) => {
     r && String(r[0]).trim() === String(nsr).trim()
   );
 
+  console.log("Row index:", index);
+
   if (index === -1) {
     throw new Error(`NSR not found: ${nsr}`);
   }
 
   const rowNumber = index + 2;
+
+  const updates = [];
 
   for (const key of Object.keys(data)) {
 
@@ -196,16 +202,22 @@ exports.updateByNSR = async (nsr, data) => {
 
     const colLetter = columnToLetter(colIndex + 1);
 
-    await sheets.spreadsheets.values.update({
-      spreadsheetId: SHEET_ID,
+    updates.push({
       range: `${SHEET_NAME}!${colLetter}${rowNumber}`,
-      valueInputOption: "USER_ENTERED",
-      requestBody: {
-        values: [[data[key]]]
-      }
+      values: [[data[key]]]
     });
 
   }
+
+  if (updates.length === 0) return;
+
+  await sheets.spreadsheets.values.batchUpdate({
+    spreadsheetId: SHEET_ID,
+    requestBody: {
+      valueInputOption: "USER_ENTERED",
+      data: updates
+    }
+  });
 
 };
 /* =========================================================
@@ -218,21 +230,6 @@ exports.markLineSent = async (nsr) => {
 
     LineSent: "YES",
     LineSentAt: new Date().toISOString()
-
-  });
-
-};
-
-/* =========================================================
-   MARK RESULT CONFIRMED
-========================================================= */
-
-exports.markResultConfirmed = async (nsr) => {
-
-  await exports.updateByNSR(nsr, {
-
-    ResultConfirmed: "YES",
-    ConfirmedAt: new Date().toISOString()
 
   });
 
@@ -279,5 +276,34 @@ exports.softDeleteByNSR = async (nsr, user) => {
     status: "DELETED"
 
   });
+
+};
+
+/* =========================================================
+   MARK RESULT CONFIRMED
+========================================================= */
+
+exports.markResultConfirmed = async (nsr) => {
+
+  const record = await exports.getByNSR(nsr);
+
+  if (!record) {
+    console.log("NSR not found:", nsr);
+    return;
+  }
+
+  if (record.ResultConfirmed === "YES") {
+    console.log("Already confirmed:", nsr);
+    return;
+  }
+
+  await exports.updateByNSR(nsr, {
+
+    ResultConfirmed: "YES",
+    ConfirmedAt: new Date().toISOString()
+
+  });
+
+  console.log("✅ Result confirmed:", nsr);
 
 };
