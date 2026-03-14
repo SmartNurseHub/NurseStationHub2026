@@ -23,9 +23,9 @@ exports.handleFollowEvent = async (event) => {
 
     const rows = await readRows(LINE_UID_SHEET);
 
-    const index = rows.findIndex((r, i) =>
-      i > 0 && String(r[4] || "").trim() === userId
-    );
+    const index = rows.findIndex((r,i) =>
+  i > 0 && String(r[4] || "").trim() === userId
+);
 
     const rowData = [
       new Date().toISOString(),   // 0 Timestamp
@@ -40,10 +40,10 @@ exports.handleFollowEvent = async (event) => {
     ];
 
     if (index !== -1) {
-      await updateRow(LINE_UID_SHEET, index + 1, rowData);
-    } else {
-      await appendRow(LINE_UID_SHEET, rowData);
-    }
+  await updateRow(LINE_UID_SHEET, index + 1, rowData);
+} else {
+  await appendRow(LINE_UID_SHEET, rowData);
+}
 
     await lineAPI.replyMessage(event.replyToken, {
       type: "text",
@@ -75,19 +75,24 @@ exports.handleChatMessage = async (event) => {
     if (event.type === "postback") {
       payload = (event.postback?.data || "").trim();
     }
+    if (!event.source || !event.source.userId) {
+  console.log("No userId in event");
+  return;
+}
 
     const userId = event.source.userId;
 
     console.log("USER:", userId);
     console.log("PAYLOAD:", payload);
+    console.log("Saving chat log to sheet...");
 
     /* ===== บันทึก Chat Log ===== */
 
     await appendRow(USER_SHEET, [
-      new Date().toISOString(),
-      userId,
-      payload
-    ]);
+  new Date().toISOString(),
+  userId,
+  payload
+]);
 
     /* ===== CONFIRM RESULT ===== */
 
@@ -201,3 +206,4 @@ exports.confirmResult = async (nsr) => {
   await nursingService.markResultConfirmed(nsr);
 
 };
+

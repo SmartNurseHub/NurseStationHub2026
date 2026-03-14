@@ -4,7 +4,7 @@
  ******************************************************************/
 
 const line = require("@line/bot-sdk");
-
+const axios = require("axios");
 const client = new line.Client({
   channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN
 });
@@ -489,4 +489,7 @@ exports.pushVaccineReminder = async ({
 
   await client.pushMessage(userId, flex);
 
+};
+exports.getProfile = async (userId) => {
+  return await client.getProfile(userId);
 };
