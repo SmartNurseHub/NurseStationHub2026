@@ -9,6 +9,7 @@ const { appendRow, readRows, updateRow, deleteRow } = require("../../config/goog
 
 const LINE_UID_SHEET = "LineUID";
 const USER_SHEET = "UserList";
+const FOLLOW_SHEET = "FollowList";
 
 
 async function safeReply(event, message) {
@@ -34,6 +35,16 @@ exports.handleFollowEvent = async (event) => {
     const userId = String(event.source.userId).trim();
 
     const profile = await lineAPI.getProfile(userId) || {};
+
+/* 🔵 บันทึก follow */
+await appendRow(FOLLOW_SHEET, [
+  new Date().toISOString(),
+  "follow",
+  userId,
+  profile.displayName || "",
+  profile.pictureUrl || "",
+  ""
+]);
 
     const rows = await readRows(LINE_UID_SHEET);
 

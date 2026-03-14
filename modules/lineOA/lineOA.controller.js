@@ -32,6 +32,11 @@ exports.handleWebhook = (req, res) => {
       await service.handleFollowEvent(event);
     }
 
+    if (event.type === "unfollow") {
+  console.log("UNFOLLOW USER:", event.source?.userId);
+  await service.handleUnfollowEvent(event);
+}
+
     if (event.type === "message" && event.message?.type === "text") {
       console.log("MESSAGE:", event.message.text);
       await service.handleChatMessage(event);
@@ -69,7 +74,30 @@ exports.handleWebhook = (req, res) => {
 
 };
 
+exports.handleUnfollowEvent = async (event) => {
 
+  try {
+
+    const userId = event.source.userId;
+
+    await appendRow(FOLLOW_SHEET, [
+      new Date().toISOString(),
+      "unfollow",
+      userId,
+      "",
+      "",
+      ""
+    ]);
+
+    console.log("User unfollow:", userId);
+
+  } catch (err) {
+
+    console.error("handleUnfollowEvent error:", err);
+
+  }
+
+};
 
 /* =================================================
    SEND RESULT BY NSR
