@@ -14,12 +14,24 @@ const FOLLOW_SHEET = "FollowList";
 
 async function safeReply(event, message) {
 
-  if (!event || !event.replyToken) {
-    console.log("⚠️ No replyToken → skip reply");
+  if (
+    !event ||
+    !event.replyToken ||
+    event.replyToken === "00000000000000000000000000000000"
+  ) {
+    console.log("⚠️ Invalid replyToken → skip reply");
     return;
   }
 
-  return lineAPI.replyMessage(event.replyToken, message);
+  try {
+
+    await lineAPI.replyMessage(event.replyToken, message);
+
+  } catch (err) {
+
+    console.error("LINE REPLY ERROR:", err.message);
+
+  }
 
 }
 
@@ -294,8 +306,6 @@ exports.sendReport = async (nsr) => {
     throw new Error("ผลนี้กำลังส่งหรือส่งไปแล้ว");
   }
 
-  
-
   const cid = String(record.CID).trim();
 
   const lineRows = await readRows(LINE_UID_SHEET);
@@ -309,9 +319,18 @@ exports.sendReport = async (nsr) => {
 
   const userId = String(userRow[4] || "").trim();
 
-if (!userId) {
-  throw new Error("LINE userId not found");
+  if (!userId) {
+    throw new Error("LINE userId not found");
+  }
+  if (!userId || userId === "undefined") {
+
+  console.log("⚠️ Skip push → invalid userId");
+
+  return false;
+
 }
+
+try {
 
   await lineAPI.pushFlexResult({
     userId,
@@ -325,6 +344,11 @@ if (!userId) {
     fileURL: record.fileURL || null
   });
 
+} catch(err){
+
+  console.error("LINE PUSH ERROR:", err.message);
+
+}
   return true;
 
 };
@@ -338,6 +362,35 @@ exports.confirmResult = async (nsr) => {
   console.log("Confirm result:", nsr);
 
   await nursingService.markResultConfirmed(nsr);
+
+};
+
+
+/* =====================================================
+   HANDLE UNFOLLOW
+===================================================== */
+exports.handleUnfollowEvent = async (event) => {
+
+  try {
+
+    const userId = event.source?.userId;
+
+    console.log("User unfollow:", userId);
+
+    await appendRow(FOLLOW_SHEET, [
+      new Date().toISOString(),
+      "unfollow",
+      userId,
+      "",
+      "",
+      ""
+    ]);
+
+  } catch (err) {
+
+    console.error("handleUnfollowEvent error:", err);
+
+  }
 
 };
 
