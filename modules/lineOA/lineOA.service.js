@@ -6,7 +6,6 @@
 const lineAPI = require("./lineOA.line.service");
 const nursingService = require("../nursingRecords/nursingRecords.service");
 const { appendRow, readRows, updateRow } = require("../../config/google");
-const registrationService = require("./lineOA.registration.service");
 
 const LINE_UID_SHEET = "LineUID";
 const USER_SHEET = "UserList";
@@ -15,10 +14,13 @@ const USER_SHEET = "UserList";
    HANDLE FOLLOW
 ===================================================== */
 exports.handleFollowEvent = async (event) => {
+
   try {
 
     const userId = String(event.source.userId).trim();
+
     const profile = await lineAPI.getProfile(userId);
+
     const rows = await readRows(LINE_UID_SHEET);
 
     const index = rows.findIndex((r, i) =>
@@ -27,12 +29,12 @@ exports.handleFollowEvent = async (event) => {
 
     const rowData = [
       new Date().toISOString(),   // 0 Timestamp
-      "",                         // 1 cid
-      "",                         // 2 name
-      "",                         // 3 lname
-      userId,                     // 4 userId
+      "",                         // 1 CID
+      "",                         // 2 Name
+      "",                         // 3 LName
+      userId,                     // 4 LINE UID
       profile.displayName || "",  // 5 displayName
-      profile.pictureUrl || "",   // 6 pictureUrl
+      profile.pictureUrl || "",   // 6 picture
       "PENDING_CID",              // 7 status
       ""                          // 8 phone
     ];
@@ -43,20 +45,22 @@ exports.handleFollowEvent = async (event) => {
       await appendRow(LINE_UID_SHEET, rowData);
     }
 
-    // ✅ ถามอัตโนมัติทันทีหลัง Follow
     await lineAPI.replyMessage(event.replyToken, {
       type: "text",
       text: "สวัสดีค่ะ 👋\nกรุณากรอกเลขบัตรประชาชน 13 หลัก (ตัวเลขติดกัน)"
     });
 
   } catch (err) {
-    console.error("handleFollowEvent error:", err.message);
+
+    console.error("handleFollowEvent error:", err);
+
   }
+
 };
 
 
 /* =====================================================
-   HANDLE MESSAGE
+   HANDLE CHAT MESSAGE
 ===================================================== */
 exports.handleChatMessage = async (event) => {
 
@@ -72,7 +76,18 @@ exports.handleChatMessage = async (event) => {
       payload = (event.postback?.data || "").trim();
     }
 
+    const userId = event.source.userId;
+
+    console.log("USER:", userId);
     console.log("PAYLOAD:", payload);
+
+    /* ===== บันทึก Chat Log ===== */
+
+    await appendRow(USER_SHEET, [
+      new Date().toISOString(),
+      userId,
+      payload
+    ]);
 
     /* ===== CONFIRM RESULT ===== */
 
@@ -83,6 +98,16 @@ exports.handleChatMessage = async (event) => {
       console.log("CONFIRM NSR:", nsr);
 
       const record = await nursingService.getByNSR(nsr);
+
+      if (!record) {
+
+        await lineAPI.replyMessage(event.replyToken,{
+          type:"text",
+          text:"❌ ไม่พบข้อมูลผลตรวจ"
+        });
+
+        return;
+      }
 
       if (record.ResultConfirmed === "YES") {
 
@@ -107,12 +132,16 @@ exports.handleChatMessage = async (event) => {
 
   } catch (err) {
 
-    console.error("Confirm error:", err);
+    console.error("handleChatMessage error:", err);
 
-    await lineAPI.replyMessage(event.replyToken,{
-      type:"text",
-      text:"❌ เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง"
-    });
+    try {
+
+      await lineAPI.replyMessage(event.replyToken,{
+        type:"text",
+        text:"❌ เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง"
+      });
+
+    } catch {}
 
   }
 
@@ -125,6 +154,7 @@ exports.handleChatMessage = async (event) => {
 exports.sendReport = async (nsr) => {
 
   const record = await nursingService.getByNSR(nsr);
+
   if (!record) throw new Error("ไม่พบ NSR");
 
   if (["YES", "LOCKED"].includes(record.LineSent)) {
@@ -132,6 +162,7 @@ exports.sendReport = async (nsr) => {
   }
 
   const cid = String(record.CID).trim();
+
   const lineRows = await readRows(LINE_UID_SHEET);
 
   const userRow = lineRows.find(r =>
@@ -154,9 +185,15 @@ exports.sendReport = async (nsr) => {
     status: record.status,
     fileURL: record.fileURL || null
   });
+
   return true;
 
 };
+
+
+/* =====================================================
+   CONFIRM RESULT
+===================================================== */
 exports.confirmResult = async (nsr) => {
 
   console.log("Confirm result:", nsr);
