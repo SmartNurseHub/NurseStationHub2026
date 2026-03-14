@@ -21,12 +21,14 @@ exports.handleWebhook = (req, res) => {
 
       for (const event of events) {
 
+  if (!event) continue;
+
   console.log("EVENT TYPE:", event.type);
 
   try {
 
     if (event.type === "follow") {
-      console.log("FOLLOW USER:", event.source.userId);
+      console.log("FOLLOW USER:", event.source?.userId);
       await service.handleFollowEvent(event);
     }
 
@@ -46,7 +48,7 @@ exports.handleWebhook = (req, res) => {
 
         console.log("CONFIRM NSR:", nsr);
 
-        await service.confirmResult(nsr, event.source.userId);
+        await service.confirmResult(nsr);
       }
 
     }
