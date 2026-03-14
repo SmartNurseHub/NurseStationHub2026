@@ -2,18 +2,22 @@ const {
   appendRow,
   getSheetRows,
   findRowByCID,
-  deleteRow
+  deleteRow,
+  readRows,
+  updateRow
 } = require("../../config/google");
+
+const { LINE_UID_SHEET } = require("./lineUID.schema");
 
 /* ================================
    ADD LINE UID
 ================================ */
 async function addLineUID(data) {
 
-  const sheetName = process.env.SHEET_LineUID;
+  const sheetName = LINE_UID_SHEET;
 
   if (!sheetName) {
-    throw new Error("SHEET_LineUID not defined in .env");
+    throw new Error("LINE_UID_SHEET not defined");
   }
 
   const row = [
@@ -31,16 +35,15 @@ async function addLineUID(data) {
   await appendRow(sheetName, row);
 
   return { success: true };
+
 }
 
 /* ================================
-   GET LINE UID LIST
+   GET LIST
 ================================ */
 async function getLineUIDList() {
 
-  const sheetName = process.env.SHEET_LineUID;
-
-  const rows = await getSheetRows(sheetName);
+  const rows = await getSheetRows(LINE_UID_SHEET);
 
   if (!rows || rows.length === 0) return [];
 
@@ -55,6 +58,7 @@ async function getLineUIDList() {
     status: row[7] || "",
     pictureUrl: row[8] || ""
   }));
+
 }
 
 /* ================================
@@ -62,39 +66,46 @@ async function getLineUIDList() {
 ================================ */
 async function deleteLineUID(cid) {
 
-  const sheetName = process.env.SHEET_LineUID;
-
-  const rowNumber = await findRowByCID(sheetName, cid);
+  const rowNumber = await findRowByCID(LINE_UID_SHEET, cid);
 
   if (!rowNumber) {
     throw new Error("CID not found");
   }
 
-  await deleteRow(sheetName, rowNumber);
+  await deleteRow(LINE_UID_SHEET, rowNumber);
 
   return { success: true };
+
 }
-const { readRows, updateRow } = require("../../config/google");
-const { LINE_UID_SHEET } = require("./lineUID.schema");
 
+/* ================================
+   UPDATE LINE UID
+================================ */
 async function updateLineUID(userId, patient) {
-  const lineRows = await readRows(LINE_UID_SHEET);
 
-  const index = lineRows.findIndex(r => r[4] === userId);
+  const rows = await readRows(LINE_UID_SHEET);
+
+  const index = rows.findIndex(
+    r => String(r[4] || "").trim() === String(userId).trim()
+  );
 
   if (index !== -1) {
-    lineRows[index][1] = patient[0];
-    lineRows[index][2] = patient[2];
-    lineRows[index][3] = patient[3];
-    lineRows[index][7] = "ACTIVE";
+
+    rows[index][1] = patient[0];
+    rows[index][2] = patient[2];
+    rows[index][3] = patient[3];
+    rows[index][7] = "ACTIVE";
 
     await updateRow(
       LINE_UID_SHEET,
       index + 2,
-      lineRows[index]
+      rows[index]
     );
+
   }
+
 }
+
 module.exports = {
   addLineUID,
   getLineUIDList,

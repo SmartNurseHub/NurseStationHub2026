@@ -28,11 +28,21 @@ exports.addLineUID = async (req, res) => {
 
 
 exports.deleteLineUID = async (req, res) => {
+
   try {
-    const { userId } = req.params;
-    await service.deleteLineUID(userId);
+
+    const cid = req.params.cid;
+
+    await service.deleteLineUID(cid);
+
     res.json({ success: true });
+
   } catch (err) {
-    res.json({ success: false, message: err.message });
+
+    console.error(err);
+
+    res.status(500).json({ success:false });
+
   }
+
 };

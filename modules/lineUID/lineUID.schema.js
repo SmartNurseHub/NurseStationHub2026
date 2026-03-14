@@ -1,5 +1,5 @@
-const LINE_UID_SHEET = "LineUID"; // ชื่อชีทใน Google Sheet
+const LINE_UID_SHEET = process.env.SHEET_LineUID || "LineUID";
 
 module.exports = {
-  LINE_UID_SHEET,
+  LINE_UID_SHEET
 };
