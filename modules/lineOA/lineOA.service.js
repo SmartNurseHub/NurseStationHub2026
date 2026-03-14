@@ -174,9 +174,9 @@ if (!/^\d{13}$/.test(payload)) {
   await updateRow(LINE_UID_SHEET,index+1,rows[index]);
 
   return safeReply(event,{
-    type:"text",
-    text:"กรุณากรอกชื่อและนามสกุล\nตัวอย่าง: สมชาย | ใจดี"
-  });
+  type:"text",
+  text:"กรุณากรอกชื่อและนามสกุล\nตัวอย่าง: สมชาย ใจดี"
+});
 
 }
 
@@ -184,28 +184,19 @@ if (!/^\d{13}$/.test(payload)) {
 
 if (status === "WAIT_NAME") {
 
-  if (!payload.includes("|")) {
+  const parts = payload.split(" ");
+
+  if (parts.length < 2) {
 
     return safeReply(event,{
       type:"text",
-      text:"กรุณากรอกแบบ: ชื่อ | นามสกุล\nตัวอย่าง: สมชาย | ใจดี"
-    });
-
-  }
-
-  const parts = payload.split("|");
-
-  if (parts.length !== 2) {
-
-    return safeReply(event,{
-      type:"text",
-      text:"กรุณากรอกแบบ: ชื่อ | นามสกุล"
+      text:"กรุณากรอกแบบ: ชื่อ นามสกุล\nตัวอย่าง: สมชาย ใจดี"
     });
 
   }
 
   const name = parts[0].trim();
-  const lname = parts[1].trim();
+  const lname = parts.slice(1).join(" ").trim();
 
   rows[index][2] = name;
   rows[index][3] = lname;
