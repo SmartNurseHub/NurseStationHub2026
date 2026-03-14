@@ -4,7 +4,6 @@
  ******************************************************************/
 
 const line = require("@line/bot-sdk");
-const axios = require("axios");
 const client = new line.Client({
   channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN
 });
@@ -14,7 +13,52 @@ const { formatBullet } = require("../../utils/flexBuilder");
 /* 🔧 FIX: เรียก nursing service */
 const nursingService = require("../nursingRecords/nursingRecords.service");
 
+async function safePush(userId, message) {
 
+  if (!client || !client.pushMessage) {
+    console.error("❌ LINE client.pushMessage missing");
+    return false;
+  }
+
+  try {
+
+    await Promise.race([
+      client.pushMessage(userId, message),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("LINE timeout")), 8000)
+      )
+    ]);
+
+    return true;
+
+  } catch (err) {
+
+    const msg = String(err.response?.data?.message || err.message);
+
+    if (msg.includes("not a friend") || msg.includes("blocked")) {
+      console.log("⚠️ user cannot receive:", userId);
+      return false;
+    }
+
+    console.log("⚠️ retry push:", userId);
+
+    try {
+
+      await client.pushMessage(userId, message);
+      return true;
+
+    } catch (err2) {
+
+      const msg2 = err2.response?.data?.message || err2.message;
+      console.error("❌ push error:", msg2);
+
+      return false;
+
+    }
+
+  }
+
+}
 /* =================================================
    PUSH FLEX RESULT
 ================================================= */
@@ -30,7 +74,10 @@ exports.pushFlexResult = async ({
   fileURL
 }) => {
 
-  if (!userId) throw new Error("LINE userId not found");
+  if (!userId) {
+  console.log("⚠️ LINE userId not found");
+  return;
+}
 
   /* ================= RESULT TRIAGE COLOR ================= */
 
@@ -66,9 +113,9 @@ exports.pushFlexResult = async ({
 
   /* ================= FORMAT TEXT ================= */
 
-  const listLines = formatBullet(list);
-  const resultLines = formatBullet(result);
-  const adviceLines = formatBullet(advice);
+  const listLines = formatBullet(list || []).slice(0, 10);
+  const resultLines = formatBullet(result || []).slice(0, 10);
+  const adviceLines = formatBullet(advice || []).slice(0, 10);
 
   /* ================= FLEX BODY ================= */
 
@@ -294,18 +341,50 @@ exports.pushFlexResult = async ({
   };
 
   /* ================= PUSH ================= */
+  let pushSuccess = false;
 
-  await client.pushMessage(userId, flex);
+  try {
+
+  if (!client || !client.pushMessage) {
+  console.error("❌ LINE client.pushMessage missing");
+  return;
+}
+
+pushSuccess = await safePush(userId, flex)
+
+if (!pushSuccess) {
+  console.log("⚠️ pushFlexResult skipped:", userId)
+  return
+}
+
+console.log("✅ pushFlexResult sent:", userId)
+
+} catch (err) {
+
+  const msg = String(err.response?.data?.message || err.message);
+
+  if (msg.includes("not a friend")) {
+    console.log("⚠️ user not follow bot:", userId);
+    return;
+  }
+
+  if (msg.includes("blocked")) {
+    console.log("⚠️ user blocked bot:", userId);
+    return;
+  }
+
+  console.error("❌ pushFlexResult error:", msg);
+
+}
 
   /* 🔧 FIX สำคัญ — บันทึกว่า LINE ส่งผลแล้ว */
 
-  if (nsr) {
+  if (nsr && pushSuccess) {
+  try {
 
-    try {
-
-      await nursingService.markLineSent(nsr);
+    await nursingService.markLineSent(nsr);
       
-      console.log("✅ LineSent updated:", nsr);
+    console.log("✅ LineSent updated:", nsr);
 
     } catch (err) {
 
@@ -330,7 +409,10 @@ exports.pushVaccineReminder = async ({
   notifyType
 }) => {
 
-  if (!userId) throw new Error("LINE userId not found");
+  if (!userId) {
+  console.log("⚠️ LINE userId not found");
+  return;
+}
 
   let icon = "📅";
   let title = "แจ้งเตือนนัดฉีดวัคซีน";
@@ -486,10 +568,92 @@ exports.pushVaccineReminder = async ({
 
     }
   };
+try {
 
-  await client.pushMessage(userId, flex);
+  if (!client || !client.pushMessage) {
+  console.error("❌ LINE client.pushMessage missing");
+  return;
+}
+
+const ok = await safePush(userId, flex)
+
+if (!ok) {
+  console.log("⚠️ pushVaccineReminder skipped:", userId)
+  return
+}
+
+console.log("✅ pushVaccineReminder sent:", userId)
+
+
+} catch (err) {
+
+  const msg = String(err.response?.data?.message || err.message);
+
+  if (msg.includes("not a friend")) {
+    console.log("⚠️ user not follow bot:", userId);
+    return;
+  }
+
+  if (msg.includes("blocked")) {
+    console.log("⚠️ user blocked bot:", userId);
+    return;
+  }
+
+  console.error("❌ pushVaccineReminder error:", msg);
+
+}
 
 };
+
 exports.getProfile = async (userId) => {
-  return await client.getProfile(userId);
+
+  try {
+
+    return await client.getProfile(userId);
+
+  } catch (err) {
+
+    const msg = String(err.response?.data?.message || err.message);
+
+    console.log("⚠️ getProfile failed:", msg);
+
+    return null;
+
+  }
+
+};
+
+/******************************************************************
+ * REPLY MESSAGE
+ * ใช้ตอบ webhook message
+ ******************************************************************/
+
+exports.replyMessage = async (replyToken, message) => {
+
+  if (!replyToken) {
+    console.log("⚠️ replyToken missing");
+    return;
+  }
+
+  try {
+
+    const messages = Array.isArray(message) ? message : [message];
+
+    await client.replyMessage(replyToken, messages);
+
+    console.log("✅ reply sent");
+
+  } catch (err) {
+
+    const msg = String(err.response?.data?.message || err.message);
+
+    if (msg.includes("Invalid reply token") || msg.includes("reply token")) {
+      console.log("⚠️ replyToken expired");
+      return;
+    }
+
+    console.error("❌ replyMessage error:", msg);
+
+  }
+
 };

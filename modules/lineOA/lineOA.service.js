@@ -22,6 +22,8 @@ async function safeReply(event, message) {
 
 }
 
+
+
 /* =====================================================
    HANDLE FOLLOW
 ===================================================== */
@@ -31,7 +33,7 @@ exports.handleFollowEvent = async (event) => {
 
     const userId = String(event.source.userId).trim();
 
-    const profile = await lineAPI.getProfile(userId);
+    const profile = await lineAPI.getProfile(userId) || {};
 
     const rows = await readRows(LINE_UID_SHEET);
 
@@ -155,8 +157,9 @@ if (!/^\d{13}$/.test(payload)) {
 
   await updateRow(LINE_UID_SHEET, cidIndex + 1, rows[cidIndex]);
 
-  // ลบ row WAIT_CID จริง
+  if (index !== cidIndex) {
   await deleteRow(LINE_UID_SHEET, index + 1);
+}
 
   return safeReply(event,{
     type:"text",
@@ -289,6 +292,8 @@ exports.sendReport = async (nsr) => {
     throw new Error("ผลนี้กำลังส่งหรือส่งไปแล้ว");
   }
 
+  
+
   const cid = String(record.CID).trim();
 
   const lineRows = await readRows(LINE_UID_SHEET);
@@ -300,7 +305,11 @@ exports.sendReport = async (nsr) => {
 
   if (!userRow) throw new Error("ยังไม่ได้ผูก LINE");
 
-  const userId = String(userRow[4]).trim();
+  const userId = String(userRow[4] || "").trim();
+
+if (!userId) {
+  throw new Error("LINE userId not found");
+}
 
   await lineAPI.pushFlexResult({
     userId,
