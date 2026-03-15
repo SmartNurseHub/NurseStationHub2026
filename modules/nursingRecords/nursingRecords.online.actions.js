@@ -42,50 +42,61 @@ window.NursingOnlineActions = (() => {
   ================================ */
   function bindPatientSearch() {
 
-    const input = document.getElementById("patientSearch");
-    const resultBox = document.getElementById("searchResults");
+  const input = document.getElementById("patientSearch");
+  const resultBox = document.getElementById("searchResults");
+  const btn = document.getElementById("btnSearchPatient");
 
-    if (!input || !resultBox) return;
+  if (!input || !resultBox) return;
 
-    const hideResults = () => {
-      resultBox.innerHTML = "";
-      resultBox.style.display = "none";
-    };
+  const hideResults = () => {
+    resultBox.innerHTML = "";
+    resultBox.style.display = "none";
+  };
 
-    input.addEventListener("input", e => {
+  const doSearch = (keyword) => {
 
-      const keyword = e.target.value.trim();
+    if (!keyword) {
+      hideResults();
+      return;
+    }
 
-      if (!keyword) {
-        hideResults();
-        return;
-      }
+    PatientCore.searchPatientCore(keyword, rows => {
 
-      PatientCore.searchPatientCore(keyword, rows => {
+      PatientCore.renderPatientResults(
+        resultBox,
+        rows,
+        patient => {
 
-        PatientCore.renderPatientResults(
-          resultBox,
-          rows,
-          patient => {
-
-            if (window.fillNursingForm) {
-              window.fillNursingForm(patient);
-            }
-
-            hideResults();
-
+          if (window.fillNursingForm) {
+            window.fillNursingForm(patient);
           }
-        );
 
-      });
+          hideResults();
+
+        }
+      );
 
     });
 
-    input.addEventListener("blur", () => {
-      setTimeout(hideResults, 200);
-    });
+  };
 
+  /* search while typing */
+  input.addEventListener("input", e => {
+    doSearch(e.target.value.trim());
+  });
+
+  /* search when clicking button */
+  if (btn) {
+    btn.addEventListener("click", () => {
+      doSearch(input.value.trim());
+    });
   }
+
+  input.addEventListener("blur", () => {
+    setTimeout(hideResults, 200);
+  });
+
+}
 
   /* ================================
      LOAD TABLE

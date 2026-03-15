@@ -307,3 +307,45 @@ exports.markResultConfirmed = async (nsr) => {
   console.log("✅ Result confirmed:", nsr);
 
 };
+
+/* =========================================================
+   GENERATE NEXT NSR
+========================================================= */
+
+exports.getNextNSR = async () => {
+
+  const sheets = await getSheets();
+
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+
+  const prefix = `NSR${yyyy}${mm}`;
+  const yearPrefix = `NSR${yyyy}`;
+
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: SHEET_ID,
+    range: `${SHEET_NAME}!A2:A`
+  });
+
+  const rows = res.data.values || [];
+
+  const sameYear = rows
+    .map(r => r[0])
+    .filter(v => v && v.startsWith(yearPrefix));
+
+  let nextNo = 1;
+
+  if (sameYear.length) {
+
+    const last = sameYear
+      .map(v => parseInt(v.split("-")[1], 10))
+      .filter(n => !isNaN(n))
+      .sort((a, b) => b - a)[0];
+
+    nextNo = last + 1;
+  }
+
+  return `${prefix}-${String(nextNo).padStart(5, "0")}`;
+
+};

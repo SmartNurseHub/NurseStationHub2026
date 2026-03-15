@@ -118,8 +118,17 @@ async function loadSubView(tab) {
   await loadScriptOnce("/assets/js/date.utils.js");
 
   /* load actions */
+  try {
   await loadScriptOnce(actionsUrl);
+} catch(e) {
+  console.warn("actions script not found:", actionsUrl);
+}
+
+try {
   await loadScriptOnce(clientUrl);
+} catch(e) {
+  console.warn("client script not found:", clientUrl);
+}
 
   /* init */
   if (typeof window[initFn] === "function") {
@@ -133,9 +142,18 @@ setTimeout(() => {
 }, 0);
 
   /* online extra */
-  if (tab === "online" && window.NursingOnlineActions) {
-    NursingOnlineActions.bindPatientSearch?.();
+  if (tab === "online") {
+
+  if (window.NursingOnlineActions?.bindPatientSearch) {
+
+    setTimeout(() => {
+      window.NursingOnlineActions.bindPatientSearch();
+      console.log("🔎 patient search bound");
+    }, 50);
+
   }
+
+}
 
 }
 
