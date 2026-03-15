@@ -112,13 +112,16 @@ exports.handleWebhook = (req, res) => {
 
             if (data?.startsWith("CONFIRM_RESULT:")) {
 
-              const nsr = data.replace("CONFIRM_RESULT:", "");
+  const nsr = data.replace("CONFIRM_RESULT:", "");
 
-              console.log("CONFIRM NSR:", nsr);
+  await service.handleChatMessage({
+    type: "postback",
+    postback: { data },
+    source: event.source,
+    replyToken: event.replyToken
+  });
 
-              await service.confirmResult(nsr);
-
-            }
+}
 
           }
 

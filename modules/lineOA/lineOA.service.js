@@ -1,11 +1,14 @@
 /******************************************************************
  * lineOA.service.js
- * จัดการ LINE Follow / Message / Send Result
+ * LINE OA Service Module
+ * NurseStationHub
  ******************************************************************/
 
-/* =====================================================
-   IMPORT
-===================================================== */
+/* =========================================================
+   IMPORT MODULES
+========================================================= */
+
+const { Client } = require("@line/bot-sdk");
 
 const lineAPI = require("./lineOA.line.service");
 const nursingService = require("../nursingRecords/nursingRecords.service");
@@ -17,27 +20,25 @@ const {
   deleteRow
 } = require("../../config/google");
 
-const { Client } = require("@line/bot-sdk");
-
-/* =====================================================
+/* =========================================================
    LINE CLIENT
-===================================================== */
+========================================================= */
 
 const lineClient = new Client({
   channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN
 });
 
-/* =====================================================
+/* =========================================================
    SHEET CONFIG
-===================================================== */
+========================================================= */
 
 const LINE_UID_SHEET = "LineUID";
 const USER_SHEET = "UserList";
 const FOLLOW_SHEET = "FollowList";
 
-/* =====================================================
-   SAFE REPLY (กัน replyToken หมดอายุ)
-===================================================== */
+/* =========================================================
+   UTILITY : SAFE REPLY
+========================================================= */
 
 async function safeReply(event, message) {
 
@@ -46,7 +47,7 @@ async function safeReply(event, message) {
     !event.replyToken ||
     event.replyToken === "00000000000000000000000000000000"
   ) {
-    console.log("⚠️ Invalid replyToken → skip reply");
+    console.log("⚠️ Skip reply → invalid token");
     return;
   }
 
@@ -62,24 +63,42 @@ async function safeReply(event, message) {
 
 }
 
-/* =====================================================
-   HANDLE FOLLOW
-===================================================== */
+/* =========================================================
+   UTILITY : PUSH MESSAGE
+========================================================= */
 
-exports.handleFollowEvent = async (event) => {
+async function pushMessage(userId, message) {
+
+  if (!userId) throw new Error("userId missing");
+
+  try {
+
+    return await lineClient.pushMessage(userId, message);
+
+  } catch (err) {
+
+    console.error("LINE PUSH ERROR:", err.message);
+    throw err;
+
+  }
+
+}
+
+/* =========================================================
+   EVENT : FOLLOW
+========================================================= */
+
+async function handleFollowEvent(event) {
 
   try {
 
     const userId = String(event.source?.userId || "").trim();
 
-    if (!userId) {
-      console.log("⚠️ Follow event without userId");
-      return;
-    }
+    if (!userId) return;
 
     const profile = await lineAPI.getProfile(userId) || {};
 
-    /* ===== บันทึก follow ===== */
+    /* ---------- save follow log ---------- */
 
     await appendRow(FOLLOW_SHEET, [
       new Date().toISOString(),
@@ -96,7 +115,7 @@ exports.handleFollowEvent = async (event) => {
       i > 0 && String(r[4] || "").trim() === userId
     );
 
-    const rowData = [
+    const newRow = [
       new Date().toISOString(),
       "",
       "",
@@ -118,13 +137,13 @@ exports.handleFollowEvent = async (event) => {
 
     } else {
 
-      await appendRow(LINE_UID_SHEET, rowData);
+      await appendRow(LINE_UID_SHEET, newRow);
 
     }
 
     await safeReply(event, {
       type: "text",
-      text: "สวัสดีค่ะ 👋\nกรุณากรอกเลขบัตรประชาชน 13 หลัก (ตัวเลขติดกัน)"
+      text: "สวัสดีค่ะ 👋\nกรุณากรอกเลขบัตรประชาชน 13 หลัก"
     });
 
   } catch (err) {
@@ -133,34 +152,27 @@ exports.handleFollowEvent = async (event) => {
 
   }
 
-};
+}
 
-/* =====================================================
-   HANDLE CHAT MESSAGE
-===================================================== */
+/* =========================================================
+   EVENT : CHAT MESSAGE
+========================================================= */
 
-exports.handleChatMessage = async (event) => {
+async function handleChatMessage(event) {
 
   try {
 
-    if (event.type === "message" && event.message.type !== "text") {
-      return;
-    }
+    if (event.type === "message" && event.message.type !== "text") return;
 
-    if (!event.source || !event.source.userId) {
-      console.log("No userId in event");
-      return;
-    }
+    const userId = event.source?.userId;
 
-    const userId = event.source.userId;
+    if (!userId) return;
 
     let payload = "";
 
     if (event.type === "message") {
 
       payload = (event.message?.text || "").trim();
-
-      if (!payload) return;
 
     }
 
@@ -170,9 +182,9 @@ exports.handleChatMessage = async (event) => {
 
     }
 
-    console.log(`📩 MESSAGE ${userId} → ${payload}`);
+    if (!payload) return;
 
-    /* ===== บันทึก Chat Log ===== */
+    console.log(`📩 MESSAGE ${userId} → ${payload}`);
 
     await appendRow(USER_SHEET, [
       new Date().toISOString(),
@@ -180,20 +192,7 @@ exports.handleChatMessage = async (event) => {
       payload
     ]);
 
-    /* =====================================================
-       REGISTER FLOW
-    ===================================================== */
-
     const rows = await readRows(LINE_UID_SHEET) || [];
-
-    if (rows.length === 0) {
-
-      return safeReply(event, {
-        type: "text",
-        text: "ระบบลงทะเบียนยังไม่พร้อม กรุณาลองใหม่ภายหลัง"
-      });
-
-    }
 
     const index = rows.findIndex((r, i) =>
       i > 0 && String(r[4] || "").trim() === userId
@@ -208,7 +207,7 @@ exports.handleChatMessage = async (event) => {
 
     }
 
-    const status = (rows[index][7] || "").toString().trim();
+    const status = String(rows[index][7] || "").trim();
 
     /* =====================================================
        WAIT CID
@@ -216,9 +215,9 @@ exports.handleChatMessage = async (event) => {
 
     if (status === "WAIT_CID") {
 
-      payload = String(payload || "").replace(/\D/g, "");
+      const cid = payload.replace(/\D/g, "");
 
-      if (!/^\d{13}$/.test(payload)) {
+      if (!/^\d{13}$/.test(cid)) {
 
         return safeReply(event, {
           type: "text",
@@ -228,27 +227,19 @@ exports.handleChatMessage = async (event) => {
       }
 
       const cidIndex = rows.findIndex((r, i) =>
-        i > 0 && String(r[1] || "").trim() === payload
+        i > 0 && String(r[1] || "").trim() === cid
       );
-
-      /* ===== CID มีอยู่แล้ว ===== */
 
       if (cidIndex !== -1) {
 
-        console.log("CID already exists → update LINE UID");
-
         rows[cidIndex][4] = userId;
-        rows[cidIndex][5] = rows[index][5];
-        rows[cidIndex][6] = rows[index][6];
         rows[cidIndex][7] = "ACTIVE";
 
         await updateRow(LINE_UID_SHEET, cidIndex + 1, rows[cidIndex]);
 
         if (index !== cidIndex) {
 
-          const deleteIndex = Math.max(index, cidIndex);
-
-          await deleteRow(LINE_UID_SHEET, deleteIndex + 1);
+          await deleteRow(LINE_UID_SHEET, Math.max(index, cidIndex) + 1);
 
         }
 
@@ -259,9 +250,7 @@ exports.handleChatMessage = async (event) => {
 
       }
 
-      /* ===== CID ใหม่ ===== */
-
-      rows[index][1] = payload;
+      rows[index][1] = cid;
       rows[index][7] = "WAIT_NAME";
 
       await updateRow(LINE_UID_SHEET, index + 1, rows[index]);
@@ -279,22 +268,19 @@ exports.handleChatMessage = async (event) => {
 
     if (status === "WAIT_NAME") {
 
-      const parts = payload.trim().split(/\s+/);
+      const parts = payload.split(/\s+/);
 
       if (parts.length < 2) {
 
         return safeReply(event, {
           type: "text",
-          text: "กรุณากรอกแบบ: ชื่อ นามสกุล\nตัวอย่าง: สมชาย ใจดี"
+          text: "กรุณากรอกแบบ: ชื่อ นามสกุล"
         });
 
       }
 
-      const name = parts[0].trim();
-      const lname = parts.slice(1).join(" ").trim();
-
-      rows[index][2] = name;
-      rows[index][3] = lname;
+      rows[index][2] = parts[0];
+      rows[index][3] = parts.slice(1).join(" ");
       rows[index][7] = "ACTIVE";
 
       await updateRow(LINE_UID_SHEET, index + 1, rows[index]);
@@ -314,8 +300,6 @@ exports.handleChatMessage = async (event) => {
 
       const nsr = payload.split(":")[1]?.trim();
 
-      console.log("CONFIRM NSR:", nsr);
-
       const record = await nursingService.getByNSR(nsr);
 
       if (!record) {
@@ -331,7 +315,7 @@ exports.handleChatMessage = async (event) => {
 
         return safeReply(event, {
           type: "text",
-          text: "ℹ️ ระบบบันทึกการยืนยันไว้แล้วค่ะ"
+          text: "ℹ️ ระบบบันทึกไว้แล้ว"
         });
 
       }
@@ -340,7 +324,7 @@ exports.handleChatMessage = async (event) => {
 
       return safeReply(event, {
         type: "text",
-        text: "✅ ระบบบันทึกการยืนยันการรับผลตรวจเรียบร้อยแล้ว ขอบพระคุณค่ะ 🙏"
+        text: "✅ ยืนยันรับผลตรวจเรียบร้อยแล้ว"
       });
 
     }
@@ -349,115 +333,65 @@ exports.handleChatMessage = async (event) => {
 
     console.error("handleChatMessage error:", err);
 
-    try {
-
-      await safeReply(event, {
-        type: "text",
-        text: "❌ เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง"
-      });
-
-    } catch {}
+    await safeReply(event, {
+      type: "text",
+      text: "❌ ระบบขัดข้อง กรุณาลองใหม่"
+    });
 
   }
 
-};
+}
 
-/* =====================================================
-   SEND REPORT
-===================================================== */
+/* =========================================================
+   SERVICE : SEND REPORT
+========================================================= */
 
-exports.sendReport = async (nsr) => {
+async function sendReport(nsr) {
 
   const record = await nursingService.getByNSR(nsr);
 
   if (!record) throw new Error("ไม่พบ NSR");
 
-  if (["YES", "LOCKED"].includes(record.LineSent)) {
-    throw new Error("ผลนี้กำลังส่งหรือส่งไปแล้ว");
-  }
+  const rows = await readRows(LINE_UID_SHEET);
 
-  const cid = String(record.CID).trim();
-
-  let lineRows = [];
-
-  try {
-
-    lineRows = await readRows(LINE_UID_SHEET);
-
-  } catch (err) {
-
-    console.error("Read LINE UID error:", err.message);
-    throw new Error("LINE UID Sheet error");
-
-  }
-
-  const userRow = lineRows.find(r =>
-    String(r[1] || "").trim() === cid &&
-    String(r[7] || "").trim().toUpperCase() === "ACTIVE"
+  const userRow = rows.find(r =>
+    String(r[1] || "").trim() === String(record.CID).trim() &&
+    String(r[7] || "").toUpperCase() === "ACTIVE"
   );
 
   if (!userRow) throw new Error("ยังไม่ได้ผูก LINE");
 
   const userId = String(userRow[4] || "").trim();
 
-  if (!userId || userId === "undefined") {
+  console.log(`📤 Sending result → ${userId}`);
 
-    console.log("⚠️ Skip push → invalid userId");
-    return false;
+  await lineAPI.pushFlexResult({
 
-  }
+    userId,
+    nsr,
+    fullName: `${record.PRENAME} ${record.NAME} ${record.LNAME}`,
+    dateService: record.DateService,
+    list: record.Activity,
+    result: record.HealthInform,
+    advice: record.HealthAdvice,
+    status: record.status,
+    fileURL: record.fileURL || null
 
-  try {
-
-    console.log(`📤 Sending result → ${userId} NSR:${nsr}`);
-
-    await lineAPI.pushFlexResult({
-
-      userId,
-      nsr,
-      fullName: `${record.PRENAME || ""} ${record.NAME || ""} ${record.LNAME || ""}`.trim(),
-      dateService: record.DateService,
-      list: record.Activity,
-      result: record.HealthInform,
-      advice: record.HealthAdvice,
-      status: record.status,
-      fileURL: record.fileURL || null
-
-    });
-
-  } catch (err) {
-
-    console.error("LINE PUSH ERROR:", err.message);
-
-  }
+  });
 
   return true;
 
-};
+}
 
-/* =====================================================
-   CONFIRM RESULT
-===================================================== */
+/* =========================================================
+   EVENT : UNFOLLOW
+========================================================= */
 
-exports.confirmResult = async (nsr) => {
-
-  console.log("Confirm result:", nsr);
-
-  await nursingService.markResultConfirmed(nsr);
-
-};
-
-/* =====================================================
-   HANDLE UNFOLLOW
-===================================================== */
-
-exports.handleUnfollowEvent = async (event) => {
+async function handleUnfollowEvent(event) {
 
   try {
 
     const userId = event.source?.userId;
-
-    console.log("User unfollow:", userId);
 
     await appendRow(FOLLOW_SHEET, [
       new Date().toISOString(),
@@ -474,10 +408,22 @@ exports.handleUnfollowEvent = async (event) => {
 
   }
 
+}
+
+/* =========================================================
+   EXPORT MODULE
+========================================================= */
+
+module.exports = {
+
+  lineClient,
+
+  pushMessage,
+
+  handleFollowEvent,
+  handleChatMessage,
+  handleUnfollowEvent,
+
+  sendReport
+
 };
-
-/* =====================================================
-   EXPORT CLIENT
-===================================================== */
-
-exports.lineClient = lineClient;

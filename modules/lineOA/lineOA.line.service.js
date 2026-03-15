@@ -15,15 +15,24 @@ const nursingService = require("../nursingRecords/nursingRecords.service");
 
 async function safePush(userId, message) {
 
+  if (!userId || !message) {
+    console.log("⚠️ safePush invalid params");
+    return false;
+  }
+
   if (!client || !client.pushMessage) {
     console.error("❌ LINE client.pushMessage missing");
     return false;
   }
 
+  const messages = Array.isArray(message) ? message : [message];
+
   try {
 
+    await new Promise(r => setTimeout(r, 120));
+
     await Promise.race([
-      client.pushMessage(userId, message),
+      client.pushMessage(userId, messages),
       new Promise((_, reject) =>
         setTimeout(() => reject(new Error("LINE timeout")), 8000)
       )
@@ -44,7 +53,7 @@ async function safePush(userId, message) {
 
     try {
 
-      await client.pushMessage(userId, message);
+      await client.pushMessage(userId, messages);
       return true;
 
     } catch (err2) {
@@ -655,5 +664,28 @@ exports.replyMessage = async (replyToken, message) => {
     console.error("❌ replyMessage error:", msg);
 
   }
+
+};
+
+/******************************************************************
+ * PUSH SIMPLE MESSAGE
+ ******************************************************************/
+
+exports.pushMessage = async (userId, message) => {
+
+  if (!userId) {
+    console.log("⚠️ pushMessage userId missing");
+    return false;
+  }
+
+  const messages = Array.isArray(message) ? message : [message];
+
+  const ok = await safePush(userId, messages);
+
+  if (ok) {
+    console.log("✅ pushMessage sent:", userId);
+  }
+
+  return ok;
 
 };
