@@ -88,6 +88,24 @@ function getVaccineName(code){
 
 }
 
+
+function calculateAge(birth){
+
+  if(!birth) return "-";
+
+  const today = new Date();
+  const b = new Date(birth);
+
+  let age = today.getFullYear() - b.getFullYear();
+  const m = today.getMonth() - b.getMonth();
+
+  if(m < 0 || (m === 0 && today.getDate() < b.getDate())){
+    age--;
+  }
+
+  return age;
+}
+
 /*****************************************************************
  TAB SYSTEM
 *****************************************************************/
@@ -154,8 +172,8 @@ async function openPatientModal(){
     tr.innerHTML = `
 <td>${p.CID || "-"}</td>
 <td>${name}</td>
-<td>${p.BIRTH_THAI || "-"}</td>
-<td>${formatThaiDate(p.BIRTH_THAI || p.BIRTH)}</td>
+<td>${p.BIRTH_THAI || formatThaiDate(p.BIRTH) || "-"}</td>
+<td>${calculateAge(p.BIRTH)}</td>
 <td>${p.TELEPHONE || p.MOBILE || "-"}</td>
 <td>
 <button class="btn btn-success btn-sm" style="font-size:10px;padding:2px 8px;">
