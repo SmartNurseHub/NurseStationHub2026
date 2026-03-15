@@ -1,9 +1,7 @@
 /*****************************************************************
  * vaccination.service.js (AUTO SCHEDULE + ADVANCED VERSION)
  *****************************************************************/
-
-const { getSheets } = require("../../config/google");
-
+const { getSheetClient } = require("../../config/google");
 /* =========================================================
    SHEETS
 ========================================================= */
@@ -28,6 +26,34 @@ function addDays(date, days) {
   d.setDate(d.getDate() + Number(days || 0));
 
   return d;
+
+}
+
+function addMonths(date, months){
+
+  const d = new Date(date);
+
+  if(isNaN(d)){
+    throw new Error("Invalid dateService");
+  }
+
+  d.setMonth(d.getMonth() + Number(months || 0));
+
+  return d;
+
+}
+
+function calculateDueDate(dateService, intervalType, intervalValue){
+
+  if(intervalType === "months"){
+    return addMonths(dateService, intervalValue);
+  }
+
+  if(intervalType === "days"){
+    return addDays(dateService, intervalValue);
+  }
+
+  return addDays(dateService, intervalValue);
 
 }
 
@@ -66,7 +92,7 @@ function calculateAge(birthDate) {
 
 async function genVCN() {
 
-  const sheets = await getSheets();
+  const sheets = await getSheetClient();
   const spreadsheetId = process.env.SPREADSHEET_ID;
 
   const now = new Date();
@@ -97,7 +123,7 @@ async function genVCN() {
 
 async function genAPID() {
 
-  const sheets = await getSheets();
+  const sheets = await getSheetClient();
   const spreadsheetId = process.env.SPREADSHEET_ID;
 
   const now = new Date();
@@ -128,7 +154,7 @@ async function genAPID() {
 
 async function getVaccineMaster() {
 
-  const sheets = await getSheets();
+  const sheets = await getSheetClient();
   const spreadsheetId = process.env.SPREADSHEET_ID;
 
   const res = await sheets.spreadsheets.values.get({
@@ -156,24 +182,25 @@ async function getVaccineMaster() {
 
 async function getVaccineSchedule(vaccineCode) {
 
-  const sheets = await getSheets();
+  const sheets = await getSheetClient();
   const spreadsheetId = process.env.SPREADSHEET_ID;
 
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId,
-    range: `${SHEET_SCHEDULE}!A2:C`
+    range: `${SHEET_SCHEDULE}!A2:D`
   });
 
   const rows = res.data.values || [];
 
   return rows
-    .filter(r => r[0] === vaccineCode)
-    .map(r => ({
-      vaccineCode: r[0],
-      doseNo: Number(r[1] || 0),
-      intervalDays: Number(r[2] || 0)
-    }))
-    .sort((a, b) => a.doseNo - b.doseNo);
+  .filter(r => r[0] === vaccineCode)
+  .map(r => ({
+    vaccineCode: r[0],
+    doseNo: Number(r[1] || 0),
+    intervalType: r[2] || "days",
+    intervalValue: Number(r[3] || 0)
+  }))
+  .sort((a,b)=>a.doseNo - b.doseNo);
 
 }
 
@@ -183,7 +210,7 @@ async function getVaccineSchedule(vaccineCode) {
 
 async function getPatient(cid) {
 
-  const sheets = await getSheets();
+  const sheets = await getSheetClient();
   const spreadsheetId = process.env.SPREADSHEET_ID;
 
   const res = await sheets.spreadsheets.values.get({
@@ -224,7 +251,7 @@ async function getPatient(cid) {
 
 async function getAppointmentsByVaccine(cid, vaccineCode){
 
-  const sheets = await getSheets();
+  const sheets = await getSheetClient();
   const spreadsheetId = process.env.SPREADSHEET_ID;
 
   const res = await sheets.spreadsheets.values.get({
@@ -244,10 +271,9 @@ async function getAppointmentsByVaccine(cid, vaccineCode){
 /* =========================================================
    CREATE APPOINTMENTS
 ========================================================= */
-
 async function createVaccinationAppointments(patient, vaccineCode, dateService, currentDose) {
 
-  const sheets = await getSheets();
+  const sheets = await getSheetClient();
   const spreadsheetId = process.env.SPREADSHEET_ID;
 
   const schedule = await getVaccineSchedule(vaccineCode);
@@ -257,38 +283,36 @@ async function createVaccinationAppointments(patient, vaccineCode, dateService, 
   const exists = await getAppointmentsByVaccine(patient.cid, vaccineCode);
 
   const rows = [];
+  const reminders = [];
 
   for (const s of schedule) {
 
     if (s.doseNo <= currentDose) continue;
 
-    if (exists.some(e => Number(e[4]) === s.doseNo)) {
-      continue;
-    }
+    if (exists.some(e => Number(e[4]) === s.doseNo)) continue;
 
     const apid = await genAPID();
 
-    const due = addDays(dateService, s.intervalDays);
+    const due = calculateDueDate(dateService, s.intervalType, s.intervalValue);
 
-   rows.push([
-  apid,
-  patient.cid,
-  patient.hn || "",
-  vaccineCode,
-  s.doseNo,
-  toISO(due),
-  "PENDING",
-  new Date().toISOString(),
-  ""
-]);
+    rows.push([
+      apid,
+      patient.cid,
+      patient.hn || "",
+      vaccineCode,
+      s.doseNo,
+      toISO(due),
+      "PENDING",
+      new Date().toISOString(),
+      ""
+    ]);
 
-await createReminder(
-  patient,
-  vaccineCode,
-  s.doseNo,
-  due,
-  apid
-);
+    reminders.push({
+      apid,
+      doseNo: s.doseNo,
+      due
+    });
+
   }
 
   if (!rows.length) return;
@@ -300,15 +324,24 @@ await createReminder(
     requestBody: { values: rows }
   });
 
-}
+  for(const r of reminders){
+    await createReminder(
+      patient,
+      vaccineCode,
+      r.doseNo,
+      r.due,
+      r.apid
+    );
+  }
 
+}
 /* =========================================================
    GEN REMINDER ID
 ========================================================= */
 
 async function genREMID() {
 
-  const sheets = await getSheets();
+  const sheets = await getSheetClient();
   const spreadsheetId = process.env.SPREADSHEET_ID;
 
   const now = new Date();
@@ -356,7 +389,7 @@ async function saveVaccination(data) {
   if (!doseNo) throw new Error("doseNo required");
   if (!dateService) throw new Error("dateService required");
 
-  const sheets = await getSheets();
+  const sheets = await getSheetClient();
   const spreadsheetId = process.env.SPREADSHEET_ID;
 
   const masterList = await getVaccineMaster();
@@ -390,13 +423,13 @@ async function saveVaccination(data) {
 ];
 
   await sheets.spreadsheets.values.append({
-    spreadsheetId,
-    range: `${SHEET_RECORD}!A2`,
-    valueInputOption: "USER_ENTERED",
-    requestBody: { values: [recordRow] }
-  });
+  spreadsheetId,
+  range: `${SHEET_RECORD}!A2`,
+  valueInputOption: "USER_ENTERED",
+  requestBody: { values: [recordRow] }
+});
 
-  await completeAppointment(
+await completeAppointment(
   cid,
   vaccineCode,
   doseNo
@@ -409,7 +442,7 @@ await createVaccinationAppointments(
   doseNo
 );
 
-  return { success: true };
+return { success: true };
 
 }
 
@@ -419,7 +452,7 @@ await createVaccinationAppointments(
 
 async function getVaccinationRecords(cid) {
 
-  const sheets = await getSheets();
+  const sheets = await getSheetClient();
   const spreadsheetId = process.env.SPREADSHEET_ID;
 
   const res = await sheets.spreadsheets.values.get({
@@ -430,7 +463,7 @@ async function getVaccinationRecords(cid) {
   const rows = res.data.values || [];
 
   return rows
-    .filter(r => r[1] === cid)
+    .filter(r => String(r[1]) === String(cid))
     .map(r => ({
       vcn: r[0],
       cid: r[1],
@@ -523,7 +556,7 @@ async function getNextVCN() {
 
 async function getAppointments(cid){
 
-  const sheets = await getSheets();
+  const sheets = await getSheetClient();
   const spreadsheetId = process.env.SPREADSHEET_ID;
 
   const res = await sheets.spreadsheets.values.get({
@@ -553,7 +586,7 @@ async function getAppointments(cid){
 
 async function completeAppointment(cid, vaccineCode, doseNo){
 
-  const sheets = await getSheets();
+  const sheets = await getSheetClient();
   const spreadsheetId = process.env.SPREADSHEET_ID;
 
   const res = await sheets.spreadsheets.values.get({
@@ -593,7 +626,7 @@ async function completeAppointment(cid, vaccineCode, doseNo){
 
 async function deleteVaccination(vcn){
 
-  const sheets = await getSheets();
+  const sheets = await getSheetClient();
   const spreadsheetId = process.env.SPREADSHEET_ID;
 
   const res = await sheets.spreadsheets.values.get({
@@ -645,10 +678,11 @@ async function deleteVaccination(vcn){
   return { success:true };
 
 }
-
 async function createReminder(patient, vaccineCode, doseNo, appointmentDate, apid){
 
-  const sheets = await getSheets();
+  if(!appointmentDate) return;
+
+  const sheets = await getSheetClient();
   const spreadsheetId = process.env.SPREADSHEET_ID;
 
   const notify30 = addDays(appointmentDate,-30);
@@ -656,10 +690,11 @@ async function createReminder(patient, vaccineCode, doseNo, appointmentDate, api
   const notify1  = addDays(appointmentDate,-1);
   const notify0  = new Date(appointmentDate); // ⭐ วันนัด
 
-  const rem1 = await genREMID();
-  const rem2 = await genREMID();
-  const rem3 = await genREMID();
-  const rem4 = await genREMID();
+  const base = await genREMID()
+const rem1 = base + "-1"
+const rem2 = base + "-2"
+const rem3 = base + "-3"
+const rem4 = base + "-4"
 
   const rows = [
 
@@ -725,6 +760,7 @@ async function createReminder(patient, vaccineCode, doseNo, appointmentDate, api
 
   ];
 
+  if(rows.length){
   await sheets.spreadsheets.values.append({
     spreadsheetId,
     range: `${SHEET_REMINDER}!A2`,
@@ -732,7 +768,7 @@ async function createReminder(patient, vaccineCode, doseNo, appointmentDate, api
     requestBody:{ values:rows }
   });
 
-}
+}}
 /* =========================================================
    EXPORT
 ========================================================= */
