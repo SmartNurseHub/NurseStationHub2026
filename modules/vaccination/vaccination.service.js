@@ -40,6 +40,21 @@ function getCache(key){
 
 }
 
+function convertProviderRole(role){
+
+  if(!role) return "-";
+
+  const map = {
+    "พยาบาลวิชาชีพ":"RN",
+    "แพทย์":"MD",
+    "เภสัชกร":"PHARM",
+    "เจ้าหน้าที่สาธารณสุข":"PH",
+    "ทันตแพทย์":"DDS"
+  };
+
+  return map[role] || role;
+
+}
 /* =========================================================
    STANDARD LOGGER
 ========================================================= */
@@ -264,25 +279,37 @@ async function getNextVCN(){
    5️⃣ MASTER DATA
 ========================================================= */
 
-async function getVaccineMaster() {
+async function getVaccineMaster(){
+
+  const cacheKey = "vaccine_master";
+
+  const cached = getCache(cacheKey);
+  if(cached) return cached;
 
   const sheets = await getSheets();
   const spreadsheetId = process.env.SPREADSHEET_ID;
 
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId,
-    range: `${SHEET_MASTER}!A2:E`
+    range:`${SHEET_MASTER}!A2:F`
   });
 
-  const rows = res.data.values || [];
+  const rows = res?.data?.values || [];
 
-  return rows.map(r => ({
-    code: r[0],
-    name: r[1],
-    totalDose: Number(r[2] || 0),
-    allowBooster: r[3] === "TRUE",
-    active: r[4] === "TRUE"
+  const data = rows.map(r=>({
+    code:r[0],
+    name:r[1],
+    totalDose:Number(r[2]||0),
+    allowBooster:r[3]==="TRUE",
+    active:r[4]==="TRUE",
+    TH_Name:r[5] || r[1]
   }));
+
+  setCache(cacheKey,data,300000); 
+  // cache 5 นาที
+  logInfo("VACCINE_MASTER_LOADED",{count:data.length});
+
+  return data;
 }
 
 async function getVaccineSchedule(vaccineCode) {
@@ -778,25 +805,23 @@ async function sendLineVaccine(vcn){
       return { success:false };
 
     }
-function convertProviderRole(role){
 
-  if(!role) return "-";
 
-  const map = {
-    "พยาบาลวิชาชีพ":"RN",
-    "แพทย์":"MD",
-    "เภสัชกร":"PHARM",
-    "เจ้าหน้าที่สาธารณสุข":"PH",
-    "ทันตแพทย์":"DDS"
-  };
+// 🔹 ดึง vaccine master
+const vaccines = await getVaccineMaster();
 
-  return map[role] || role;
+const code = String(record.vaccineCode || "").trim().toUpperCase();
 
-}
-const providerRole = convertProviderRole(record.providerRole);
+const vaccine = vaccines.find(
+  v => String(v.code).trim().toUpperCase() === code
+) || {};
+
 const vaccineNameTH = vaccine?.TH_Name || "-";
-const vaccineNameEN = vaccine?.Name || "-";
-const totalDose = vaccine?.totalDose || "-";
+const vaccineNameEN = vaccine?.name || "-";
+const totalDose = vaccine?.totalDose ?? "-";
+
+// 🔹 แปลง role
+const providerRole = convertProviderRole(record.providerRole);
 
 const flex = {
   type: "flex",
@@ -805,18 +830,19 @@ const flex = {
   contents: {
     type: "bubble",
     size: "mega",
+
     hero: {
-          type: "image",
-          url: "https://drive.google.com/uc?export=view&id=1O366lb3XphBKeVv51F5nNHIOEvdEh-jI",
-          size: "full",
-          aspectRatio: "20:13",
-          aspectMode: "cover"
-        },
+      type: "image",
+      url: "https://drive.google.com/uc?export=view&id=1O366lb3XphBKeVv51F5nNHIOEvdEh-jI",
+      size: "full",
+      aspectRatio: "20:13",
+      aspectMode: "cover"
+    },
 
     body: {
       type: "box",
       layout: "vertical",
-      spacing: "md",
+      spacing: "lg",
 
       contents: [
 
@@ -832,9 +858,9 @@ const flex = {
         {
           type: "text",
           text: "VACCINATION RECORD",
-          size: "sm",
+          size: "xs",
           align: "center",
-          color: "#757575"
+          color: "#9E9E9E"
         },
 
         { type: "separator" },
@@ -842,7 +868,7 @@ const flex = {
         {
           type: "text",
           text: `${patient.prename}${patient.firstName} ${patient.lastName}`,
-          size: "lg",
+          size: "xl",
           weight: "bold",
           align: "center"
         },
@@ -855,13 +881,12 @@ const flex = {
           color: "#616161"
         },
 
-        { type: "separator", margin: "md" },
+        { type: "separator" },
 
         {
           type: "text",
           text: "📋 รายละเอียดวัคซีน",
           weight: "bold",
-          size: "md",
           color: "#0277BD"
         },
 
@@ -870,12 +895,13 @@ const flex = {
           layout: "vertical",
           spacing: "sm",
           margin: "md",
-
           contents: [
 
             {
               type: "text",
-              text: `💉 วัคซีน : ${vaccineNameTH}`,
+              text: `💉 ${vaccineNameTH}`,
+              weight: "bold",
+              size: "md",
               wrap: true
             },
 
@@ -889,38 +915,38 @@ const flex = {
 
             {
               type: "text",
-              text: `Lot : ${record.lotNo || "-"}`,
+              text: `Lot : ${record.lotNumber || "-"}`,
               size: "sm"
             },
 
             {
               type: "text",
               text: `🔢 เข็มที่ : ${record.doseNo} / ${totalDose}`,
-              size: "sm"
+              size: "sm",
+              weight: "bold"
             }
 
           ]
         },
 
-        { type: "separator", margin: "md" },
+        { type: "separator" },
 
         {
           type: "box",
           layout: "vertical",
           spacing: "sm",
-
           contents: [
 
             {
               type: "text",
-              text: `👩‍⚕️ ผู้ให้บริการ : ${record.providerName} (${providerRole})`,
+              text: `👩‍⚕️ ผู้ให้บริการ : ${record.providerName || "-"} (${providerRole})`,
               size: "sm",
               wrap: true
             },
 
             {
               type: "text",
-              text: `🏥 สถานที่ : ${record.locationType || "-"}`,
+              text: `🏥 สถานที่ : ${record.locationType || "-"} ${record.locationDetail || ""}`,
               size: "sm",
               wrap: true
             }
@@ -930,14 +956,17 @@ const flex = {
 
       ]
     }
-
   }
 };
 
 
 
 
-          await pushLineRetry(lineUID,flex);
+          try{
+  await pushLineRetry(lineUID,flex);
+}catch(err){
+  logError("LINE_PUSH_FAIL",err.message);
+}
 
           logInfo("SEND_LINE_SUCCESS",{vcn,lineUID});
 
@@ -949,7 +978,7 @@ const flex = {
 
           return {
             success:false,
-            error:err.flex
+            error:err.message
           };
 
         }
@@ -966,7 +995,7 @@ async function getVaccinationByVCN(vcn){
     range: `${SHEET_RECORD}!A2:N`
   });
 
-  const rows = res.data.values || [];
+  const rows = res?.data?.values || [];
 
   const r = rows.find(x => x[0] === vcn);
 
@@ -978,7 +1007,12 @@ async function getVaccinationByVCN(vcn){
   hn:r[2],
   vaccineCode:r[3],
   doseNo:Number(r[4]||0),
-  dateService:r[5]
+  dateService:r[5],
+  providerRole:r[6],
+  providerName:r[7],
+  locationType:r[8],
+  locationDetail:r[9],
+  lotNumber:r[10]
 };
 
 }
