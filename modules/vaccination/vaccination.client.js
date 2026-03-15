@@ -17,7 +17,15 @@ const VaccineState = {currentCID: null,currentPatient: null,vaccineMaster: [],ap
 
 window.initVaccination = async function(){
   console.log("🚀 initVaccination");
-  bindTabs();bindPatientSearch();bindForm();await loadVaccineMaster();await loadNextVCN();};
+  bindTabs();
+  bindPatientSearch();
+  bindForm(); // ⭐ เพิ่มตรงนี้
+  const dateInput = document.getElementById("recordDate");
+  if(dateInput){
+    dateInput.value = new Date().toISOString().split("T")[0];
+  }
+    await loadVaccineMaster();
+    await loadNextVCN();};
 
 /*****************************************************************
  UTIL
@@ -303,6 +311,13 @@ function bindForm(){
 async function saveVaccine(e){
 
   e.preventDefault();
+  const dateService =
+    document.getElementById("recordDate").value;
+
+  if(!dateService){
+    alert("กรุณาเลือกวันที่ฉีดวัคซีน");
+    return;
+  }
 
   const payload={
 
