@@ -1,31 +1,92 @@
+/*****************************************************************
+ LINE REGISTRATION SERVICE (PRODUCTION STABLE)
+ NurseStationHub
+*****************************************************************/
+
+const { readRows, updateRow } = require("../../config/google");
+const { LINE_UID_SHEET } = require("./lineOA.schema");
+
+/* =========================================================
+   CACHE (ลดการเรียก Google Sheet)
+========================================================= */
+
+let sheetCache = null;
+let lastLoad = 0;
+const CACHE_TIME = 10000; // 10 sec
+
+async function getRows() {
+
+  const now = Date.now();
+
+  if (!sheetCache || (now - lastLoad) > CACHE_TIME) {
+
+    try {
+
+      const rows = await readRows(LINE_UID_SHEET);
+
+      sheetCache = rows || [];
+      lastLoad = now;
+
+    } catch (err) {
+
+      console.error("Sheet load error:", err);
+      sheetCache = [];
+
+    }
+
+  }
+
+  return sheetCache;
+}
+
+/* =========================================================
+   CLEAR CACHE
+========================================================= */
+
+function clearCache() {
+
+  sheetCache = null;
+
+}
+
+/* =========================================================
+   MAIN REGISTRATION FLOW
+========================================================= */
+
 exports.handleRegistrationFlow = async (lineClient, userId, text, replyToken) => {
 
   try {
 
     text = (text || "").trim();
 
-    const rows = await readRows(LINE_UID_SHEET);
+    if (!userId) return false;
 
-    const rowIndex = rows.findIndex((r,i)=>
-      i>0 && String(r[4]||"").trim() === userId
+    const rows = await getRows();
+
+    if (!rows.length) return false;
+
+    const rowIndex = rows.findIndex((r, i) =>
+      i > 0 && String(r[4] || "").trim() === userId
     );
 
-    if(rowIndex === -1) return false;
+    if (rowIndex === -1) return false;
 
     const row = rows[rowIndex];
     const status = String(row[7] || "").trim();
 
-    console.log("Registration flow:",userId,"status:",status);
+    console.log("Registration flow:", userId, "status:", status);
 
-    /* ===== STEP 1 : CID ===== */
+    /* =====================================================
+       STEP 1 : CID
+    ===================================================== */
 
-    if(status === "PENDING_CID"){
+    if (status === "PENDING_CID") {
 
-      if(!/^\d{13}$/.test(text)){
+      if (!/^\d{13}$/.test(text)) {
 
-        await lineClient.replyMessage(replyToken,{
-          type:"text",
-          text:"กรุณากรอกเลขบัตรประชาชน 13 หลัก"
+        await lineClient.replyMessage(replyToken, {
+          type: "text",
+          text: "กรุณากรอกเลขบัตรประชาชน 13 หลัก"
         });
 
         return true;
@@ -34,27 +95,31 @@ exports.handleRegistrationFlow = async (lineClient, userId, text, replyToken) =>
       row[1] = text;
       row[7] = "PENDING_NAME";
 
-      await lineClient.replyMessage(replyToken,{
-        type:"text",
-        text:"กรุณากรอกชื่อ–นามสกุล"
-      });
+      await updateRow(LINE_UID_SHEET, rowIndex + 1, row);
 
-      await updateRow(LINE_UID_SHEET,rowIndex+1,row);
+      clearCache();
+
+      await lineClient.replyMessage(replyToken, {
+        type: "text",
+        text: "กรุณากรอกชื่อ–นามสกุล"
+      });
 
       return true;
     }
 
-    /* ===== STEP 2 : NAME ===== */
+    /* =====================================================
+       STEP 2 : NAME
+    ===================================================== */
 
-    if(status === "PENDING_NAME"){
+    if (status === "PENDING_NAME") {
 
-      const parts = text.split(" ");
+      const parts = text.split(" ").filter(v => v);
 
-      if(parts.length < 2){
+      if (parts.length < 2) {
 
-        await lineClient.replyMessage(replyToken,{
-          type:"text",
-          text:"กรุณากรอกชื่อและนามสกุล เว้นวรรค 1 ครั้ง"
+        await lineClient.replyMessage(replyToken, {
+          type: "text",
+          text: "กรุณากรอกชื่อและนามสกุล เว้นวรรค 1 ครั้ง"
         });
 
         return true;
@@ -64,25 +129,29 @@ exports.handleRegistrationFlow = async (lineClient, userId, text, replyToken) =>
       row[3] = parts.slice(1).join(" ");
       row[7] = "PENDING_PHONE";
 
-      await lineClient.replyMessage(replyToken,{
-        type:"text",
-        text:"กรุณากรอกเบอร์โทรศัพท์"
-      });
+      await updateRow(LINE_UID_SHEET, rowIndex + 1, row);
 
-      await updateRow(LINE_UID_SHEET,rowIndex+1,row);
+      clearCache();
+
+      await lineClient.replyMessage(replyToken, {
+        type: "text",
+        text: "กรุณากรอกเบอร์โทรศัพท์"
+      });
 
       return true;
     }
 
-    /* ===== STEP 3 : PHONE ===== */
+    /* =====================================================
+       STEP 3 : PHONE
+    ===================================================== */
 
-    if(status === "PENDING_PHONE"){
+    if (status === "PENDING_PHONE") {
 
-      if(!/^0\d{8,9}$/.test(text)){
+      if (!/^0\d{8,9}$/.test(text)) {
 
-        await lineClient.replyMessage(replyToken,{
-          type:"text",
-          text:"กรุณากรอกเบอร์โทรให้ถูกต้อง"
+        await lineClient.replyMessage(replyToken, {
+          type: "text",
+          text: "กรุณากรอกเบอร์โทรให้ถูกต้อง"
         });
 
         return true;
@@ -91,21 +160,32 @@ exports.handleRegistrationFlow = async (lineClient, userId, text, replyToken) =>
       row[8] = text;
       row[7] = "ACTIVE";
 
-      await lineClient.replyMessage(replyToken,{
-        type:"text",
-        text:"ลงทะเบียนสำเร็จ"
-      });
+      await updateRow(LINE_UID_SHEET, rowIndex + 1, row);
 
-      await updateRow(LINE_UID_SHEET,rowIndex+1,row);
+      clearCache();
+
+      await lineClient.replyMessage(replyToken, {
+        type: "text",
+        text: "ลงทะเบียนสำเร็จแล้ว 🎉"
+      });
 
       return true;
     }
 
     return false;
 
-  } catch(err){
+  } catch (err) {
 
-    console.error("Registration flow error:",err);
+    console.error("Registration flow error:", err);
+
+    try {
+
+      await lineClient.replyMessage(replyToken, {
+        type: "text",
+        text: "ระบบขัดข้อง กรุณาลองใหม่อีกครั้ง"
+      });
+
+    } catch (e) {}
 
     return false;
   }
