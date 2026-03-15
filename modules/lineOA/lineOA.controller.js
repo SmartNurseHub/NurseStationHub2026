@@ -1,15 +1,23 @@
 const service = require("./lineOA.service");
-const { readRows } = require("../../config/google");
+
+const { 
+  readRows,
+  appendRow
+} = require("../../config/google");
+
 const { FOLLOW_SHEET, USER_SHEET } = require("./lineOA.schema");
+
 const registrationService = require("./lineOA.registration.service");
+
 const { formatBullet, buildFlex } = require("../../utils/flexBuilder");
+
 /* =================================================
    LINE WEBHOOK
 ================================================= */
+
 exports.handleWebhook = (req, res) => {
 
   console.log("📩 LINE webhook received");
-  console.log("BODY:", JSON.stringify(req.body, null, 2));
 
   res.status(200).send("OK");
 
@@ -19,60 +27,123 @@ exports.handleWebhook = (req, res) => {
 
       const events = req.body.events || [];
 
-      for (const event of events) {
-
-  if (!event) continue;
-
-  console.log("EVENT TYPE:", event.type);
-
-  try {
-
-    if (event.type === "follow") {
-      console.log("FOLLOW USER:", event.source?.userId);
-      await service.handleFollowEvent(event);
-    }
-
-    if (event.type === "unfollow") {
-  console.log("UNFOLLOW USER:", event.source?.userId);
-  await service.handleUnfollowEvent(event);
-}
-
-    if (event.type === "message" && event.message?.type === "text") {
-      console.log("MESSAGE:", event.message.text);
-      await service.handleChatMessage(event);
-    }
-
-    if (event.type === "postback") {
-
-      const data = event.postback?.data;
-      console.log("POSTBACK:", data);
-
-      if (data?.startsWith("CONFIRM_RESULT:")) {
-
-        const nsr = data.replace("CONFIRM_RESULT:", "");
-
-        console.log("CONFIRM NSR:", nsr);
-
-        await service.confirmResult(nsr);
+      if (!events.length) {
+        console.log("No events");
+        return;
       }
 
-    }
+      for (const event of events) {
 
-  } catch(err){
+        if (!event) continue;
 
-    console.error("EVENT ERROR:", err);
+        console.log("EVENT TYPE:", event.type);
 
-  }
+        try {
 
-}
+          /* ================= FOLLOW ================= */
+
+          if (event.type === "follow") {
+
+            console.log("FOLLOW USER:", event.source?.userId);
+
+            await service.handleFollowEvent(event);
+
+          }
+
+          /* ================= UNFOLLOW ================= */
+
+          if (event.type === "unfollow") {
+
+            console.log("UNFOLLOW USER:", event.source?.userId);
+
+            await service.handleUnfollowEvent(event);
+
+          }
+
+          /* ================= MESSAGE ================= */
+
+          if (event.type === "message" && event.message?.type === "text") {
+
+            const userId = event.source?.userId;
+            const text = event.message.text;
+            const replyToken = event.replyToken;
+
+            console.log("USER:", userId);
+            console.log("MESSAGE:", text);
+
+            try {
+
+              /* ---------- REGISTRATION FLOW ---------- */
+
+              const handled = await registrationService.handleRegistrationFlow(
+                service.lineClient,
+                userId,
+                text,
+                replyToken
+              );
+
+              if (handled) {
+
+                console.log("Registration handled");
+
+                continue;
+
+              }
+
+              /* ---------- NORMAL CHAT ---------- */
+
+              await service.handleChatMessage(event);
+
+            } catch (err) {
+
+              console.error("Message handling error:", err);
+
+            }
+
+          }
+
+          /* ================= POSTBACK ================= */
+
+          if (event.type === "postback") {
+
+            const data = event.postback?.data;
+
+            console.log("POSTBACK:", data);
+
+            if (data?.startsWith("CONFIRM_RESULT:")) {
+
+              const nsr = data.replace("CONFIRM_RESULT:", "");
+
+              console.log("CONFIRM NSR:", nsr);
+
+              await service.confirmResult(nsr);
+
+            }
+
+          }
+
+        } catch (err) {
+
+          console.error("EVENT ERROR:", err);
+
+        }
+
+      }
 
     } catch (err) {
+
       console.error("Webhook background error:", err);
+
     }
 
   });
 
 };
+
+
+/* =================================================
+   HANDLE UNFOLLOW
+================================================= */
 
 exports.handleUnfollowEvent = async (event) => {
 
@@ -99,18 +170,24 @@ exports.handleUnfollowEvent = async (event) => {
 
 };
 
+
 /* =================================================
    SEND RESULT BY NSR
 ================================================= */
+
 exports.sendResultByNSR = async (req, res) => {
+
   try {
+
     const { nsr } = req.body;
 
     if (!nsr) {
+
       return res.status(400).json({
         success: false,
         message: "NSR is required"
       });
+
     }
 
     await service.sendReport(nsr);
@@ -118,35 +195,57 @@ exports.sendResultByNSR = async (req, res) => {
     res.json({ success: true });
 
   } catch (err) {
+
     console.error("sendResultByNSR error:", err.message);
+
     res.status(500).json({
       success: false,
       message: err.message
     });
+
   }
+
 };
+
 
 /* =================================================
    READ FOLLOW LIST
 ================================================= */
+
 exports.getFollowList = async (req, res) => {
+
   try {
+
     const rows = await readRows(FOLLOW_SHEET);
+
     res.json({ data: rows });
+
   } catch (err) {
+
     res.status(500).json({ error: err.message });
+
   }
+
 };
+
 
 /* =================================================
    READ CHAT LOG
 ================================================= */
+
 exports.getUserMessages = async (req, res) => {
+
   try {
+
     const rows = await readRows(USER_SHEET);
+
     res.json({ data: rows });
+
   } catch (err) {
+
     res.status(500).json({ error: err.message });
+
   }
+
 };
 
