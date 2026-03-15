@@ -64,26 +64,25 @@ async function checkAndSendReminders() {
         await lineService.pushMessage(userId,{
           type:"text",
           text:`💉 แจ้งเตือนนัดวัคซีน
+          วัคซีน ${vaccine}
+          เข็มที่ ${dose}
 
-วัคซีน ${vaccine}
-เข็มที่ ${dose}
+          📅 วันนัด ${appointmentDate}`
+                  });
 
-📅 วันนัด ${appointmentDate}`
-        });
+                  console.log("Reminder sent:", reminderId);
 
-        console.log("Reminder sent:", reminderId);
+                }
 
-      }
+              }
 
-    }
+            } catch(err) {
 
-  } catch(err) {
+              console.error("Vaccination Reminder Error:", err);
 
-    console.error("Vaccination Reminder Error:", err);
+            }
 
-  }
-
-}
+          }
 
 module.exports = {
   checkAndSendReminders
