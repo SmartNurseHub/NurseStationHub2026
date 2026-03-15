@@ -1,102 +1,135 @@
 /******************************************************************
  * lineOA.registration.service.js
- * จัดการ Flow ลงทะเบียน 4 ขั้นตอน
+ * จัดการ Flow ลงทะเบียน LINE OA
+ * STEP
+ * 1. CID
+ * 2. NAME
+ * 3. PHONE
  ******************************************************************/
+
 const { readRows, updateRow } = require("../../config/google");
 
 const LINE_UID_SHEET = "LineUID";
 
 /* ==========================================================
    MAIN REGISTRATION FLOW
-   return true = handled แล้ว
+   return true  = handled แล้ว
    return false = ไม่เกี่ยวกับ registration
 ========================================================== */
+
 exports.handleRegistrationFlow = async (lineAPI, userId, text, replyToken) => {
 
-  const rows = await readRows(LINE_UID_SHEET);
+  try {
 
-  const rowIndex = rows.findIndex((r, i) =>
-    i > 0 && String(r[4] || "").trim() === userId
-  );
+    text = (text || "").trim();
 
-  if (rowIndex === -1) return false;
+    const rows = await readRows(LINE_UID_SHEET);
 
-  const row = rows[rowIndex];
-  const status = String(row[7] || "").trim();
+    const rowIndex = rows.findIndex((r, i) =>
+      i > 0 && String(r[4] || "").trim() === userId
+    );
 
-  /* ================= STEP 1 : CID ================= */
-  if (status === "PENDING_CID") {
+    if (rowIndex === -1) return false;
 
-    if (!/^\d{13}$/.test(text)) {
+    const row = rows[rowIndex];
+    const status = String(row[7] || "").trim();
+
+    console.log("Registration flow:", userId, "status:", status);
+
+    /* ================= STEP 1 : CID ================= */
+
+    if (status === "PENDING_CID") {
+
+      if (!/^\d{13}$/.test(text)) {
+
+        await lineAPI.replyMessage(replyToken, {
+          type: "text",
+          text: "กรุณากรอกเลขบัตรประชาชน 13 หลัก"
+        });
+
+        return true;
+      }
+
+      row[1] = text;
+      row[7] = "PENDING_NAME";
+
       await lineAPI.replyMessage(replyToken, {
         type: "text",
-        text: "กรุณากรอกเลขบัตรประชาชน 13 หลัก"
+        text: "กรุณากรอกชื่อ–นามสกุล"
       });
+
+      updateRow(LINE_UID_SHEET, rowIndex + 1, row)
+        .catch(err => console.error("Sheet update error:", err));
+
       return true;
     }
 
-    row[1] = text;
-    row[7] = "PENDING_NAME";
+    /* ================= STEP 2 : NAME ================= */
 
-    await updateRow(LINE_UID_SHEET, rowIndex + 1, row);
+    if (status === "PENDING_NAME") {
 
-    await lineAPI.replyMessage(replyToken, {
-      type: "text",
-      text: "กรุณากรอกชื่อ–นามสกุล"
-    });
+      const parts = text.split(" ");
 
-    return true;
-  }
+      if (parts.length < 2) {
 
-  /* ================= STEP 2 : NAME ================= */
-  if (status === "PENDING_NAME") {
+        await lineAPI.replyMessage(replyToken, {
+          type: "text",
+          text: "กรุณากรอกชื่อและนามสกุล เว้นวรรค 1 ครั้ง"
+        });
 
-    const parts = text.trim().split(" ");
-    if (parts.length < 2) {
+        return true;
+      }
+
+      row[2] = parts[0];
+      row[3] = parts.slice(1).join(" ");
+      row[7] = "PENDING_PHONE";
+
       await lineAPI.replyMessage(replyToken, {
         type: "text",
-        text: "กรุณากรอกชื่อและนามสกุล เว้นวรรค 1 ครั้ง"
+        text: "กรุณากรอกเบอร์โทรศัพท์"
       });
+
+      updateRow(LINE_UID_SHEET, rowIndex + 1, row)
+        .catch(err => console.error("Sheet update error:", err));
+
       return true;
     }
 
-    row[2] = parts[0];
-    row[3] = parts.slice(1).join(" ");
-    row[7] = "PENDING_PHONE";
+    /* ================= STEP 3 : PHONE ================= */
 
-    await updateRow(LINE_UID_SHEET, rowIndex + 1, row);
+    if (status === "PENDING_PHONE") {
 
-    await lineAPI.replyMessage(replyToken, {
-      type: "text",
-      text: "กรุณากรอกเบอร์โทรศัพท์"
-    });
+      if (!/^0\d{8,9}$/.test(text)) {
 
-    return true;
-  }
+        await lineAPI.replyMessage(replyToken, {
+          type: "text",
+          text: "กรุณากรอกเบอร์โทรให้ถูกต้อง"
+        });
 
-  /* ================= STEP 3 : PHONE ================= */
-  if (status === "PENDING_PHONE") {
+        return true;
+      }
 
-    if (!/^0\d{8,9}$/.test(text)) {
+      row[8] = text;
+      row[7] = "ACTIVE";
+
       await lineAPI.replyMessage(replyToken, {
         type: "text",
-        text: "กรุณากรอกเบอร์โทรให้ถูกต้อง"
+        text: "✅ ลงทะเบียนสำเร็จแล้ว\nขอบคุณที่ใช้บริการค่ะ"
       });
+
+      updateRow(LINE_UID_SHEET, rowIndex + 1, row)
+        .catch(err => console.error("Sheet update error:", err));
+
       return true;
     }
 
-    row[8] = text;
-    row[7] = "ACTIVE";
+    return false;
 
-    await updateRow(LINE_UID_SHEET, rowIndex + 1, row);
+  } catch (err) {
 
-    await lineAPI.replyMessage(replyToken, {
-      type: "text",
-      text: "✅ ลงทะเบียนสำเร็จแล้ว\nขอบคุณที่ใช้บริการค่ะ"
-    });
+    console.error("Registration flow error:", err);
 
-    return true;
+    return false;
   }
 
-  return false;
 };

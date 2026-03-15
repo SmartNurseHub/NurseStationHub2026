@@ -8,6 +8,86 @@
 ========================================================= */
 
 const { getSheets } = require("../../config/google");
+const lineService = require("../lineOA/lineOA.service");
+
+/* =========================================================
+   CACHE SYSTEM (ลด Google API)
+========================================================= */
+
+const cacheStore = {};
+
+function setCache(key,data,ttl=60000){
+
+  cacheStore[key] = {
+    data,
+    expire: Date.now() + ttl
+  };
+
+}
+
+function getCache(key){
+
+  const item = cacheStore[key];
+
+  if(!item) return null;
+
+  if(Date.now() > item.expire){
+    delete cacheStore[key];
+    return null;
+  }
+
+  return item.data;
+
+}
+
+/* =========================================================
+   STANDARD LOGGER
+========================================================= */
+
+function logInfo(tag,data){
+
+  console.log(`[INFO][${tag}]`,JSON.stringify(data,null,2));
+
+}
+
+function logError(tag,err){
+
+  console.error(`[ERROR][${tag}]`,err);
+
+}
+
+
+/* =========================================================
+   LINE RETRY SYSTEM
+========================================================= */
+
+async function pushLineRetry(lineUID,message,retry=3){
+
+  for(let i=0;i<retry;i++){
+
+    try{
+
+      await lineService.pushMessage(lineUID,message);
+
+      logInfo("LINE_SENT",{lineUID});
+
+      return true;
+
+    }catch(err){
+
+      logError("LINE_RETRY",{try:i+1,error:err.message});
+
+      if(i === retry-1){
+        throw err;
+      }
+
+      await new Promise(r=>setTimeout(r,1000));
+
+    }
+
+  }
+
+}
 
 
 /* =========================================================
@@ -77,6 +157,24 @@ function calculateAge(birth) {
   return age;
 }
 
+function formatThaiDate(date){
+
+  if(!date) return "";
+
+  const d = new Date(date);
+  if(isNaN(d)) return date;
+
+  const months = [
+    "ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.",
+    "ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."
+  ];
+
+  const day = d.getDate();
+  const month = months[d.getMonth()];
+  const year = d.getFullYear()+543;
+
+  return `${day} ${month} ${year}`;
+}
 
 /* =========================================================
    4️⃣ ID GENERATORS
@@ -215,23 +313,32 @@ async function getVaccineSchedule(vaccineCode) {
    6️⃣ PATIENT DATA
 ========================================================= */
 
-async function getPatient(cid) {
+async function getPatient(cid){
+
+  const cacheKey = `patient_${cid}`;
+
+  const cached = getCache(cacheKey);
+
+  if(cached){
+    logInfo("CACHE_PATIENT",{cid});
+    return cached;
+  }
 
   const sheets = await getSheets();
   const spreadsheetId = process.env.SPREADSHEET_ID;
 
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId,
-    range: `${SHEET_PATIENT}!A2:J`
+    range: `${SHEET_PATIENT}!A2:K`
   });
 
   const rows = res.data.values || [];
 
   for (let r of rows) {
 
-    if (r[0] === cid) {
+    if (String(r[0]) === String(cid)) {
 
-      return {
+      const patient = {
         cid: r[0],
         prename: r[1] || "",
         firstName: r[2] || "",
@@ -241,8 +348,13 @@ async function getPatient(cid) {
         birthDate: r[7] || r[6],
         age: calculateAge(r[7] || r[6]),
         telephone: r[8] || "",
-        phone: r[9] || r[8] || ""
+        phone: r[9] || r[8] || "",
+        lineUID: r[10] || ""
       };
+
+      setCache(cacheKey,patient,60000);
+
+      return patient;
 
     }
 
@@ -270,9 +382,9 @@ async function getAppointmentsByVaccine(cid, vaccineCode) {
   const rows = res.data.values || [];
 
   return rows.filter(r =>
-    r[1] === cid &&
-    r[3] === vaccineCode
-  );
+  String(r[1]) === String(cid) &&
+  r[3] === vaccineCode
+);
 
 }
 
@@ -416,9 +528,23 @@ async function saveVaccination(data) {
 
   await completeAppointment(cid, vaccineCode, doseNo);
 
-  await createVaccinationAppointments(patient, vaccineCode, dateService, doseNo);
+  await createVaccinationAppointments(
+    patient,
+    vaccineCode,
+    dateService,
+    doseNo
+  );
 
-  return { success: true };
+  // ส่ง LINE แบบไม่ทำให้ระบบล้ม
+  sendLineVaccine(vcn).catch(err => {
+    console.error("LINE SEND FAILED:", err.message);
+  });
+
+  return {
+    success: true,
+    vcn
+  };
+
 }
 
 
@@ -617,7 +743,134 @@ async function deleteVaccination(vcn){
 
 }
 
+async function sendLineVaccine(vcn){
 
+  try{
+
+    logInfo("SEND_LINE_VACCINE_START",{vcn});
+
+    const record = await getVaccinationByVCN(vcn);
+
+    if(!record){
+      throw new Error("Vaccination record not found");
+    }
+
+    const patient = await getPatient(record.cid);
+
+    if(!patient){
+      throw new Error("Patient not found");
+    }
+
+    let lineUID = String(patient.lineUID || "").trim();
+
+    if(!lineUID){
+
+      logInfo("LINE_UID_SEARCH",{cid:record.cid});
+
+      lineUID = await getLineUIDByCID(record.cid);
+
+    }
+
+    if(!lineUID){
+
+      logError("LINE_UID_NOT_FOUND",{cid:record.cid});
+
+      return { success:false };
+
+    }
+
+    const message = {
+      type:"text",
+      text:`💉 ประวัติวัคซีน
+
+${patient.prename}${patient.firstName} ${patient.lastName}
+
+วัคซีน : ${record.vaccineCode}
+เข็มที่ : ${record.doseNo}
+วันที่ : ${formatThaiDate(record.dateService)}`
+    };
+
+    await pushLineRetry(lineUID,message);
+
+    logInfo("SEND_LINE_SUCCESS",{vcn,lineUID});
+
+    return { success:true };
+
+  }catch(err){
+
+    logError("SEND_LINE_ERROR",err.message);
+
+    return {
+      success:false,
+      error:err.message
+    };
+
+  }
+
+}
+
+async function getVaccinationByVCN(vcn){
+
+  const sheets = await getSheets();
+  const spreadsheetId = process.env.SPREADSHEET_ID;
+
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: `${SHEET_RECORD}!A2:N`
+  });
+
+  const rows = res.data.values || [];
+
+  const r = rows.find(x => x[0] === vcn);
+
+  if(!r) return null;
+
+  return {
+  vcn:r[0],
+  cid:r[1],
+  hn:r[2],
+  vaccineCode:r[3],
+  doseNo:Number(r[4]||0),
+  dateService:r[5]
+};
+
+}
+
+async function getLineUIDByCID(cid){
+
+  const sheets = await getSheets();
+  const spreadsheetId = process.env.SPREADSHEET_ID;
+
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: "LineUID!A2:I"
+  });
+
+  const rows = res.data.values || [];
+
+  const targetCID = String(cid).trim();
+
+  for (const r of rows) {
+
+    const sheetCID = String(r[1] || "").trim();
+
+    if (sheetCID === targetCID) {
+
+      console.log("LINE MATCH:", r);
+
+      const lineUID = String(r[4] || "").trim();   // userId column
+
+      if(lineUID){
+        return lineUID;
+      }
+
+    }
+
+  }
+
+  return null;
+
+}
 /* =========================================================
    15 EXPORT
 ========================================================= */
@@ -628,8 +881,7 @@ module.exports = {
   getPatient,
   saveVaccination,
 
-  getNextVCN,   // ⭐ เพิ่มบรรทัดนี้
-
+  getNextVCN,
 
   getVaccinationRecords,
 
@@ -640,6 +892,8 @@ module.exports = {
   getAppointments,
 
   deleteVaccination,
+
+  sendLineVaccine,   // ตรงนี้จะใช้ได้แล้ว
 
   timeline:getVaccinationTimeline,
   latest:getLatestVaccines,

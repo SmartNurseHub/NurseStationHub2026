@@ -423,3 +423,30 @@ exports.deleteVaccination = async (req, res) => {
   }
 
 };
+
+exports.sendLineVaccine = async (req, res) => {
+
+  try {
+
+    const { vcn } = req.params;
+
+    const result =
+      await service.sendLineVaccine(vcn);
+
+    res.json({
+      success: true,
+      result
+    });
+
+  } catch (err) {
+
+    console.error("sendLineVaccine error:", err);
+
+    res.status(500).json({
+      success: false,
+      message: err.message
+    });
+
+  }
+
+};

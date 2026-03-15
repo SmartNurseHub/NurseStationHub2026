@@ -18,4 +18,6 @@ router.get("/appointments/:cid", controller.getAppointments);
 
 router.delete("/delete/:vcn", controller.deleteVaccination); // ⭐ แก้ตรงนี้
 
+router.post("/send-line/:vcn", controller.sendLineVaccine);
+
 module.exports = router;

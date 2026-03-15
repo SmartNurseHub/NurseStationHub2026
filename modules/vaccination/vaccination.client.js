@@ -519,6 +519,19 @@ style="font-size:10px;padding:2px 6px;">
 
     table.appendChild(tr);
 
+// 📲 LINE SEND
+tr.querySelector(".send-line")
+  .addEventListener("click", () => {
+    sendLineVaccine(v.vcn);
+  });
+
+// 🗑 DELETE
+tr.querySelector(".delete-vaccine")
+  .addEventListener("click", () => {
+    deleteVaccine(v.vcn);
+  });
+
+
   // ⭐ ผูก event ปุ่มลบ
   tr.querySelector(".delete-vaccine")
   .addEventListener("click", () => {
@@ -658,8 +671,9 @@ async function loadAppointments(cid){
   table.appendChild(tr);
 
 });
-document.getElementById("apid").value = apid;
 }
+
+
 function statusBadge(status){
 
   if(status==="PENDING")
@@ -743,6 +757,34 @@ async function deleteVaccine(vcn){
   }catch(err){
     console.error(err);
     alert("เกิดข้อผิดพลาด");
+  }
+
+}
+
+async function sendLineVaccine(vcn){
+
+  if(!confirm("ส่งข้อมูลวัคซีนไป LINE ?")) return;
+
+  try{
+
+    const res = await fetch(`/api/vaccination/send-line/${vcn}`,{
+      method:"POST"
+    });
+
+    const result = await res.json();
+
+    if(!result.success){
+      alert(result.error || "ส่ง LINE ไม่สำเร็จ");
+      return;
+    }
+
+    alert("📲 ส่ง LINE สำเร็จ");
+
+  }catch(err){
+
+    console.error(err);
+    alert("Server error");
+
   }
 
 }
