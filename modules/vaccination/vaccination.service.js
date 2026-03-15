@@ -778,7 +778,21 @@ async function sendLineVaccine(vcn){
       return { success:false };
 
     }
+function convertProviderRole(role){
 
+  if(!role) return "-";
+
+  const map = {
+    "พยาบาลวิชาชีพ":"RN",
+    "แพทย์":"MD",
+    "เภสัชกร":"PHARM",
+    "เจ้าหน้าที่สาธารณสุข":"PH",
+    "ทันตแพทย์":"DDS"
+  };
+
+  return map[role] || role;
+
+}
 const providerRole = convertProviderRole(record.providerRole);
 const vaccineNameTH = vaccine?.TH_Name || "-";
 const vaccineNameEN = vaccine?.Name || "-";
