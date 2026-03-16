@@ -806,184 +806,202 @@ async function sendLineVaccine(vcn){
 
     }
 
+    // 🔹 ดึง vaccine master
+    const vaccines = await getVaccineMaster();
+    const code = String(record.vaccineCode || "").trim().toUpperCase();
+    const vaccine = vaccines.find(
+      v => String(v.code).trim().toUpperCase() === code
+    ) || {};
+    const vaccineNameTH = vaccine?.TH_Name || "-";
+    const vaccineNameEN = vaccine?.name || "-";
+    const totalDose = vaccine?.totalDose ?? "-";
+    // 🔹 แปลง role
+    const providerRole = convertProviderRole(record.providerRole);
+    const flex = {
+      type: "flex",
+      altText: "Vaccination Record",
+      contents: {
+        type: "bubble",
+        size: "mega",
 
-// 🔹 ดึง vaccine master
-const vaccines = await getVaccineMaster();
-
-const code = String(record.vaccineCode || "").trim().toUpperCase();
-
-const vaccine = vaccines.find(
-  v => String(v.code).trim().toUpperCase() === code
-) || {};
-
-const vaccineNameTH = vaccine?.TH_Name || "-";
-const vaccineNameEN = vaccine?.name || "-";
-const totalDose = vaccine?.totalDose ?? "-";
-
-// 🔹 แปลง role
-const providerRole = convertProviderRole(record.providerRole);
-
-const flex = {
-  type: "flex",
-  altText: "Vaccination Record",
-
-  contents: {
-    type: "bubble",
-    size: "mega",
-
-    hero: {
-      type: "image",
-      url: "https://drive.google.com/uc?export=view&id=1O366lb3XphBKeVv51F5nNHIOEvdEh-jI",
-      size: "full",
-      aspectRatio: "20:13",
-      aspectMode: "cover"
-    },
-
-    body: {
-      type: "box",
-      layout: "vertical",
-      spacing: "lg",
-
-      contents: [
-
-        {
-          type: "text",
-          text: "💉 บันทึกการได้รับวัคซีน",
-          weight: "bold",
-          size: "lg",
-          align: "center",
-          color: "#1B5E20"
+        hero: {
+          type: "image",
+          url: "https://drive.google.com/uc?export=view&id=1O366lb3XphBKeVv51F5nNHIOEvdEh-jI",
+          size: "full",
+          aspectRatio: "20:13",
+          aspectMode: "cover"
         },
 
-        {
-          type: "text",
-          text: "VACCINATION RECORD",
-          size: "xs",
-          align: "center",
-          color: "#9E9E9E"
-        },
-
-        { type: "separator" },
-
-        {
-          type: "text",
-          text: `${patient.prename}${patient.firstName} ${patient.lastName}`,
-          size: "xl",
-          weight: "bold",
-          align: "center"
-        },
-
-        {
-          type: "text",
-          text: `📅 วันที่รับบริการ : ${formatThaiDate(record.dateService)}`,
-          size: "sm",
-          align: "center",
-          color: "#616161"
-        },
-
-        { type: "separator" },
-
-        {
-          type: "text",
-          text: "📋 รายละเอียดวัคซีน",
-          weight: "bold",
-          color: "#0277BD"
-        },
-
-        {
+        body: {
           type: "box",
           layout: "vertical",
-          spacing: "sm",
-          margin: "md",
-          contents: [
+          spacing: "lg",
 
+          contents: [
             {
               type: "text",
-              text: `💉 ${vaccineNameTH}`,
+              text: "บันทึกการได้รับวัคซีน",
               weight: "bold",
+              size: "xl",
+              align: "center",
+              color: "#006666"
+            },
+
+            {
+              type: "text",
+              text: "VACCINATION RECORD",
+              size: "sm",
+              align: "center",
+              color: "#9E9E9E"
+            },
+
+            { type: "separator" },
+
+            {
+              type: "text",
+              text: `${patient.prename}${patient.firstName} ${patient.lastName}`,
+              size: "xl",
+              weight: "bold",
+              align: "center",
+              color: "#fba003fd"
+            },
+            
+            { type: "separator" },
+
+            {
+              type: "text",
+              text: "📅 วันที่รับบริการ",
+              weight: "bold",
+              color: "#0277BD"
+            },
+
+            {
+              type: "text",
+              text: `${formatThaiDate(record.dateService)}`,
               size: "md",
-              wrap: true
+              align: "center",
+              color: "#080808"
+            },            
+
+            {
+              type: "text",
+              text: "📋 รายละเอียดวัคซีน",
+              weight: "bold",
+              color: "#0277BD"
             },
 
             {
-              type: "text",
-              text: `(${vaccineNameEN})`,
-              size: "xs",
-              color: "#757575",
-              wrap: true
+              type: "box",
+              layout: "vertical",
+              spacing: "sm",
+              margin: "md",
+              contents: [
+
+                {
+                  type: "text",
+                  text: `${vaccineNameTH}`,
+                  weight: "bold",
+                  align: "center",
+                  size: "md",
+                  wrap: true
+                },
+
+                {
+                  type: "text",
+                  text: `(${vaccineNameEN})`,
+                  size: "xs",
+                  align: "center",
+                  color: "#757575",
+                  wrap: true
+                },
+
+                {
+                  type: "text",
+                  text: `เลขที่ Lot : ${record.lotNumber || "-"}  เข็มที่ : ${record.doseNo} / ${totalDose} `,
+                  size: "sm"
+                },
+
+              ]
             },
 
-            {
-              type: "text",
-              text: `Lot : ${record.lotNumber || "-"}`,
-              size: "sm"
-            },
+            { type: "separator" },
 
             {
-              type: "text",
-              text: `🔢 เข็มที่ : ${record.doseNo} / ${totalDose}`,
-              size: "sm",
-              weight: "bold"
-            }
+              type: "box",
+              layout: "vertical",
+              spacing: "sm",
+              contents: [
 
-          ]
-        },
+                {
+                  type: "text",
+                  text: "👩‍⚕️ ผู้ให้บริการ",
+                  weight: "bold",
+                  color: "#0277BD"
+                },
 
-        { type: "separator" },
+                {
+                  type: "text",
+                  text: `${record.providerName || "-"} (${providerRole})`,
+                  weight: "bold",
+                  align: "center",
+                  size: "md",
+                  wrap: true
+                },
 
-        {
-          type: "box",
-          layout: "vertical",
-          spacing: "sm",
-          contents: [
+                {
+                  type: "text",
+                  text: "🏥 สถานที่",
+                  weight: "bold",
+                  color: "#0277BD"
+                },
 
-            {
-              type: "text",
-              text: `👩‍⚕️ ผู้ให้บริการ : ${record.providerName || "-"} (${providerRole})`,
-              size: "sm",
-              wrap: true
-            },
 
-            {
-              type: "text",
-              text: `🏥 สถานที่ : ${record.locationType || "-"} ${record.locationDetail || ""}`,
-              size: "sm",
-              wrap: true
+                {
+                  type: "text",
+                  text: `${record.locationType || "-"}`,
+                  size: "sm",
+                  wrap: true
+                },
+                {
+                  type: "text",
+                  text: `${record.locationDetail || ""}`,
+                  size: "sm",
+                  wrap: true
+                }
+
+              ]
             }
 
           ]
         }
-
-      ]
-    }
-  }
-};
-
-
-
-
-          try{
-  await pushLineRetry(lineUID,flex);
-}catch(err){
-  logError("LINE_PUSH_FAIL",err.message);
-}
-
-          logInfo("SEND_LINE_SUCCESS",{vcn,lineUID});
-
-          return { success:true };
-
-        }catch(err){
-
-          logError("SEND_LINE_ERROR", err.message);
-
-          return {
-            success:false,
-            error:err.message
-          };
-
-        }
-
       }
+    };
+
+
+
+
+              try{
+      await pushLineRetry(lineUID,flex);
+    }catch(err){
+      logError("LINE_PUSH_FAIL",err.message);
+    }
+
+              logInfo("SEND_LINE_SUCCESS",{vcn,lineUID});
+
+              return { success:true };
+
+            }catch(err){
+
+              logError("SEND_LINE_ERROR", err.message);
+
+              return {
+                success:false,
+                error:err.message
+              };
+
+            }
+
+          }
 
 async function getVaccinationByVCN(vcn){
 
