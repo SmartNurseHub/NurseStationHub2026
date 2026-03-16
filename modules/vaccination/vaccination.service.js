@@ -998,16 +998,7 @@ async function sendLineVaccine(vcn){
 
                   ]
                 },
-                {
-                  type: "button",
-                  style: "primary",
-                  color: "#43A047",
-                  action: {
-                    type: "uri",
-                    label: "📅 เพิ่มนัดหมาย",
-                    uri: `https://liff.line.me/2007902507-7OKhdnNW/appointment.html?cid=${record.cid}`
-                  }
-                },
+          
                 {
                   type: "button",
                   style: "secondary",

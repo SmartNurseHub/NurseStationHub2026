@@ -31,26 +31,70 @@ h2{
 
 <h2>📜 ประวัติวัคซีน</h2>
 
-<div id="history"></div>
+<div id="history">กำลังโหลด...</div>
 
 <script>
 
+
+function formatDate(date){
+
+  const d = new Date(date);
+
+  return d.toLocaleDateString("th-TH",{
+    year:"numeric",
+    month:"short",
+    day:"numeric"
+  });
+
+}
+
+
 async function init(){
 
-  await liff.init({ liffId:"2007902507-vaccine-history" });
+  try{
 
-  if(!liff.isLoggedIn()){
-    liff.login();
-    return;
+    // init LIFF
+    await liff.init({ liffId:"2007902507-SCwT4XsP" });
+
+    if(!liff.isLoggedIn()){
+      liff.login();
+      return;
+    }
+
+    // LINE profile
+    const profile = await liff.getProfile();
+
+    // รับ CID จาก URL
+    const params = new URLSearchParams(window.location.search);
+    const cid = params.get("cid");
+
+    if(!cid){
+      document.getElementById("history").innerHTML="❌ ไม่พบ CID";
+      return;
+    }
+
+    // เรียก API แบบ secure
+    const res = await fetch(
+      `/api/vaccination/history-secure/${cid}/${profile.userId}`
+    );
+
+    const data = await res.json();
+
+    if(data.error){
+      document.getElementById("history").innerHTML="❌ ไม่มีสิทธิ์เข้าถึงข้อมูล";
+      return;
+    }
+
+    render(data);
+
+  }catch(err){
+
+    console.error(err);
+
+    document.getElementById("history").innerHTML =
+      "❌ เกิดข้อผิดพลาดในการโหลดข้อมูล";
+
   }
-
-  const profile = await liff.getProfile();
-
-  const res = await fetch(`/api/vaccine/history/${profile.userId}`);
-
-  const data = await res.json();
-
-  render(data);
 
 }
 
@@ -74,7 +118,7 @@ function render(list){
     div.innerHTML = `
       💉 <b>${v.vaccineCode}</b><br>
       เข็มที่ ${v.doseNo}<br>
-      📅 ${v.dateService}
+      📅 ${formatDate(v.dateService)}
     `;
 
     el.appendChild(div);

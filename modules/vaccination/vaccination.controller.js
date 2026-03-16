@@ -449,3 +449,39 @@ exports.sendLineVaccine = async (req, res) => {
   }
 
 };
+
+exports.historySecure = async (req,res)=>{
+
+  try{
+
+    const { cid , lineUID } = req.params;
+
+    const patient = await getPatient(cid);
+
+    if(!patient){
+      return res.status(404).json({
+        error:"patient not found"
+      });
+    }
+
+    if(String(patient.lineUID) !== String(lineUID)){
+      return res.status(403).json({
+        error:"unauthorized"
+      });
+    }
+
+    const history = await getVaccinationHistory(cid);
+
+    res.json(history);
+
+  }catch(err){
+
+    console.error(err);
+
+    res.status(500).json({
+      error:"server error"
+    });
+
+  }
+
+};

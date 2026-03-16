@@ -20,4 +20,6 @@ router.delete("/delete/:vcn", controller.deleteVaccination); // ⭐ แก้ต
 
 router.post("/send-line/:vcn", controller.sendLineVaccine);
 
+router.get("/history-secure/:cid/:lineUID",controller.historySecure);
+
 module.exports = router;
