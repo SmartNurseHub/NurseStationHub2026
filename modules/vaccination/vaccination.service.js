@@ -968,6 +968,16 @@ async function sendLineVaccine(vcn){
                   text: `${record.locationDetail || ""}`,
                   size: "sm",
                   wrap: true
+                },
+                {
+                  type: "button",
+                  style: "secondary",
+                  color: "#F9A825",
+                  action: {
+                    type: "uri",
+                    label: "⭐ ประเมินความพึงพอใจ",
+                    uri: "https://liff.line.me/2007902507-7OKhdnNW?nsr=" + vcn
+                  }
                 }
 
               ]
