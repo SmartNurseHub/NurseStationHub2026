@@ -34,12 +34,8 @@ h2{
 <div id="history">กำลังโหลด...</div>
 
 <script>
-
-
 function formatDate(date){
-
   const d = new Date(date);
-
   return d.toLocaleDateString("th-TH",{
     year:"numeric",
     month:"short",
@@ -47,7 +43,6 @@ function formatDate(date){
   });
 
 }
-
 
 async function init(){
 
@@ -116,12 +111,13 @@ function render(list){
     div.className = "card";
 
     div.innerHTML = `
-      💉 <b>${v.vaccineCode}</b><br>
-      เข็มที่ ${v.doseNo}<br>
-      📅 ${formatDate(v.dateService)}
-    `;
+  📅 ${formatDate(v.dateService)}<br>
+  💉 <b>${v.TH_Name} (${v.name})</b> เข็มที่ ${v.doseNo}<br>
+  👩‍⚕️ ผู้ให้บริการ ${v.providerName || "-"}<br>
+  🏥 สถานที่ ${v.locationType || "-"}
+`;
 
-    el.appendChild(div);
+el.appendChild(div);
 
   });
 

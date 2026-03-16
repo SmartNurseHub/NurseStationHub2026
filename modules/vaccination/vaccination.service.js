@@ -585,10 +585,12 @@ async function saveVaccination(data) {
    11 RECORD QUERY
 ========================================================= */
 
-async function getVaccinationRecords(cid) {
+async function getVaccinationRecords(cid){
 
   const sheets = await getSheets();
   const spreadsheetId = process.env.SPREADSHEET_ID;
+
+  const vaccines = await getVaccineMaster(); // โหลด master
 
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId,
@@ -599,22 +601,32 @@ async function getVaccinationRecords(cid) {
 
   return rows
     .filter(r => String(r[1]) === String(cid))
-    .map(r => ({
-      vcn: r[0],
-      cid: r[1],
-      hn: r[2],
-      vaccineCode: r[3],
-      doseNo: Number(r[4] || 0),
-      dateService: r[5],
-      providerRole: r[6],
-      providerName: r[7],
-      locationType: r[8],
-      locationDetail: r[9],
-      lotNumber: r[10],
-      nextDueDate: r[11],
-      status: r[12],
-      createdAt: r[13]
-    }));
+    .map(r => {
+
+      const code = r[3];
+
+      const vaccine = vaccines.find(v => v.code === code) || {};
+
+      return {
+        vcn: r[0],
+        cid: r[1],
+        hn: r[2],
+        vaccineCode: code,
+        TH_Name: vaccine.TH_Name || code,
+        name: vaccine.name || code,
+        doseNo: Number(r[4] || 0),
+        dateService: r[5],
+        providerRole: r[6],
+        providerName: r[7],
+        locationType: r[8],
+        locationDetail: r[9],
+        lotNumber: r[10],
+        nextDueDate: r[11],
+        status: r[12],
+        createdAt: r[13]
+      };
+
+    });
 
 }
 
