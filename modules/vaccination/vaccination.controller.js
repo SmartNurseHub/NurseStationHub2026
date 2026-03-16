@@ -456,7 +456,7 @@ exports.historySecure = async (req,res)=>{
 
     const { cid , lineUID } = req.params;
 
-    const patient = await getPatient(cid);
+    const patient = await service.getPatient(cid);
 
     if(!patient){
       return res.status(404).json({
@@ -464,13 +464,20 @@ exports.historySecure = async (req,res)=>{
       });
     }
 
-    if(String(patient.lineUID) !== String(lineUID)){
+    const dbUID  = String(patient.lineUID || "").trim();
+    const reqUID = String(lineUID || "").trim();
+
+    console.log("CID:",cid);
+    console.log("REQ UID:",reqUID);
+    console.log("DB UID:",dbUID);
+
+    if(dbUID !== reqUID){
       return res.status(403).json({
         error:"unauthorized"
       });
     }
 
-    const history = await getVaccinationHistory(cid);
+    const history = await service.getVaccinationHistory(cid);
 
     res.json(history);
 
