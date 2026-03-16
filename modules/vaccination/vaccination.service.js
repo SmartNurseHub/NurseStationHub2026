@@ -859,7 +859,7 @@ async function sendLineVaccine(vcn){
 
             {
               type: "text",
-              text: `${patient.prename}${patient.firstName} ${patient.lastName}`,
+              text: `${patient.firstName} ${patient.lastName}`,
               size: "xl",
               weight: "bold",
               align: "center",
@@ -879,9 +879,9 @@ async function sendLineVaccine(vcn){
               type: "text",
               text: `${formatThaiDate(record.dateService)}`,
               size: "md",
-              align: "center",
-              color: "#080808"
-            },            
+            }, 
+            
+            { type: "separator" },
 
             {
               type: "text",
@@ -901,7 +901,6 @@ async function sendLineVaccine(vcn){
                   type: "text",
                   text: `${vaccineNameTH}`,
                   weight: "bold",
-                  align: "center",
                   size: "md",
                   wrap: true
                 },
@@ -910,7 +909,6 @@ async function sendLineVaccine(vcn){
                   type: "text",
                   text: `(${vaccineNameEN})`,
                   size: "xs",
-                  align: "center",
                   color: "#757575",
                   wrap: true
                 },
@@ -918,7 +916,9 @@ async function sendLineVaccine(vcn){
                 {
                   type: "text",
                   text: `เลขที่ Lot : ${record.lotNumber || "-"}  เข็มที่ : ${record.doseNo} / ${totalDose} `,
-                  size: "sm"
+                  size: "xs",
+                  color: "#757575",
+                  wrap: true
                 },
 
               ]
@@ -943,10 +943,11 @@ async function sendLineVaccine(vcn){
                   type: "text",
                   text: `${record.providerName || "-"} (${providerRole})`,
                   weight: "bold",
-                  align: "center",
                   size: "md",
                   wrap: true
                 },
+
+                { type: "separator" },
 
                 {
                   type: "text",
