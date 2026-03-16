@@ -365,19 +365,25 @@ async function getPatient(cid){
 
     if (String(r[0]) === String(cid)) {
 
-      const patient = {
-        cid: r[0],
-        prename: r[1] || "",
-        firstName: r[2] || "",
-        lastName: r[3] || "",
-        hn: r[4] || "",
-        sex: r[5] || "",
-        birthDate: r[7] || r[6],
-        age: calculateAge(r[7] || r[6]),
-        telephone: r[8] || "",
-        phone: r[9] || r[8] || "",
-        lineUID: r[10] || ""
-      };
+      let lineUID = r[10] || "";
+
+if(!lineUID){
+  lineUID = await getLineUIDByCID(r[0]);
+}
+
+const patient = {
+  cid: r[0],
+  prename: r[1] || "",
+  firstName: r[2] || "",
+  lastName: r[3] || "",
+  hn: r[4] || "",
+  sex: r[5] || "",
+  birthDate: r[7] || r[6],
+  age: calculateAge(r[7] || r[6]),
+  telephone: r[8] || "",
+  phone: r[9] || r[8] || "",
+  lineUID: lineUID || ""
+};
 
       setCache(cacheKey,patient,60000);
 
@@ -1078,6 +1084,10 @@ async function getVaccinationByVCN(vcn){
 
 async function getLineUIDByCID(cid){
 
+  const cacheKey = `lineuid_${cid}`;
+  const cached = getCache(cacheKey);
+  if(cached) return cached;
+
   const sheets = await getSheets();
   const spreadsheetId = process.env.SPREADSHEET_ID;
 
@@ -1096,12 +1106,14 @@ async function getLineUIDByCID(cid){
 
     if (sheetCID === targetCID) {
 
-      console.log("LINE MATCH:", r);
-
-      const lineUID = String(r[4] || "").trim();   // userId column
+      const lineUID = String(r[4] || "").trim();
 
       if(lineUID){
+
+        setCache(cacheKey,lineUID,300000);
+
         return lineUID;
+
       }
 
     }
@@ -1109,7 +1121,6 @@ async function getLineUIDByCID(cid){
   }
 
   return null;
-
 }
 /* =========================================================
    15 EXPORT
