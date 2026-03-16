@@ -1,0 +1,14 @@
+<script>
+const params = new URLSearchParams(window.location.search);
+const page = params.get("page");
+
+if(page === "reschedule"){
+  window.location.href = "reschedule.html" + window.location.search;
+}
+else if(page === "vaccine-history"){
+  window.location.href = "vaccine-history.html" + window.location.search;
+}
+else{
+  document.body.innerHTML = "Welcome";
+}
+</script>

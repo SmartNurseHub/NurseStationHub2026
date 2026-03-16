@@ -3,7 +3,28 @@
 <head>
 <meta charset="UTF-8">
 <title>ประวัติวัคซีน</title>
+
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+
+<style>
+body{
+  font-family: Arial, sans-serif;
+  margin:20px;
+}
+
+h2{
+  color:#006666;
+}
+
+.card{
+  border:1px solid #ddd;
+  border-radius:10px;
+  padding:12px;
+  margin-bottom:10px;
+  background:#fafafa;
+}
+</style>
+
 </head>
 
 <body>
@@ -18,9 +39,14 @@ async function init(){
 
   await liff.init({ liffId:"2007902507-vaccine-history" });
 
+  if(!liff.isLoggedIn()){
+    liff.login();
+    return;
+  }
+
   const profile = await liff.getProfile();
 
-  const res = await fetch("/api/vaccine/history/"+profile.userId);
+  const res = await fetch(`/api/vaccine/history/${profile.userId}`);
 
   const data = await res.json();
 
@@ -34,14 +60,21 @@ function render(list){
 
   el.innerHTML = "";
 
+  if(!list || list.length === 0){
+    el.innerHTML = "ไม่พบประวัติวัคซีน";
+    return;
+  }
+
   list.forEach(v=>{
 
     const div = document.createElement("div");
 
+    div.className = "card";
+
     div.innerHTML = `
-    <hr>
-    💉 ${v.vaccineCode} เข็ม ${v.doseNo}<br>
-    📅 ${v.dateService}
+      💉 <b>${v.vaccineCode}</b><br>
+      เข็มที่ ${v.doseNo}<br>
+      📅 ${v.dateService}
     `;
 
     el.appendChild(div);

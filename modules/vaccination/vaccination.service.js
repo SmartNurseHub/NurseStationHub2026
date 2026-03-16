@@ -970,6 +970,45 @@ async function sendLineVaccine(vcn){
                   wrap: true
                 },
                 {
+                  type: "separator"
+                },
+                {
+                  type: "text",
+                  text: "📲 เมนูบริการ",
+                  weight: "bold",
+                  color: "#0277BD"
+                },
+
+                {
+                  type: "box",
+                  layout: "vertical",
+                  spacing: "sm",
+                  margin: "md",
+                  contents: [
+                    {
+                      type: "button",
+                      style: "primary",
+                      color: "#6A1B9A",
+                      action: {
+                        type: "uri",
+                        label: "💉 ประวัติวัคซีน",
+                        uri: `https://liff.line.me/2007902507-7OKhdnNW/vaccine-history.html?cid=${record.cid}`
+                      }
+                    }
+
+                  ]
+                },
+                {
+                  type: "button",
+                  style: "primary",
+                  color: "#43A047",
+                  action: {
+                    type: "uri",
+                    label: "📅 เพิ่มนัดหมาย",
+                    uri: `https://liff.line.me/2007902507-7OKhdnNW/appointment.html?cid=${record.cid}`
+                  }
+                },
+                {
                   type: "button",
                   style: "secondary",
                   color: "#F9A825",
