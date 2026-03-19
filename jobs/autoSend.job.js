@@ -2,7 +2,7 @@ const cron = require("node-cron");
 const { getSheet } = require("../config/google");
 const { sendResult } = require("../modules/nursingRecords/nursingRecords.service");
 
-cron.schedule("*/10 * * * *", async () => {
+cron.schedule("*/09 * * * *", async () => {
   const rows = await getSheet("NursingRecords");
   const headers = rows[0];
   const statusIdx = headers.indexOf("status");
