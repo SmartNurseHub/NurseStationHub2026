@@ -60,7 +60,7 @@ app.use(
    CRON JOB — Vaccination Reminder
 ================================ */
 
-cron.schedule("0 10 * * *", async () => {
+cron.schedule("0 12 * * *", async () => {
 
   console.log("🔔 Vaccination reminder job started");
 
