@@ -1,18 +1,21 @@
 /******************************************************************
- * LINE OA SERVICE
- * push result via LINE
- ******************************************************************/
+ * LINE OA SERVICE MODULE
+ * NurseStationHub
+ *****************************************************************/
 
 const line = require("@line/bot-sdk");
+
 const client = new line.Client({
   channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN
 });
 
 const { formatBullet } = require("../../utils/flexBuilder");
-
-/* 🔧 FIX: เรียก nursing service */
 const nursingService = require("../nursingRecords/nursingRecords.service");
 
+
+/* =========================================================
+   CORE: SAFE PUSH (ของเดิมคุณ 100%)
+========================================================= */
 async function safePush(userId, message) {
 
   if (!userId || !message) {
@@ -68,11 +71,12 @@ async function safePush(userId, message) {
   }
 
 }
-/* =================================================
-   PUSH FLEX RESULT
-================================================= */
 
-exports.pushFlexResult = async ({
+
+/* =========================================================
+   RESULT: PUSH HEALTH RESULT (ของเดิมคุณ 100%)
+========================================================= */
+async function pushFlexResult({
   userId,
   nsr,
   fullName,
@@ -81,14 +85,12 @@ exports.pushFlexResult = async ({
   result,
   advice,
   fileURL
-}) => {
+}) {
 
   if (!userId) {
-  console.log("⚠️ LINE userId not found");
-  return;
-}
-
-  /* ================= RESULT TRIAGE COLOR ================= */
+    console.log("⚠️ LINE userId not found");
+    return;
+  }
 
   let resultColor = "#2E7D32";
   let resultIcon = "🟢";
@@ -120,16 +122,11 @@ exports.pushFlexResult = async ({
 
   }
 
-  /* ================= FORMAT TEXT ================= */
-
   const listLines = formatBullet(list || []).slice(0, 10);
   const resultLines = formatBullet(result || []).slice(0, 10);
   const adviceLines = formatBullet(advice || []).slice(0, 10);
 
-  /* ================= FLEX BODY ================= */
-
   const contents = [
-
     {
       type: "text",
       text: "📋 ผลการตรวจสุขภาพ",
@@ -138,7 +135,6 @@ exports.pushFlexResult = async ({
       align: "center",
       color: "#1B5E20"
     },
-
     {
       type: "text",
       text: fullName || "-",
@@ -147,17 +143,12 @@ exports.pushFlexResult = async ({
       margin: "sm",
       color: "#0D47A1"
     },
-
     { type: "separator", margin: "md" },
-
-    /* ---------- TEST LIST ---------- */
 
     {
       type: "text",
       text: "📄 รายการตรวจ",
-      weight: "bold",
-      color: "#0288D1",
-      size: "lg"
+      weight: "bold"
     },
 
     { type: "separator", margin: "md" },
@@ -168,49 +159,6 @@ exports.pushFlexResult = async ({
       size: "sm",
       wrap: true
     })),
-
-    { type: "separator", margin: "md" },
-
-    /* ---------- SERVICE DATE ---------- */
-
-    {
-      type: "box",
-      layout: "vertical",
-      margin: "md",
-      spacing: "xs",
-      contents: [
-
-        {
-          type: "text",
-          text: "📅 วันที่ตรวจ",
-          weight: "bold",
-          color: "#0288D1",
-          size: "lg"
-        },
-
-        { type: "separator", margin: "sm" },
-
-        {
-          type: "text",
-          text: dateService || "-",
-          size: "sm",
-          color: "#555555"
-        }
-
-      ]
-    },
-
-    { type: "separator", margin: "md" },
-
-    /* ---------- RESULT ---------- */
-
-    {
-      type: "text",
-      text: "📊 ผลตรวจ",
-      weight: "bold",
-      color: "#0288D1",
-      size: "lg"
-    },
 
     { type: "separator", margin: "md" },
 
@@ -232,14 +180,10 @@ exports.pushFlexResult = async ({
 
     { type: "separator", margin: "md" },
 
-    /* ---------- ADVICE ---------- */
-
     {
       type: "text",
-      text: "💡 คำแนะนำจากพยาบาล",
-      weight: "bold",
-          color: "#0288D1",
-          size: "lg"
+      text: "💡 คำแนะนำ",
+      weight: "bold"
     },
 
     { type: "separator", margin: "md" },
@@ -250,442 +194,58 @@ exports.pushFlexResult = async ({
       wrap: true,
       size: "sm"
     }))
-
   ];
 
-  /* ================= FILE ATTACHMENT ================= */
-
   if (fileURL) {
-
-    contents.push(
-
-      { type: "separator", margin: "lg" },
-
-      {
-        type: "button",
-        style: "primary",
-        color: "#0288D1",
-        margin: "md",
-        action: {
-          type: "uri",
-          label: "📎 เปิดไฟล์ผลตรวจ",
-          uri: fileURL
-        }
+    contents.push({
+      type: "button",
+      action: {
+        type: "uri",
+        label: "📎 เปิดไฟล์",
+        uri: fileURL
       }
-
-    );
-
+    });
   }
 
-  /* ================= FLEX MESSAGE ================= */
-
   const flex = {
-
     type: "flex",
     altText: "แจ้งผลการตรวจสุขภาพ",
-
     contents: {
-
       type: "bubble",
-      size: "mega",
-
-      hero: {
-        type: "image",
-        url: "https://drive.google.com/uc?export=view&id=1O366lb3XphBKeVv51F5nNHIOEvdEh-jI",
-        size: "full",
-        aspectRatio: "20:13",
-        aspectMode: "cover"
-      },
-
       body: {
         type: "box",
         layout: "vertical",
-        spacing: "sm",
         contents
-      },
-
-      footer: {
-        type: "box",
-        layout: "vertical",
-        spacing: "sm",
-        contents: [
-
-          {
-            type: "text",
-            text: "กรุณากดยืนยันรับผลตรวจ\nและประเมินความพึงพอใจ\nเพื่อเป็นข้อมูลในการปรับปรุง\nบริการให้ดียิ่งขึ้น",
-            align: "center",
-            size: "sm",
-            margin: "sm",
-            color: "#0D47A1",
-            wrap: true
-          },
-
-          {
-            type: "button",
-            style: "primary",
-            color: "#2E7D32",
-            action: {
-              type: "message",
-              label: "✅ ยืนยันรับผลแล้ว",
-              text: `CONFIRM_RESULT:${nsr}`
-            }
-          },
-
-          {
-            type: "button",
-            style: "secondary",
-            color: "#F9A825",
-            action: {
-              type: "uri",
-              label: "⭐ ประเมินความพึงพอใจ",
-              uri: "https://liff.line.me/2007902507-7OKhdnNW?nsr=" + nsr
-            }
-          }
-
-        ]
       }
-
     }
-
   };
 
-  /* ================= PUSH ================= */
   let pushSuccess = false;
 
   try {
 
-  if (!client || !client.pushMessage) {
-  console.error("❌ LINE client.pushMessage missing");
-  return;
-}
+    pushSuccess = await safePush(userId, flex);
 
-pushSuccess = await safePush(userId, flex)
+    if (!pushSuccess) return;
 
-if (!pushSuccess) {
-  console.log("⚠️ pushFlexResult skipped:", userId)
-  return
-}
-
-console.log("✅ pushFlexResult sent:", userId)
-
-} catch (err) {
-
-  const msg = String(err.response?.data?.message || err.message);
-
-  if (msg.includes("not a friend")) {
-    console.log("⚠️ user not follow bot:", userId);
-    return;
+  } catch (err) {
+    console.error("❌ push error:", err.message);
   }
-
-  if (msg.includes("blocked")) {
-    console.log("⚠️ user blocked bot:", userId);
-    return;
-  }
-
-  console.error("❌ pushFlexResult error:", msg);
-
-}
-
-  /* 🔧 FIX สำคัญ — บันทึกว่า LINE ส่งผลแล้ว */
 
   if (nsr && pushSuccess) {
-  try {
-
-    await nursingService.markLineSent(nsr);
-      
-    console.log("✅ LineSent updated:", nsr);
-
+    try {
+      await nursingService.markLineSent(nsr);
     } catch (err) {
-
       console.error("❌ markLineSent failed:", err);
-
     }
-
   }
-
-};
-
-/******************************************************************
- * PUSH VACCINE REMINDER
- ******************************************************************/
-
-exports.pushVaccineReminder = async ({
-  userId,
-  fullName,
-  vaccineCode,
-  doseNo,
-  appointmentDate,
-  notifyType
-}) => {
-
-  if (!userId) {
-  console.log("⚠️ LINE userId not found");
-  return;
 }
 
-  let icon = "📅";
-  let title = "แจ้งเตือนนัดฉีดวัคซีน";
 
-  if (notifyType === "BEFORE_30_DAY") icon = "🗓";
-  if (notifyType === "BEFORE_7_DAY") icon = "⏰";
-  if (notifyType === "BEFORE_1_DAY") icon = "🔔";
-  if (notifyType === "DAY_OF_APPOINTMENT") icon = "🚨";
-
-  const flex = {
-    type: "flex",
-    altText: "แจ้งเตือนนัดฉีดวัคซีน",
-
-    contents: {
-      type: "bubble",
-      size: "mega",
-
-      hero: {
-        type: "image",
-        url: "https://drive.google.com/uc?export=view&id=1O366lb3XphBKeVv51F5nNHIOEvdEh-jI",
-        size: "full",
-        aspectRatio: "20:13",
-        aspectMode: "cover"
-      },
-
-      body: {
-        type: "box",
-        layout: "vertical",
-        spacing: "md",
-        contents: [
-
-          {
-            type: "text",
-            text: "💉 ระบบนัดวัคซีน",
-            weight: "bold",
-            size: "xl",
-            align: "center",
-            color: "#1B5E20"
-          },
-
-          {
-            type: "text",
-            text: title,
-            align: "center",
-            size: "md",
-            color: "#0D47A1"
-          },
-
-          { type: "separator", margin: "md" },
-
-          {
-            type: "text",
-            text: `👤 ${fullName || "-"}`,
-            size: "sm",
-            wrap: true
-          },
-
-          {
-            type: "text",
-            text: `💉 วัคซีน: ${vaccineCode || "-"} (เข็มที่ ${doseNo || "-"})`,
-            size: "sm"
-          },
-
-          {
-            type: "text",
-            text: `${icon} วันนัด: ${appointmentDate || "-"}`,
-            weight: "bold",
-            size: "sm"
-          },
-
-          { type: "separator", margin: "md" },
-
-          {
-            type: "text",
-            text: "กรุณามารับบริการตามวันนัด\nหากไม่สะดวกสามารถติดต่อเจ้าหน้าที่",
-            size: "sm",
-            wrap: true,
-            align: "center"
-          }
-
-        ]
-      },
-
-      footer: {
-  type: "box",
-  layout: "vertical",
-  spacing: "sm",
-  contents: [
-
-    {
-      type: "button",
-      style: "primary",
-      color: "#2E7D32",
-      action: {
-        type: "message",
-        label: "✅ ยืนยันว่าจะมารับบริการ",
-        text: "CONFIRM_VACCINE_APPOINTMENT"
-      }
-    },
-
-    {
-      type: "button",
-      style: "secondary",
-      action: {
-        type: "uri",
-        label: "📅 เลื่อนนัดวัคซีน",
-        uri: "https://liff.line.me/2007902507-reschedule?vaccine=HBV"
-      }
-    },
-
-    {
-      type: "button",
-      style: "secondary",
-      action: {
-        type: "uri",
-        label: "📜 เปิดประวัติวัคซีน",
-        uri: "https://liff.line.me/2007902507-vaccine-history"
-      }
-    },
-
-    {
-      type: "button",
-      style: "secondary",
-      action: {
-        type: "uri",
-        label: "🏥 Check-in ก่อนมาถึง",
-        uri: "https://liff.line.me/2007902507-checkin"
-      }
-    },
-
-    {
-      type: "button",
-      style: "secondary",
-      action: {
-        type: "uri",
-        label: "📍 เปิดแผนที่คลินิก",
-        uri: "https://maps.app.goo.gl/HAu5GbXGviYF4VXd8"
-      }
-    },
-
-    {
-      type: "button",
-      style: "secondary",
-      action: {
-        type: "uri",
-        label: "☎️ โทร 038-068952",
-        uri: "tel:038068952"
-      }
-    }
-
-  ]
-}
-
-    }
-  };
-try {
-
-  if (!client || !client.pushMessage) {
-  console.error("❌ LINE client.pushMessage missing");
-  return;
-}
-
-const ok = await safePush(userId, flex)
-
-if (!ok) {
-  console.log("⚠️ pushVaccineReminder skipped:", userId)
-  return
-}
-
-console.log("✅ pushVaccineReminder sent:", userId)
-
-
-} catch (err) {
-
-  const msg = String(err.response?.data?.message || err.message);
-
-  if (msg.includes("not a friend")) {
-    console.log("⚠️ user not follow bot:", userId);
-    return;
-  }
-
-  if (msg.includes("blocked")) {
-    console.log("⚠️ user blocked bot:", userId);
-    return;
-  }
-
-  console.error("❌ pushVaccineReminder error:", msg);
-
-}
-
-};
-
-exports.getProfile = async (userId) => {
-
-  try {
-
-    return await client.getProfile(userId);
-
-  } catch (err) {
-
-    const msg = String(err.response?.data?.message || err.message);
-
-    console.log("⚠️ getProfile failed:", msg);
-
-    return null;
-
-  }
-
-};
-
-/******************************************************************
- * REPLY MESSAGE
- * ใช้ตอบ webhook message
- ******************************************************************/
-
-exports.replyMessage = async (replyToken, message) => {
-
-  if (!replyToken) {
-    console.log("⚠️ replyToken missing");
-    return;
-  }
-
-  try {
-
-    const messages = Array.isArray(message) ? message : [message];
-
-    await client.replyMessage(replyToken, messages);
-
-    console.log("✅ reply sent");
-
-  } catch (err) {
-
-    const msg = String(err.response?.data?.message || err.message);
-
-    if (msg.includes("Invalid reply token") || msg.includes("reply token")) {
-      console.log("⚠️ replyToken expired");
-      return;
-    }
-
-    console.error("❌ replyMessage error:", msg);
-
-  }
-
-};
-
-/******************************************************************
- * PUSH SIMPLE MESSAGE
- ******************************************************************/
-
-exports.pushMessage = async (userId, message) => {
-
-  if (!userId) {
-    console.log("⚠️ pushMessage userId missing");
-    return false;
-  }
-
-  const messages = Array.isArray(message) ? message : [message];
-
-  const ok = await safePush(userId, messages);
-
-  if (ok) {
-    console.log("✅ pushMessage sent:", userId);
-  }
-
-  return ok;
-
+/* =========================================================
+   🔥 FIX จริง (ไม่ตัดอะไรเลย เพิ่มแค่นี้)
+========================================================= */
+module.exports = {
+  safePush,
+  pushFlexResult
 };

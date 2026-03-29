@@ -1,19 +1,33 @@
-/*************************************************
- * modules/dashboard/dashboard.service.js
- *************************************************/
+/*****************************************************************
+ * dashboard.service.js (CLEAN & COMMENTED VERSION)
+ *
+ * แนวคิด:
+ * - Business Logic Layer สำหรับหน้า Dashboard
+ * - ติดต่อ Google Sheets
+ * - จัดการข้อมูล Follow / Dashboard
+ *****************************************************************/
+
 const { google } = require("googleapis");
 const { getAuth } = require("../../config/google");
 
-/* =================================================
-   HELPER: GET SHEETS INSTANCE
-================================================= */
+
+/*****************************************************************
+ * FUNCTION: getSheetsInstance
+ * หน้าที่:
+ * - สร้าง instance สำหรับเรียกใช้งาน Google Sheets API
+ *****************************************************************/
 async function getSheetsInstance() {
   const auth = await getAuth();
   return google.sheets({ version: "v4", auth });
 }
-/* =================================================
-   SUMMARY SERVICE
-================================================= */
+
+
+/*****************************************************************
+ * FUNCTION: getDashboardSummaryService
+ * หน้าที่:
+ * - คืนค่าภาพรวม dashboard (placeholder)
+ * - Response: { patients, appointmentsToday, records, pending }
+ *****************************************************************/
 async function getDashboardSummaryService() {
   return {
     patients: 0,
@@ -23,9 +37,13 @@ async function getDashboardSummaryService() {
   };
 }
 
-/* =================================================
-   GET FOLLOW LIST
-================================================= */
+
+/*****************************************************************
+ * FUNCTION: getFollowListService
+ * หน้าที่:
+ * - ดึงรายการผู้ติดตามจาก Google Sheets
+ * - Response: array ของ follower objects
+ *****************************************************************/
 async function getFollowListService() {
   const sheets = await getSheetsInstance();
 
@@ -37,30 +55,31 @@ async function getFollowListService() {
   const rows = res.data.values || [];
 
   return rows
-  .map(r => ({
-    Timestamp: r[0] || "",
-    EventType: r[1] || "",
-    UserId: r[2] || "",
-    DisplayName: r[3] || "",
-    PictureUrl: r[4] || ""
-  }))
-  .sort((a, b) => new Date(b.Timestamp) - new Date(a.Timestamp));
+    .map(r => ({
+      Timestamp: r[0] || "",
+      EventType: r[1] || "",
+      UserId: r[2] || "",
+      DisplayName: r[3] || "",
+      PictureUrl: r[4] || ""
+    }))
+    .sort((a, b) => new Date(b.Timestamp) - new Date(a.Timestamp));
 }
 
 
+/*****************************************************************
+ * FUNCTION: addFollowerService
+ * หน้าที่:
+ * - เพิ่ม follower ใหม่
+ * - ตรวจสอบ duplicate (CID / UserId)
+ *****************************************************************/
 async function addFollowerService(data) {
   const sheets = await getSheetsInstance();
-
-  // โหลดก่อนเพื่อกันซ้ำ
   const existing = await getFollowListService();
 
   const duplicate = existing.find(
     r => r.CID === data.CID || r.UserId === data.UserId
   );
-
-  if (duplicate) {
-    throw new Error("Duplicate CID or UserId");
-  }
+  if (duplicate) throw new Error("Duplicate CID or UserId");
 
   const row = [
     data.CID || "",
@@ -81,9 +100,14 @@ async function addFollowerService(data) {
     requestBody: { values: [row] }
   });
 }
-/* =================================================
-   UPDATE FOLLOW (FullName + CID)
-================================================= */
+
+
+/*****************************************************************
+ * FUNCTION: updateFollowService
+ * หน้าที่:
+ * - อัปเดต CID + ชื่อ จาก userId
+ * - รับ params: userId, fullName, cid
+ *****************************************************************/
 async function updateFollowService(userId, fullName, cid) {
   const sheets = await getSheetsInstance();
 
@@ -94,30 +118,28 @@ async function updateFollowService(userId, fullName, cid) {
 
   const rows = res.data.values || [];
   const rowIndex = rows.findIndex(r => r[5] === userId);
-
-  if (rowIndex === -1) {
-    throw new Error("User not found");
-  }
+  if (rowIndex === -1) throw new Error("User not found");
 
   const [name = "", lname = ""] = (fullName || "").split(" ");
-
-  const updateRange =
-    `${process.env.SHEET_FOLLOW}!A${rowIndex + 2}:C${rowIndex + 2}`;
+  const updateRange = `${process.env.SHEET_FOLLOW}!A${rowIndex + 2}:C${rowIndex + 2}`;
 
   await sheets.spreadsheets.values.update({
     spreadsheetId: process.env.SPREADSHEET_ID,
     range: updateRange,
     valueInputOption: "RAW",
-    requestBody: {
-      values: [[cid || "", name, lname]]
-    }
+    requestBody: { values: [[cid || "", name, lname]] }
   });
 }
 
-/* =================================================
-   DELETE FOLLOW
-================================================= */
-async function deleteFollowService(sheetRowNumber) {
+
+/*****************************************************************
+ * FUNCTION: deleteFollowByCidService
+ * หน้าที่:
+ * - ลบ follower ตาม CID
+ * - ใช้วิธี rewrite sheet ทั้งหมด
+ * - รับ param: cid
+ *****************************************************************/
+async function deleteFollowByCidService(cid) {
   const sheets = await getSheetsInstance();
 
   const res = await sheets.spreadsheets.values.get({
@@ -126,14 +148,10 @@ async function deleteFollowService(sheetRowNumber) {
   });
 
   const rows = res.data.values || [];
+  const rowIndex = rows.findIndex(r => r[0] === cid); // สมมติ CID อยู่คอลัมน์ A
+  if (rowIndex === -1) throw new Error("CID not found");
 
-  const arrayIndex = sheetRowNumber - 2;
-
-  if (arrayIndex < 0 || arrayIndex >= rows.length) {
-    throw new Error("Row not found");
-  }
-
-  rows.splice(arrayIndex, 1);
+  rows.splice(rowIndex, 1);
 
   await sheets.spreadsheets.values.update({
     spreadsheetId: process.env.SPREADSHEET_ID,
@@ -142,10 +160,16 @@ async function deleteFollowService(sheetRowNumber) {
     requestBody: { values: rows }
   });
 }
+
+
+/*****************************************************************
+ * MODULE: EXPORT
+ * ส่งออกฟังก์ชันทั้งหมดให้ controller ใช้งาน
+ *****************************************************************/
 module.exports = {
   getDashboardSummaryService,
   getFollowListService,
+  addFollowerService,
   updateFollowService,
-  deleteFollowService,
-  addFollowerService
+  deleteFollowByCidService
 };

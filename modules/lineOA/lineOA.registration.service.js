@@ -1,10 +1,45 @@
 /*****************************************************************
- LINE REGISTRATION SERVICE (PRODUCTION STABLE)
- NurseStationHub
-*****************************************************************/
+ * LINE REGISTRATION SERVICE MODULE
+ * NurseStationHub (Production Stable)
+ *
+ * ---------------------------------------------------------------
+ * หน้าที่:
+ * - จัดการ flow การลงทะเบียนผู้ใช้ผ่าน LINE OA
+ * - บันทึกข้อมูลลง Google Sheet
+ * - ใช้ state machine (status) ควบคุมขั้นตอน
+ *
+ * ---------------------------------------------------------------
+ * REGISTRATION FLOW:
+ *
+ * STEP 1: PENDING_CID
+ *   → รับเลขบัตรประชาชน
+ *
+ * STEP 2: PENDING_NAME
+ *   → รับชื่อ-นามสกุล
+ *
+ * STEP 3: PENDING_PHONE
+ *   → รับเบอร์โทรศัพท์
+ *
+ * STEP 4: ACTIVE
+ *   → ลงทะเบียนเสร็จสมบูรณ์
+ *
+ * ---------------------------------------------------------------
+ * OPTIMIZATION:
+ * - ใช้ Cache ลดการเรียก Google Sheet
+ *
+ * ---------------------------------------------------------------
+ * FLOW:
+ * Webhook → Controller → Registration Service → Google Sheet
+ *****************************************************************/
+
+
+/* =========================================================
+   IMPORTS
+========================================================= */
 
 const { readRows, updateRow } = require("../../config/google");
 const { LINE_UID_SHEET } = require("./lineOA.schema");
+
 
 /* =========================================================
    CACHE (ลดการเรียก Google Sheet)
@@ -14,6 +49,9 @@ let sheetCache = null;
 let lastLoad = 0;
 const CACHE_TIME = 10000; // 10 sec
 
+/**
+ * โหลดข้อมูลจาก Sheet (ใช้ cache)
+ */
 async function getRows() {
 
   const now = Date.now();
@@ -39,20 +77,27 @@ async function getRows() {
   return sheetCache;
 }
 
+
 /* =========================================================
-   CLEAR CACHE
+   CACHE CONTROL
 ========================================================= */
 
+/**
+ * ล้าง cache หลัง update
+ */
 function clearCache() {
-
   sheetCache = null;
-
 }
 
+
 /* =========================================================
-   MAIN REGISTRATION FLOW
+   MAIN REGISTRATION FLOW (STATE MACHINE)
 ========================================================= */
 
+/**
+ * handleRegistrationFlow
+ * ใช้ควบคุม flow การลงทะเบียนทีละ step
+ */
 exports.handleRegistrationFlow = async (lineClient, userId, text, replyToken) => {
 
   try {
@@ -76,8 +121,9 @@ exports.handleRegistrationFlow = async (lineClient, userId, text, replyToken) =>
 
     console.log("Registration flow:", userId, "status:", status);
 
+
     /* =====================================================
-       STEP 1 : CID
+       STEP 1 : CID (เลขบัตรประชาชน)
     ===================================================== */
 
     if (status === "PENDING_CID") {
@@ -107,8 +153,9 @@ exports.handleRegistrationFlow = async (lineClient, userId, text, replyToken) =>
       return true;
     }
 
+
     /* =====================================================
-       STEP 2 : NAME
+       STEP 2 : NAME (ชื่อ-นามสกุล)
     ===================================================== */
 
     if (status === "PENDING_NAME") {
@@ -141,8 +188,9 @@ exports.handleRegistrationFlow = async (lineClient, userId, text, replyToken) =>
       return true;
     }
 
+
     /* =====================================================
-       STEP 3 : PHONE
+       STEP 3 : PHONE (เบอร์โทร)
     ===================================================== */
 
     if (status === "PENDING_PHONE") {

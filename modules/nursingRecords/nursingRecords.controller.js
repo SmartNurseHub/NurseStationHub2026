@@ -1,85 +1,205 @@
 /******************************************************************
- * modules/nursingRecords/nursingRecords.controller.js
- * FINAL STANDARD – MATCH nursingRecords.service.js
- ******************************************************************/
+ * NURSING RECORDS CONTROLLER MODULE
+ * NurseStationHub
+ *
+ * ---------------------------------------------------------------
+ * หน้าที่:
+ * - รับ request จาก client (API)
+ * - ส่งต่อไปยัง service layer
+ * - จัดการ response / error
+ *
+ * ---------------------------------------------------------------
+ * ENDPOINTS:
+ *
+ * [READ]
+ * - GET    /api/nursingRecords
+ * - GET    /api/nursingRecords/next-nsr
+ *
+ * [CREATE]
+ * - POST   /api/nursingRecords
+ *
+ * [UPDATE]
+ * - PUT    /api/nursingRecords/:nsr
+ *
+ * [DELETE]
+ * - DELETE /api/nursingRecords/:nsr   (Soft Delete)
+ *
+ * ---------------------------------------------------------------
+ * FLOW:
+ * Client → Controller → Service → Google Sheet
+ *****************************************************************/
+
+
+/* =========================================================
+   IMPORT SERVICE
+========================================================= */
+
 const service = require("./nursingRecords.service");
 
+
 /* =========================================================
-   GET /api/nursingRecords
+   READ
 ========================================================= */
+
+/**
+ * GET ALL NURSING RECORDS
+ */
 exports.getAll = async (req, res) => {
+
   try {
+
     const records = await service.getAll();
-    res.json({ data: records });
+
+    res.json({
+      data: records
+    });
+
   } catch (err) {
+
     console.error("❌ getAll error:", err);
-    res.status(500).json({ message: "Failed to load nursing records" });
+
+    res.status(500).json({
+      message: "Failed to load nursing records"
+    });
+
   }
+
 };
 
-/* =========================================================
-   GET /api/nursingRecords/next-nsr
-========================================================= */
+
+/**
+ * GET NEXT NSR (Auto Running Number)
+ */
 exports.getNextNSR = async (req, res) => {
+
   try {
+
     const nsr = await service.getNextNSR();
-    res.json({ nsr });
+
+    res.json({
+      nsr
+    });
+
   } catch (err) {
+
     console.error("❌ getNextNSR error:", err);
-    res.status(500).json({ message: "Failed to generate NSR" });
+
+    res.status(500).json({
+      message: "Failed to generate NSR"
+    });
+
   }
+
 };
 
+
 /* =========================================================
-   POST /api/nursingRecords   (CREATE)
+   CREATE
 ========================================================= */
+
+/**
+ * CREATE NURSING RECORD
+ */
 exports.save = async (req, res) => {
+
   try {
+
     if (!req.body.NSR) {
-      return res.status(400).json({ message: "NSR is required" });
+
+      return res.status(400).json({
+        message: "NSR is required"
+      });
+
     }
 
     await service.save(req.body);
-    res.json({ success: true });
+
+    res.json({
+      success: true
+    });
+
   } catch (err) {
+
     console.error("❌ save error:", err);
-    res.status(500).json({ message: "Failed to save nursing record" });
+
+    res.status(500).json({
+      message: "Failed to save nursing record"
+    });
+
   }
+
 };
 
+
 /* =========================================================
-   PUT /api/nursingRecords/:nsr   (UPDATE)
+   UPDATE
 ========================================================= */
+
+/**
+ * UPDATE NURSING RECORD BY NSR
+ */
 exports.update = async (req, res) => {
+
   try {
+
     const { nsr } = req.params;
+
     if (!nsr) {
-      return res.status(400).json({ message: "NSR is required" });
+
+      return res.status(400).json({
+        message: "NSR is required"
+      });
+
     }
 
     await service.updateByNSR(nsr, req.body);
-    res.json({ success: true });
+
+    res.json({
+      success: true
+    });
 
   } catch (err) {
+
     console.error("❌ update error:", err);
-    res.status(500).json({ message: "Failed to update nursing record" });
+
+    res.status(500).json({
+      message: "Failed to update nursing record"
+    });
+
   }
+
 };
 
+
 /* =========================================================
-   DELETE /api/nursingRecords/:nsr   (SOFT DELETE)
+   DELETE (SOFT DELETE)
 ========================================================= */
+
+/**
+ * SOFT DELETE NURSING RECORD
+ */
 exports.delete = async (req, res) => {
+
   try {
+
     const { nsr } = req.params;
+
     console.log("🔥 DELETE API HIT", nsr);
 
     await service.softDeleteByNSR(nsr, "SYSTEM");
 
-    res.json({ success: true });
-  } catch (err) {
-    console.error("❌ DELETE error:", err);
-    res.status(500).json({ message: "Delete failed" });
-  }
-};
+    res.json({
+      success: true
+    });
 
+  } catch (err) {
+
+    console.error("❌ DELETE error:", err);
+
+    res.status(500).json({
+      message: "Delete failed"
+    });
+
+  }
+
+};

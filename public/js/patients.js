@@ -1,16 +1,33 @@
-/*************************************************
- * public/js/patients.js
+/*****************************************************************
+ * public/js/patients.js (RE-ORGANIZED VERSION)
  * PATIENTS IMPORT — SPA SAFE VERSION
- *************************************************/
+ *
+ * แนวคิด:
+ * - ใช้สำหรับ import ข้อมูลผู้ป่วยจากไฟล์ TXT
+ * - รองรับ SPA (init ผ่าน window function)
+ * - มี flow: เลือกไฟล์ → parse → preview → search → save
+ *****************************************************************/
 
 console.log("✅ patients.js loaded");
+
+
+/*****************************************************************
+ * MODULE: INIT (ENTRY POINT)
+ * หน้าที่:
+ * - เป็นจุดเริ่มต้นของ module (เรียกจาก SPA)
+ * - bind DOM + event ทั้งหมด
+ *****************************************************************/
 
 window.init_patients = function () {
   console.log("🔧 init_patients START");
 
-  /* ===============================
-     DOM
-  ================================ */
+
+  /*****************************************************************
+   * MODULE: DOM ELEMENTS
+   * หน้าที่:
+   * - เก็บ reference ของ element ต่าง ๆ ในหน้า
+   *****************************************************************/
+
   const fileInput = document.getElementById("fileInput");
   const fileNameLabel = document.getElementById("fileName");
   const btnImport = document.getElementById("btnImport");
@@ -23,30 +40,51 @@ window.init_patients = function () {
   const checkAllBox = document.getElementById("checkAll");
   const btnSave = document.getElementById("btnSaveSelected");
 
+
+  /*****************************************************************
+   * MODULE: DOM GUARD
+   * หน้าที่:
+   * - ป้องกัน error ถ้า DOM ยังไม่โหลด (SPA safe)
+   *****************************************************************/
+
   if (!fileInput || !btnImport) {
     console.warn("⚠️ patients DOM not ready");
     return;
   }
 
-  /* ===============================
-     STATE
-  ================================ */
+
+  /*****************************************************************
+   * MODULE: STATE MANAGEMENT
+   * หน้าที่:
+   * - เก็บข้อมูลผู้ป่วย (raw + filtered)
+   *****************************************************************/
+
   let rawPatients = [];
   let filteredPatients = [];
 
-  /* ===============================
-     FILE SELECT
-  ================================ */
+
+  /*****************************************************************
+   * MODULE: FILE SELECT
+   * หน้าที่:
+   * - แสดงชื่อไฟล์ที่เลือก
+   *****************************************************************/
+
   fileInput.addEventListener("change", () => {
     fileNameLabel.textContent =
       fileInput.files[0]?.name || "ยังไม่ได้เลือกไฟล์";
   });
 
-  /* ===============================
-     IMPORT FILE
-  ================================ */
+
+  /*****************************************************************
+   * MODULE: IMPORT FILE
+   * หน้าที่:
+   * - อ่านไฟล์ TXT
+   * - ส่งต่อไป parse
+   *****************************************************************/
+
   btnImport.addEventListener("click", () => {
     const file = fileInput.files[0];
+
     if (!file) {
       alert("กรุณาเลือกไฟล์ TXT");
       return;
@@ -57,57 +95,67 @@ window.init_patients = function () {
     reader.readAsText(file, "utf-8");
   });
 
-  /* ===============================
-     PARSE TXT (HEADER BASED)
-  ================================ */
+
+  /*****************************************************************
+   * MODULE: PARSE TXT (HEADER BASED)
+   * หน้าที่:
+   * - แปลง TXT → JSON object
+   * - ใช้ header เป็น key
+   * - filter เฉพาะข้อมูลที่ valid
+   *****************************************************************/
+
   function parseTxt(text) {
-  const lines = text.split(/\r?\n/).filter(l => l.trim() !== "");
-  if (lines.length < 2) {
-    alert("ไฟล์ไม่มีข้อมูล");
-    return;
+    const lines = text.split(/\r?\n/).filter(l => l.trim() !== "");
+
+    if (lines.length < 2) {
+      alert("ไฟล์ไม่มีข้อมูล");
+      return;
+    }
+
+    // 1️⃣ อ่าน header
+    const headers = lines[0].split("|").map(h => h.trim());
+
+    // 2️⃣ map ข้อมูลแต่ละแถว
+    patientsData = lines.slice(1).map(line => {
+      const cols = line.split("|");
+      const o = {}; // ✅ FIX: ประกาศ o ที่นี่
+
+      headers.forEach((h, i) => {
+        o[h] = (cols[i] || "").trim();
+      });
+
+      return {
+        CID: o.CID,
+        PRENAME: o.PRENAME,
+        NAME: o.NAME,
+        LNAME: o.LNAME,
+        HN: o.HN,
+        SEX: o.SEX,
+        BIRTH: o.BIRTH,
+        TELEPHONE: o.TELEPHONE,
+        MOBILE: o.MOBILE,
+        checked: true
+      };
+    }).filter(r => r.CID && r.NAME && r.LNAME);
+
+    if (patientsData.length === 0) {
+      alert("ไม่พบข้อมูลที่ถูกต้อง");
+      return;
+    }
+
+    document.getElementById("searchSection").classList.remove("d-none");
+    document.getElementById("previewSection").classList.remove("d-none");
+
+    renderTable(patientsData);
   }
 
-  // 1️⃣ อ่าน header
-  const headers = lines[0].split("|").map(h => h.trim());
 
-  // 2️⃣ map ข้อมูลแต่ละแถว
-  patientsData = lines.slice(1).map(line => {
-    const cols = line.split("|");
-    const o = {}; // ✅ FIX: ประกาศ o ที่นี่
+  /*****************************************************************
+   * MODULE: RENDER TABLE
+   * หน้าที่:
+   * - แสดง preview ข้อมูลในตาราง
+   *****************************************************************/
 
-    headers.forEach((h, i) => {
-      o[h] = (cols[i] || "").trim();
-    });
-
-    return {
-      CID: o.CID,
-      PRENAME: o.PRENAME,
-      NAME: o.NAME,
-      LNAME: o.LNAME,
-      HN: o.HN,
-      SEX: o.SEX,
-      BIRTH: o.BIRTH,
-      TELEPHONE: o.TELEPHONE,
-      MOBILE: o.MOBILE,
-      checked: true
-    };
-  }).filter(r => r.CID && r.NAME && r.LNAME);
-
-  if (patientsData.length === 0) {
-    alert("ไม่พบข้อมูลที่ถูกต้อง");
-    return;
-  }
-
-  document.getElementById("searchSection").classList.remove("d-none");
-  document.getElementById("previewSection").classList.remove("d-none");
-
-  renderTable(patientsData);
-}
-
-
-  /* ===============================
-     RENDER TABLE
-  ================================ */
   function renderTable(data) {
     tableBody.innerHTML = "";
 
@@ -128,17 +176,25 @@ window.init_patients = function () {
     checkAllBox.checked = false;
   }
 
-  /* ===============================
-     CHECK ALL
-  ================================ */
+
+  /*****************************************************************
+   * MODULE: CHECK ALL
+   * หน้าที่:
+   * - เลือก/ยกเลิกเลือก checkbox ทั้งหมด
+   *****************************************************************/
+
   checkAllBox.addEventListener("change", () => {
     document.querySelectorAll(".row-check")
       .forEach(cb => cb.checked = checkAllBox.checked);
   });
 
-  /* ===============================
-     SEARCH
-  ================================ */
+
+  /*****************************************************************
+   * MODULE: SEARCH
+   * หน้าที่:
+   * - filter ข้อมูลผู้ป่วยแบบ real-time
+   *****************************************************************/
+
   searchInput.addEventListener("input", () => {
     const keyword = searchInput.value.trim().toLowerCase();
 
@@ -151,9 +207,13 @@ window.init_patients = function () {
     renderTable(filteredPatients);
   });
 
-  /* ===============================
-     SAVE SELECTED
-  ================================ */
+
+  /*****************************************************************
+   * MODULE: SAVE SELECTED
+   * หน้าที่:
+   * - ส่งข้อมูลที่เลือกไป backend
+   *****************************************************************/
+
   btnSave.addEventListener("click", async () => {
     const checked = document.querySelectorAll(".row-check:checked");
 
@@ -185,9 +245,11 @@ window.init_patients = function () {
       });
 
       const result = await res.json();
+
       if (!res.ok) throw new Error(result.message);
 
       alert(`✅ บันทึกสำเร็จ ${result.saved} รายการ`);
+
       resetPage();
 
     } catch (err) {
@@ -196,9 +258,13 @@ window.init_patients = function () {
     }
   });
 
-  /* ===============================
-     RESET
-  ================================ */
+
+  /*****************************************************************
+   * MODULE: RESET PAGE
+   * หน้าที่:
+   * - reset state และ UI กลับค่าเริ่มต้น
+   *****************************************************************/
+
   function resetPage() {
     fileInput.value = "";
     fileNameLabel.textContent = "ยังไม่ได้เลือกไฟล์";
@@ -209,4 +275,5 @@ window.init_patients = function () {
     previewSection.classList.add("d-none");
     searchSection.classList.add("d-none");
   }
+
 };

@@ -1,25 +1,29 @@
-/*************************************************
- * DASHBOARD CLIENT (STABLE VERSION)
- *************************************************/
+/*****************************************************************
+ * dashboard.client.js (CLEAN FIXED VERSION)
+ *****************************************************************/
 
-/* =========================================
-   INIT (รองรับทั้งปกติ + SPA)
-========================================= */
+console.log("📊 dashboard.client.js LOADED");
+
+/*****************************************************************
+ * INIT
+ *****************************************************************/
 async function initDashboard() {
   await loadLineUIDTable();
   await loadPatients();
-  await loadFollowers(); // ต้องอยู่หลัง DOM ready
+  await loadFollowers();
 }
 
 document.addEventListener("DOMContentLoaded", initDashboard);
 window.initDashboard = initDashboard;
 
-/* ===============================
-   FORMAT THAI DATE
-================================ */
+/*****************************************************************
+ * UTIL
+ *****************************************************************/
 function formatThaiDateShort(isoDate) {
   if (!isoDate) return "-";
+
   const date = new Date(isoDate);
+
   return date.toLocaleDateString("th-TH", {
     timeZone: "Asia/Bangkok",
     year: "numeric",
@@ -28,9 +32,9 @@ function formatThaiDateShort(isoDate) {
   });
 }
 
-/* ===============================
-   LOAD FOLLOW TABLE
-================================ */
+/*****************************************************************
+ * LOAD LINE UID TABLE
+ *****************************************************************/
 async function loadLineUIDTable() {
   try {
     const res = await fetch("/api/lineuid");
@@ -61,7 +65,7 @@ async function loadLineUIDTable() {
 
           <td>
             <img
-              src="${row.picture ? row.picture : '/assets/images/LOGO.png'}"
+              src="${row.pictureUrl || row.picture || '/assets/images/LOGO.png'}"
               onerror="this.src='/assets/images/LOGO.png';"
               style="width:45px;
                     height:45px;
@@ -72,6 +76,7 @@ async function loadLineUIDTable() {
 
           <td>${row.displayName}</td>
           <td>${row.userId}</td>
+
           <td>
             <span class="badge bg-success">
               ${row.status || "Active"}
@@ -79,13 +84,13 @@ async function loadLineUIDTable() {
           </td>
 
           <td>
-  <button 
-    class="btn btn-sm btn-danger delete-btn"
-    data-cid="${row.cid}"
-    style="font-size:10px;padding:2px 8px;">
-    Delete
-  </button>
-</td>
+            <button 
+              class="btn btn-sm btn-danger delete-btn"
+              data-cid="${row.cid}"
+              style="font-size:10px;padding:2px 8px;">
+              Delete
+            </button>
+          </td>
         </tr>
       `;
     });
@@ -95,9 +100,9 @@ async function loadLineUIDTable() {
   }
 }
 
-/* ===============================
-   LOAD FOLLOWERS → LINE DROPDOWN
-================================ */
+/*****************************************************************
+ * LOAD FOLLOWERS
+ *****************************************************************/
 async function loadFollowers() {
   try {
     const res = await fetch("/api/followlist");
@@ -116,7 +121,6 @@ async function loadFollowers() {
       option.value = item.userId;
       option.textContent = `${item.displayName} (${item.userId})`;
 
-      // ✅ ใส่ dataset ให้ครบ
       option.dataset.displayname = item.displayName;
       option.dataset.userid = item.userId;
       option.dataset.status = item.eventType || "follow";
@@ -131,10 +135,9 @@ async function loadFollowers() {
   }
 }
 
-
-/* ===============================
-   LOAD PATIENT LIST
-================================ */
+/*****************************************************************
+ * LOAD PATIENTS
+ *****************************************************************/
 async function loadPatients() {
   try {
     const res = await fetch("/api/patients/list");
@@ -167,11 +170,12 @@ async function loadPatients() {
   }
 }
 
-/* ===============================
-   PATIENT SELECT → AUTO FILL
-================================ */
+/*****************************************************************
+ * AUTO FILL
+ *****************************************************************/
 document.addEventListener("change", function (e) {
 
+  // PATIENT
   if (e.target?.id === "patientSelect") {
 
     const selected =
@@ -187,13 +191,8 @@ document.addEventListener("change", function (e) {
     document.getElementById("p_cid").value =
       e.target.value || "";
   }
-});
 
-/* ===============================
-   LINE SELECT → AUTO FILL
-================================ */
-document.addEventListener("change", function (e) {
-
+  // LINE
   if (e.target?.id === "lineSelect") {
 
     const selected =
@@ -218,21 +217,27 @@ document.addEventListener("change", function (e) {
     document.getElementById("l_pictureUrl").value =
       pictureUrl;
 
-    // ✅ แสดงรูป preview
+    // PREVIEW IMAGE
     const img = document.getElementById("linePreview");
 
-    if (pictureUrl) {
+    if (pictureUrl && pictureUrl.startsWith("http")) {
       img.src = pictureUrl;
+
+      img.onerror = () => {
+        img.src = "/assets/images/LOGO.png";
+      };
+
       img.style.display = "inline-block";
     } else {
-      img.style.display = "none";
+      img.src = "/assets/images/LOGO.png";
+      img.style.display = "inline-block";
     }
   }
 });
 
-/* ===============================
-   SAVE FOLLOW LINK
-================================ */
+/*****************************************************************
+ * SAVE
+ *****************************************************************/
 document.addEventListener("submit", async function (e) {
 
   if (!e.target.matches("#addFollowerForm")) return;
@@ -240,15 +245,16 @@ document.addEventListener("submit", async function (e) {
   e.preventDefault();
 
   const payload = {
-  cid: document.getElementById("p_cid").value,
-  name: document.getElementById("p_name").value,
-  lname: document.getElementById("p_lname").value,
-  userId: document.getElementById("l_userId").value,
-  displayName: document.getElementById("l_displayName").value,
-  status: document.getElementById("l_status").value,
-  picture: document.getElementById("l_picture").value,
-  pictureUrl: document.getElementById("l_pictureUrl").value
-};
+    cid: document.getElementById("p_cid").value,
+    name: document.getElementById("p_name").value,
+    lname: document.getElementById("p_lname").value,
+    userId: document.getElementById("l_userId").value,
+    displayName: document.getElementById("l_displayName").value,
+    status: document.getElementById("l_status").value,
+    picture: document.getElementById("l_picture").value,
+    pictureUrl: document.getElementById("l_pictureUrl").value
+  };
+
   const res = await fetch("/api/lineuid/save", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -259,32 +265,31 @@ document.addEventListener("submit", async function (e) {
 
   if (json.success) {
 
-  await Swal.fire({
-  icon: "success",
-  title: "บันทึกสำเร็จ",
-  text: "เชื่อม LINE UID เรียบร้อยแล้ว",
-  timer: 1500,
-  showConfirmButton: false
-});
+    await Swal.fire({
+      icon: "success",
+      title: "บันทึกสำเร็จ",
+      text: "เชื่อม LINE UID เรียบร้อยแล้ว",
+      timer: 1500,
+      showConfirmButton: false
+    });
 
-  const modalEl = document.getElementById("addFollowerModal");
+    const modalEl = document.getElementById("addFollowerModal");
 
-  // 1️⃣ เอา focus ออกจากปุ่มก่อน
-  if (document.activeElement) {
-    document.activeElement.blur();
+    if (document.activeElement) {
+      document.activeElement.blur();
+    }
+
+    const modal = bootstrap.Modal.getInstance(modalEl);
+    modal.hide();
+
+    loadLineUIDTable();
   }
 
-  // 2️⃣ ปิด modal
-  const modal = bootstrap.Modal.getInstance(modalEl);
-  modal.hide();
-
-  // 3️⃣ ค่อย reload ตาราง
-  loadLineUIDTable();
-}
 });
 
-
-
+/*****************************************************************
+ * DELETE
+ *****************************************************************/
 document.addEventListener("click", async function (e) {
 
   if (!e.target.classList.contains("delete-btn")) return;
@@ -310,9 +315,7 @@ document.addEventListener("click", async function (e) {
     Swal.fire({
       title: "กำลังลบ...",
       allowOutsideClick: false,
-      didOpen: () => {
-        Swal.showLoading();
-      }
+      didOpen: () => Swal.showLoading()
     });
 
     const res = await fetch(`/api/lineuid/delete/${cid}`, {

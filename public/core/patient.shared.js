@@ -2,7 +2,7 @@
  * SHARED MODULE : Patient Search + Auto Fill
  * USED BY      : nursingRecords, nursingCounselor
  * STANDARD     : Legal Medical Record
- *************************************************/
+ ************************************************
 
 console.log("👤 patient.shared.js loaded");
 
@@ -94,3 +94,4 @@ window.PatientCore = {
   renderPatientResults,
   fillPatientToForms
 };
+*/

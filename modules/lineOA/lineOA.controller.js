@@ -1,3 +1,41 @@
+/*****************************************************************
+ * LINE OA CONTROLLER MODULE
+ * NurseStationHub
+ *
+ * ---------------------------------------------------------------
+ * หน้าที่:
+ * - รับ Webhook จาก LINE Messaging API
+ * - แยกประเภท event (follow / unfollow / message / postback)
+ * - ส่งต่อ logic ไปยัง service layer
+ *
+ * ---------------------------------------------------------------
+ * FUNCTION LIST:
+ *
+ * 1. handleWebhook(req, res)
+ *    → entry point ของ LINE webhook
+ *
+ * 2. handleUnfollowEvent(event)
+ *    → บันทึกข้อมูลเมื่อ user กด unfollow
+ *
+ * 3. sendResultByNSR(req, res)
+ *    → ส่งผลตรวจ (report) จาก NSR
+ *
+ * 4. getFollowList(req, res)
+ *    → ดึงข้อมูล follow จาก sheet
+ *
+ * 5. getUserMessages(req, res)
+ *    → ดึง chat log
+ *
+ * ---------------------------------------------------------------
+ * FLOW:
+ * LINE → Webhook → Controller → Service → Google Sheet / LINE API
+ *****************************************************************/
+
+
+/* =========================================================
+   IMPORTS
+========================================================= */
+
 const service = require("./lineOA.service");
 
 const { 
@@ -11,16 +49,19 @@ const registrationService = require("./lineOA.registration.service");
 
 const { formatBullet, buildFlex } = require("../../utils/flexBuilder");
 
-/* =================================================
-   LINE WEBHOOK
-================================================= */
+
+/* =========================================================
+   LINE WEBHOOK ENTRY POINT
+========================================================= */
 
 exports.handleWebhook = (req, res) => {
 
   console.log("📩 LINE webhook received");
 
+  // ตอบ LINE ทันที (กัน timeout)
   res.status(200).send("OK");
 
+  // ทำงานต่อแบบ async background
   setImmediate(async () => {
 
     try {
@@ -112,16 +153,16 @@ exports.handleWebhook = (req, res) => {
 
             if (data?.startsWith("CONFIRM_RESULT:")) {
 
-  const nsr = data.replace("CONFIRM_RESULT:", "");
+              const nsr = data.replace("CONFIRM_RESULT:", "");
 
-  await service.handleChatMessage({
-    type: "postback",
-    postback: { data },
-    source: event.source,
-    replyToken: event.replyToken
-  });
+              await service.handleChatMessage({
+                type: "postback",
+                postback: { data },
+                source: event.source,
+                replyToken: event.replyToken
+              });
 
-}
+            }
 
           }
 
@@ -144,10 +185,13 @@ exports.handleWebhook = (req, res) => {
 };
 
 
-/* =================================================
-   HANDLE UNFOLLOW
-================================================= */
+/* =========================================================
+   FOLLOW / UNFOLLOW HANDLER
+========================================================= */
 
+/**
+ * HANDLE UNFOLLOW EVENT
+ */
 exports.handleUnfollowEvent = async (event) => {
 
   try {
@@ -174,10 +218,13 @@ exports.handleUnfollowEvent = async (event) => {
 };
 
 
-/* =================================================
-   SEND RESULT BY NSR
-================================================= */
+/* =========================================================
+   REPORT / RESULT API
+========================================================= */
 
+/**
+ * SEND RESULT BY NSR
+ */
 exports.sendResultByNSR = async (req, res) => {
 
   try {
@@ -211,10 +258,13 @@ exports.sendResultByNSR = async (req, res) => {
 };
 
 
-/* =================================================
-   READ FOLLOW LIST
-================================================= */
+/* =========================================================
+   DATA QUERY APIs
+========================================================= */
 
+/**
+ * READ FOLLOW LIST
+ */
 exports.getFollowList = async (req, res) => {
 
   try {
@@ -232,10 +282,9 @@ exports.getFollowList = async (req, res) => {
 };
 
 
-/* =================================================
-   READ CHAT LOG
-================================================= */
-
+/**
+ * READ USER CHAT LOG
+ */
 exports.getUserMessages = async (req, res) => {
 
   try {
@@ -251,4 +300,3 @@ exports.getUserMessages = async (req, res) => {
   }
 
 };
-

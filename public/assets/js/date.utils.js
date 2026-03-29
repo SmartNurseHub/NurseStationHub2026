@@ -1,8 +1,25 @@
+/*****************************************************************
+ * date.utils.js (RE-ORGANIZED VERSION)
+ *
+ * แนวคิด:
+ * - Utility สำหรับจัดการวันที่ (normalize / format / คำนวณอายุ)
+ * - ใช้ร่วมกันทั้งระบบ (global functions)
+ * - รองรับรูปแบบวันที่หลากหลาย
+ *****************************************************************/
+
 console.log("📅 date.utils.js LOADED");
 
-/* =================================================
-   NORMALIZE TO YYYY-MM-DD
-================================================= */
+
+/*****************************************************************
+ * MODULE: NORMALIZE DATE
+ * หน้าที่:
+ * - แปลง input → YYYY-MM-DD
+ * - รองรับ:
+ *   - yyyy-mm-dd
+ *   - yyyymmdd
+ * - ใช้เป็นฐานสำหรับทุก function
+ *****************************************************************/
+
 function toRawDate(dateStr) {
   if (!dateStr) return "";
 
@@ -19,10 +36,14 @@ function toRawDate(dateStr) {
   return "";
 }
 
-/* =================================================
-   FULL THAI DATE
-   2026-02-12 → 12 กุมภาพันธ์ 2569
-================================================= */
+
+/*****************************************************************
+ * MODULE: FULL THAI DATE FORMAT
+ * หน้าที่:
+ * - แปลงเป็นวันที่ภาษาไทยแบบเต็ม
+ * - เช่น: 2026-02-12 → 12 กุมภาพันธ์ 2569
+ *****************************************************************/
+
 function toDisplayThaiDate(raw) {
   const s = toRawDate(raw);
   if (!s) return "";
@@ -40,9 +61,40 @@ function toDisplayThaiDate(raw) {
   return `${d} ${thaiMonths[m - 1]} ${y + 543}`;
 }
 
-/* =================================================
-   CALCULATE AGE (SAFE VERSION)
-================================================= */
+
+/*****************************************************************
+ * MODULE: SHORT THAI DATE FORMAT
+ * หน้าที่:
+ * - แปลงเป็นวันที่ภาษาไทยแบบย่อ
+ * - เช่น: 2026-02-12 → 12 ก.พ. 2569
+ *****************************************************************/
+
+function toThaiShortDate(dateInput) {
+  const s = toRawDate(dateInput);
+  if (!s) return "";
+
+  const [y, m, d] = s.split("-").map(Number);
+
+  if (m < 1 || m > 12) return "";
+
+  const thaiMonthsShort = [
+    "ม.ค.","ก.พ.","มี.ค.","เม.ย.",
+    "พ.ค.","มิ.ย.","ก.ค.","ส.ค.",
+    "ก.ย.","ต.ค.","พ.ย.","ธ.ค."
+  ];
+
+  return `${d} ${thaiMonthsShort[m - 1]} ${y + 543}`;
+}
+
+
+/*****************************************************************
+ * MODULE: CALCULATE AGE
+ * หน้าที่:
+ * - คำนวณอายุจากวันเกิด
+ * - ตรวจสอบความถูกต้องของวันที่
+ * - ป้องกันค่าอายุผิด (เช่น อนาคต)
+ *****************************************************************/
+
 function calculateAge(rawDate) {
   const s = toRawDate(rawDate);
   if (!s) return "";
@@ -67,29 +119,14 @@ function calculateAge(rawDate) {
   return age < 0 ? "" : age;
 }
 
-/* =================================================
-   SHORT THAI DATE
-   2026-02-12 → 12 ก.พ. 2569
-================================================= */
-function toThaiShortDate(dateInput) {
-  const s = toRawDate(dateInput);
-  if (!s) return "";
 
-  const [y, m, d] = s.split("-").map(Number);
-  if (m < 1 || m > 12) return "";
+/*****************************************************************
+ * MODULE: GLOBAL EXPORT (SPA SAFE)
+ * หน้าที่:
+ * - export function ไปใช้ในหน้าอื่นผ่าน window
+ * - รองรับ SPA (ไม่มี module bundler)
+ *****************************************************************/
 
-  const thaiMonthsShort = [
-    "ม.ค.","ก.พ.","มี.ค.","เม.ย.",
-    "พ.ค.","มิ.ย.","ก.ค.","ส.ค.",
-    "ก.ย.","ต.ค.","พ.ย.","ธ.ค."
-  ];
-
-  return `${d} ${thaiMonthsShort[m - 1]} ${y + 543}`;
-}
-
-/* =================================================
-   EXPORT GLOBAL (SPA SAFE)
-================================================= */
 window.toRawDate = toRawDate;
 window.toDisplayThaiDate = toDisplayThaiDate;
 window.toThaiShortDate = toThaiShortDate;

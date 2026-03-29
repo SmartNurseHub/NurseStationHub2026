@@ -1,25 +1,35 @@
+/******************************************************************
+ * VACCINATION ROUTES
+ * เส้นทาง API สำหรับระบบ Vaccination
+ ******************************************************************/
+
 const express = require("express");
 const router = express.Router();
 const controller = require("./vaccination.controller");
 
-router.get("/timeline/:cid", controller.timeline);
+/* =======================================================
+   TIMELINE, LATEST, HISTORY
+======================================================= */
+router.get("/timeline/:cid", controller.timeline);      // ประวัติ timeline ของผู้ป่วย
+router.get("/latest/:cid", controller.latest);          // วัคซีนล่าสุด
+router.get("/history/:cid", controller.history);        // ประวัติการฉีดทั้งหมด (secure / public)
 
-router.get("/latest/:cid", controller.latest);
+/* =======================================================
+   VACCINE MASTER & NEXT VCN
+======================================================= */
+router.get("/master", controller.getVaccineMaster);     // รายการวัคซีนทั้งหมด
+router.get("/next-vcn", controller.getNextVCN);         // เลข VCN ถัดไปสำหรับการฉีด
 
-router.get("/history/:cid", controller.history);
+/* =======================================================
+   ADD / DELETE / SEND
+======================================================= */
+router.post("/add", controller.addVaccination);         // เพิ่มรายการวัคซีนใหม่
+router.delete("/delete/:vcn", controller.deleteVaccination); // ลบรายการวัคซีน (แก้ตรงนี้)
+router.post("/send-line/:vcn", controller.sendLineVaccine);   // ส่งข้อมูลไป LINE
 
-router.get("/master", controller.getVaccineMaster);
-
-router.get("/next-vcn", controller.getNextVCN);
-
-router.post("/add", controller.addVaccination);
-
-router.get("/appointments/:cid", controller.getAppointments);
-
-router.delete("/delete/:vcn", controller.deleteVaccination); // ⭐ แก้ตรงนี้
-
-router.post("/send-line/:vcn", controller.sendLineVaccine);
-
-router.get("/history-secure/:cid/:lineUID",controller.historySecure);
+/* =======================================================
+   SECURE HISTORY FOR LINE
+======================================================= */
+router.get("/history-secure/:cid/:lineUID", controller.historySecure); // ประวัติ secure ผ่าน LINE UID
 
 module.exports = router;

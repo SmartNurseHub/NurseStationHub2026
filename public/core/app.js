@@ -4,7 +4,7 @@
  *************************************************/
 
 let currentScript = null;
-
+const loadedScripts = new Map(); 
 /* ===============================
    SIDEBAR
 ================================ */
@@ -65,6 +65,9 @@ const VIEW_CONFIG = {
 /* ===============================
    LOAD VIEW
 ================================ */
+/* ===============================
+   LOAD VIEW
+================================ */
 async function loadView(name) {
   const cfg = VIEW_CONFIG[name];
   const container = document.getElementById("view-container");
@@ -88,31 +91,32 @@ async function loadView(name) {
     const html = await res.text();
     container.innerHTML = html;
 
-    /* ---------- 2. REMOVE OLD SCRIPT ---------- */
-    if (currentScript) {
-      currentScript.remove();
-      currentScript = null;
-    }
-
-    /* ---------- 3. LOAD CLIENT SCRIPT ---------- */
+    /* ---------- 2. LOAD SCRIPT (SAFE) ---------- */
     if (cfg.script) {
-      const s = document.createElement("script");
-      s.src = cfg.script;
-      s.defer = true;
 
-      s.onload = () => {
-        if (cfg.init && typeof window[cfg.init] === "function") {
-          try {
-            window[cfg.init]();
-            console.log(`✅ Init ${cfg.init}()`);
-          } catch (err) {
-            console.error(`❌ Init ${cfg.init} failed`, err);
-          }
-        }
-      };
+      let scriptPromise = loadedScripts.get(cfg.script);
 
-      document.body.appendChild(s);
-      currentScript = s;
+      if (!scriptPromise) {
+        scriptPromise = new Promise((resolve, reject) => {
+          const s = document.createElement("script");
+          s.src = cfg.script;
+          s.defer = true;
+
+          s.onload = () => resolve();
+          s.onerror = () => reject(new Error("Script load failed: " + cfg.script));
+
+          document.body.appendChild(s);
+        });
+
+        loadedScripts.set(cfg.script, scriptPromise);
+      }
+
+      await scriptPromise;
+
+      if (cfg.init && typeof window[cfg.init] === "function") {
+        window[cfg.init]();
+        console.log(`✅ Init ${cfg.init}()`);
+      }
     }
 
   } catch (err) {

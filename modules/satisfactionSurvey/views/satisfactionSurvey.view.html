@@ -248,7 +248,16 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   await liff.init({ liffId:"2007902507-7OKhdnNW" });
   if (!liff.isLoggedIn()) return liff.login();
+  async function getFreshProfile() {
   const profile = await liff.getProfile();
+
+  return {
+    userId: profile.userId,
+    name: profile.displayName,
+    pictureUrl: profile.pictureUrl,
+    updatedAt: Date.now()
+  };
+}
   document.getElementById("uid").value = profile.userId;
 });
 </script>

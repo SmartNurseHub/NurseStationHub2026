@@ -1,12 +1,11 @@
 /******************************************************************
- * modules/patients/patients.service.js
- *
- * PATIENTS SERVICE — FINAL FIXED VERSION
- *
- * หน้าที่:
- * - ติดต่อ Google Sheets (PATIENTS MASTER)
- * - Import / Upsert patients (CID-based)
- * - Search patients สำหรับ autocomplete
+ * MODULE      : Patients Service
+ * PURPOSE     : Handle Google Sheets operations for patients
+ *              - Import / Upsert patients (CID-based)
+ *              - Search patients (autocomplete)
+ *              - Get all patients for select lists
+ *              - Create single patient (manual entry)
+ * SCOPE       : Backend (Node.js / Google Sheets API)
  ******************************************************************/
 
 const { google } = require("googleapis");
@@ -15,26 +14,19 @@ const { google } = require("googleapis");
    GOOGLE SHEETS CLIENT (SAFE INIT)
 ========================================================= */
 let sheets = null;
-
 async function getSheets() {
   if (sheets) return sheets;
 
   const auth = new google.auth.GoogleAuth({
     credentials: JSON.parse(
-      Buffer.from(
-        process.env.GOOGLE_CREDENTIAL_BASE64,
-        "base64"
-      ).toString("utf8")
+      Buffer.from(process.env.GOOGLE_CREDENTIAL_BASE64, "base64").toString("utf8")
     ),
     scopes: ["https://www.googleapis.com/auth/spreadsheets"],
   });
 
   const authClient = await auth.getClient();
 
-  sheets = google.sheets({
-    version: "v4",
-    auth: authClient,
-  });
+  sheets = google.sheets({ version: "v4", auth: authClient });
 
   console.log("📄 Google Sheets client initialized");
   return sheets;
@@ -45,6 +37,8 @@ const SHEET_PATIENTS = process.env.SHEET_PATIENTS;
 
 /* =========================================================
    HELPERS
+   - normalizeCID: ทำ CID ให้เป็นมาตรฐาน 13 หลัก
+   - safeLower: ป้องกัน undefined / null
 ========================================================= */
 function normalizeCID(cid) {
   if (cid === null || cid === undefined) return "";
@@ -67,6 +61,9 @@ function safeLower(v) {
 
 /* =========================================================
    IMPORT / UPSERT PATIENTS (CID-BASED)
+   - รับ array ของ patients
+   - ตรวจซ้ำกับ Google Sheet
+   - แยก insert / update
 ========================================================= */
 async function importPatientsService(rows) {
   const sheets = await getSheets();
@@ -84,7 +81,7 @@ async function importPatientsService(rows) {
     if (cid) cidMap[cid] = i + 2;
   });
 
-  /* ---------- Dedup input ---------- */
+  /* ---------- Deduplicate input ---------- */
   const uniqueRows = {};
   for (const r of rows) {
     const cid = normalizeCID(r.CID);
@@ -144,20 +141,18 @@ async function importPatientsService(rows) {
     });
   }
 
-  return {
-    updated: updates.length,
-    inserted: inserts.length,
-  };
+  return { updated: updates.length, inserted: inserts.length };
 }
 
 /* =========================================================
    SEARCH PATIENTS (AUTOCOMPLETE)
+   - ใช้สำหรับ frontend autocomplete / search
+   - จำกัดผลลัพธ์ 10 รายการ
 ========================================================= */
 async function searchPatients(keyword) {
   if (!keyword) return [];
 
   const sheets = await getSheets();
-
   const qRaw = String(keyword).trim();
   const q = safeLower(qRaw);
   const qCID = normalizeCID(qRaw);
@@ -198,7 +193,6 @@ async function searchPatients(keyword) {
    GET ALL PATIENTS (FOR SELECT LIST)
 ========================================================= */
 async function getAllPatients() {
-
   const sheets = await getSheets();
 
   const res = await sheets.spreadsheets.values.get({
@@ -210,7 +204,6 @@ async function getAllPatients() {
   const rows = res.data.values || [];
 
   return rows.map(r => ({
-
     CID: normalizeCID(r[0]),
     PRENAME: r[1] ?? "",
     NAME: r[2] ?? "",
@@ -221,24 +214,19 @@ async function getAllPatients() {
     BIRTH_THAI: r[7] ?? "",
     TELEPHONE: r[8] ?? "",
     MOBILE: r[9] ?? "",
-
     fullName: `${r[1] ?? ""}${r[2] ?? ""} ${r[3] ?? ""}`.trim()
-
   }));
-
 }
+
 /* =========================================================
    CREATE PATIENT (MANUAL ENTRY)
-   - Insert 1 ราย
-   - ตรวจซ้ำ CID ก่อน
+   - ตรวจซ้ำ CID ก่อน insert
 ========================================================= */
 async function createPatientService(data) {
   const sheets = await getSheets();
 
   const CID = normalizeCID(data.CID);
-  if (!CID || CID.length !== 13) {
-    throw new Error("Citizen ID ไม่ถูกต้อง");
-  }
+  if (!CID || CID.length !== 13) throw new Error("Citizen ID ไม่ถูกต้อง");
 
   /* ---------- ตรวจซ้ำ ---------- */
   const existingRes = await sheets.spreadsheets.values.get({
@@ -247,12 +235,8 @@ async function createPatientService(data) {
     valueRenderOption: "UNFORMATTED_VALUE",
   });
 
-  const existingCID = (existingRes.data.values || [])
-    .map(r => normalizeCID(r[0]));
-
-  if (existingCID.includes(CID)) {
-    throw new Error("มี Citizen ID นี้แล้วในระบบ");
-  }
+  const existingCID = (existingRes.data.values || []).map(r => normalizeCID(r[0]));
+  if (existingCID.includes(CID)) throw new Error("มี Citizen ID นี้แล้วในระบบ");
 
   /* ---------- เตรียมแถวข้อมูล ---------- */
   const rowValues = [
@@ -260,11 +244,11 @@ async function createPatientService(data) {
     data.PRENAME ?? "",    // B
     data.NAME ?? "",       // C
     data.LNAME ?? "",      // D
-    "",                    // E (HN ว่าง)
-    "",                    // F (SEX ว่าง)
+    "",                    // E (HN)
+    "",                    // F (SEX)
     data.BIRTH ?? "",      // G
-    "",                    // H (BIRTH_THAI ว่าง)
-    "",                    // I (TELEPHONE ว่าง)
+    "",                    // H (BIRTH_THAI)
+    "",                    // I (TELEPHONE)
     data.MOBILE ?? "",     // J
   ];
 
@@ -274,26 +258,20 @@ async function createPatientService(data) {
     range: `${SHEET_PATIENTS}!A:J`,
     valueInputOption: "USER_ENTERED",
     insertDataOption: "INSERT_ROWS",
-    requestBody: {
-      values: [rowValues],
-    },
+    requestBody: { values: [rowValues] },
   });
 
-  return {
-    inserted: 1,
-    CID,
-  };
+  return { inserted: 1, CID };
 }
 
+/* =========================================================
+   GET PATIENT BY CID
+========================================================= */
 async function getPatientByCID(cid) {
-
   const patients = await getAllPatients();
-
-  const patient = patients.find(p => p.CID === cid);
-
-  return patient || null;
-
+  return patients.find(p => p.CID === cid) || null;
 }
+
 /* =========================================================
    EXPORTS
 ========================================================= */

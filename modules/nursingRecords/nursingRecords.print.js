@@ -1,9 +1,39 @@
+/******************************************************************
+ * NURSING RECORDS PRINT MODULE
+ * NurseStationHub (Frontend - Print Layer)
+ *
+ * ---------------------------------------------------------------
+ * หน้าที่:
+ * - สร้าง HTML Template สำหรับพิมพ์ Sticker
+ * - แสดงข้อมูล Nursing Record
+ * - รองรับการพิมพ์ขนาด 90mm x 60mm
+ *
+ * ---------------------------------------------------------------
+ * ⚠️ IMPORTANT:
+ * ❗ ห้ามแก้ logic ภายในฟังก์ชัน printRecord
+ * ❗ ใช้ร่วมกับ helper:
+ *    - toDisplayThaiDate()
+ *    - toRawDate()
+ *    - calculateAge()
+ *
+ * ---------------------------------------------------------------
+ * FLOW:
+ * User Click → printRecord() → Generate HTML → window.print()
+ *
+ ******************************************************************/
+
+
+/* =========================================================
+   MAIN PRINT FUNCTION (DO NOT MODIFY LOGIC)
+========================================================= */
+
 /* =================================================
    PRINT STICKER (SEPARATED FILE)
    ❗ ห้ามแก้ logic ภายในฟังก์ชันนี้
 ================================================= */
 
 function printRecord(r) {
+
   console.log("🖨️ PRINT CLICKED", r);
 
   const tpl = `
@@ -122,9 +152,18 @@ td,th { border:1px solid #000; padding:2px; }
 </html>`;
 
   const w = window.open("", "_blank", "width=400,height=600");
+
   w.document.write(tpl);
   w.document.close();
+
 }
 
-/* expose for onclick */
+
+/* =========================================================
+   EXPORT GLOBAL
+========================================================= */
+
+/**
+ * ใช้เรียกจาก onclick หรือ module อื่น
+ */
 window.printRecord = printRecord;

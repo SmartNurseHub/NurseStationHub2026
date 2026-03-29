@@ -1,3 +1,37 @@
+/*****************************************************************
+ * LINE UID SERVICE MODULE
+ * NurseStationHub
+ *
+ * ---------------------------------------------------------------
+ * หน้าที่:
+ * - จัดการข้อมูล LineUID (Mapping LINE ↔ ผู้ป่วย)
+ * - ติดต่อกับ Google Sheet
+ *
+ * ---------------------------------------------------------------
+ * FUNCTION GROUP:
+ *
+ * [CREATE]
+ * - addLineUID()
+ *
+ * [READ]
+ * - getLineUIDList()
+ *
+ * [UPDATE]
+ * - updateLineUID()
+ *
+ * [DELETE]
+ * - deleteLineUID()
+ *
+ * ---------------------------------------------------------------
+ * FLOW:
+ * Controller → Service → Google Sheet
+ *****************************************************************/
+
+
+/* =========================================================
+   IMPORTS (Google Sheet Helper)
+========================================================= */
+
 const {
   appendRow,
   getSheetRows,
@@ -9,9 +43,14 @@ const {
 
 const { LINE_UID_SHEET } = require("./lineUID.schema");
 
-/* ================================
-   ADD LINE UID
-================================ */
+
+/* =========================================================
+   CREATE
+========================================================= */
+
+/**
+ * ADD LINE UID
+ */
 async function addLineUID(data) {
 
   const sheetName = LINE_UID_SHEET;
@@ -19,6 +58,10 @@ async function addLineUID(data) {
   if (!sheetName) {
     throw new Error("LINE_UID_SHEET not defined");
   }
+
+  /* ===============================
+     PREPARE DATA
+  =============================== */
 
   const row = [
     new Date().toISOString(),
@@ -38,14 +81,23 @@ async function addLineUID(data) {
 
 }
 
-/* ================================
-   GET LIST
-================================ */
+
+/* =========================================================
+   READ
+========================================================= */
+
+/**
+ * GET LINE UID LIST
+ */
 async function getLineUIDList() {
 
   const rows = await getSheetRows(LINE_UID_SHEET);
 
   if (!rows || rows.length === 0) return [];
+
+  /* ===============================
+     MAP DATA → OBJECT
+  =============================== */
 
   return rows.map(row => ({
     timestamp: row[0] || "",
@@ -61,26 +113,14 @@ async function getLineUIDList() {
 
 }
 
-/* ================================
-   DELETE BY CID
-================================ */
-async function deleteLineUID(cid) {
 
-  const rowNumber = await findRowByCID(LINE_UID_SHEET, cid);
+/* =========================================================
+   UPDATE
+========================================================= */
 
-  if (!rowNumber) {
-    throw new Error("CID not found");
-  }
-
-  await deleteRow(LINE_UID_SHEET, rowNumber);
-
-  return { success: true };
-
-}
-
-/* ================================
-   UPDATE LINE UID
-================================ */
+/**
+ * UPDATE LINE UID (bind user ↔ patient)
+ */
 async function updateLineUID(userId, patient) {
 
   const rows = await readRows(LINE_UID_SHEET);
@@ -105,6 +145,33 @@ async function updateLineUID(userId, patient) {
   }
 
 }
+
+
+/* =========================================================
+   DELETE
+========================================================= */
+
+/**
+ * DELETE LINE UID BY CID
+ */
+async function deleteLineUID(cid) {
+
+  const rowNumber = await findRowByCID(LINE_UID_SHEET, cid);
+
+  if (!rowNumber) {
+    throw new Error("CID not found");
+  }
+
+  await deleteRow(LINE_UID_SHEET, rowNumber);
+
+  return { success: true };
+
+}
+
+
+/* =========================================================
+   EXPORT
+========================================================= */
 
 module.exports = {
   addLineUID,

@@ -57,7 +57,16 @@ async function init(){
     }
 
     // LINE profile
-    const profile = await liff.getProfile();
+    async function getFreshProfile() {
+  const profile = await liff.getProfile();
+
+  return {
+    userId: profile.userId,
+    name: profile.displayName,
+    pictureUrl: profile.pictureUrl,
+    updatedAt: Date.now()
+  };
+}
 
     // รับ CID จาก URL
     const params = new URLSearchParams(window.location.search);

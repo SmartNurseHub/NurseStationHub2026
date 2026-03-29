@@ -1,19 +1,43 @@
 /******************************************************************
  * modules/nursingRecords/nursingRecords.service.js
- * PRODUCTION STABLE VERSION
+ * PRODUCTION STABLE VERSION (RE-STRUCTURED)
+ *
+ * ===============================================================
+ * MODULE OVERVIEW
+ * ===============================================================
+ * โมดูลนี้ใช้สำหรับจัดการ Nursing Records ผ่าน Google Sheets
+ *
+ * ฟังก์ชันหลัก:
+ * - getAll()                  → ดึงข้อมูลทั้งหมด
+ * - getByNSR(nsr)             → ดึงข้อมูลตาม NSR
+ * - save(data)                → บันทึกข้อมูลใหม่
+ * - updateByNSR(nsr, data)    → อัปเดตข้อมูล
+ * - softDeleteByNSR()         → ลบแบบ Soft Delete
+ * - markLineSent()            → mark ว่าส่ง LINE แล้ว
+ * - markResultConfirmed()     → mark ยืนยันผลแล้ว
+ * - getNextNSR()              → generate เลข NSR
+ *
+ * แนวคิด:
+ * - ใช้ Google Sheets เป็น Database
+ * - Mapping column ด้วย NURSING_COLUMNS
+ * - ใช้ NSR เป็น Primary Key
+ *
  ******************************************************************/
 
+/* =========================================================
+   IMPORTS
+========================================================= */
 const { getSheets } = require("../../config/google");
 
-/* ================= ENV ================= */
-
+/* =========================================================
+   ENV CONFIG
+========================================================= */
 const SHEET_ID = process.env.SPREADSHEET_ID;
 const SHEET_NAME = process.env.SHEET_NURSING;
 
 /* =========================================================
-   COLUMN ORDER (39 COLUMNS)
+   COLUMN DEFINITION (MASTER STRUCTURE)
 ========================================================= */
-
 const NURSING_COLUMNS = [
   "NSR","Stamp","CID","HN","PRENAME","NAME","LNAME","TELEPHONE","BIRTH",
   "DateService","Activity","Objective","HealthInform","HealthAdvice",
@@ -32,11 +56,10 @@ const NURSING_COLUMNS = [
 ];
 
 /* =========================================================
-   NORMALIZE INPUT
+   DATA NORMALIZATION MODULE
+   → ปรับชื่อ field ให้รองรับหลาย format input
 ========================================================= */
-
 function normalizeData(raw = {}) {
-
   return {
     ...raw,
 
@@ -51,70 +74,75 @@ function normalizeData(raw = {}) {
     Follow3Date: raw.Follow3Date || raw.DateFollow3 || "",
     Follow3Time: raw.Follow3Time || raw.TimeFollow3 || "",
     Follow3Route: raw.Follow3Route || raw.RouteFollow3 || ""
-
   };
-
 }
 
 /* =========================================================
-   UTIL
+   DATA TRANSFORMATION MODULE
 ========================================================= */
 
+/* เติม column ให้ครบ */
 function padRow(row = []) {
-
   while (row.length < NURSING_COLUMNS.length) {
     row.push("");
   }
-
   return row;
-
 }
 
+/* แปลง array → object */
 function rowArrayToObject(row = []) {
-
   row = padRow(row);
 
   const obj = {};
-
   NURSING_COLUMNS.forEach((col, i) => {
     obj[col] = row[i] || "";
   });
 
   return obj;
-
 }
 
 /* =========================================================
-   COLUMN NUMBER → LETTER
+   COLUMN UTILS MODULE
 ========================================================= */
 
+/* แปลงเลข column → ตัวอักษร (A, B, C...) */
 function columnToLetter(column) {
-
   let temp;
   let letter = "";
 
   while (column > 0) {
-
     temp = (column - 1) % 26;
     letter = String.fromCharCode(temp + 65) + letter;
     column = (column - temp - 1) / 26;
-
   }
 
   return letter;
-
 }
 
+/* column สุดท้าย */
 function getLastColumnLetter() {
   return columnToLetter(NURSING_COLUMNS.length);
 }
 
 /* =========================================================
-   GET ALL
+   CORE SERVICE: READ MODULE
 ========================================================= */
 
+/* ดึงข้อมูลทั้งหมด */
 exports.getAll = async () => {
+  const sheets = await getSheets();
 
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: SHEET_ID,
+    range: `${SHEET_NAME}!A2:${getLastColumnLetter()}`
+  });
+
+  const rows = res.data.values || [];
+  return rows.map(rowArrayToObject);
+};
+
+/* ดึงข้อมูลตาม NSR */
+exports.getByNSR = async (nsr) => {
   const sheets = await getSheets();
 
   const res = await sheets.spreadsheets.values.get({
@@ -124,16 +152,23 @@ exports.getAll = async () => {
 
   const rows = res.data.values || [];
 
-  return rows.map(rowArrayToObject);
+  const index = rows.findIndex(r =>
+    String(r[0]).trim() === String(nsr).trim()
+  );
 
+  if (index === -1) {
+    throw new Error(`NSR not found: ${nsr}`);
+  }
+
+  return rowArrayToObject(rows[index]);
 };
 
 /* =========================================================
-   SAVE NEW RECORD
+   CORE SERVICE: CREATE MODULE
 ========================================================= */
 
+/* บันทึกข้อมูลใหม่ */
 exports.save = async rawData => {
-
   const sheets = await getSheets();
 
   const now = new Date().toISOString();
@@ -142,7 +177,6 @@ exports.save = async rawData => {
   const row = NURSING_COLUMNS.map(col => {
 
     if (col === "Stamp") return data.Stamp || now;
-
     if (col === "status") return "ACTIVE";
 
     if (col === "TELEPHONE" && data[col]) {
@@ -150,23 +184,21 @@ exports.save = async rawData => {
     }
 
     return data[col] || "";
-
   });
 
   await sheets.spreadsheets.values.append({
-
     spreadsheetId: SHEET_ID,
     range: `${SHEET_NAME}!A2`,
     valueInputOption: "USER_ENTERED",
     requestBody: { values: [row] }
-
   });
-
 };
 
 /* =========================================================
-   UPDATE BY NSR
+   CORE SERVICE: UPDATE MODULE
 ========================================================= */
+
+/* อัปเดตข้อมูลตาม NSR */
 exports.updateByNSR = async (nsr, data) => {
 
   console.log("Updating NSR:", nsr);
@@ -191,13 +223,11 @@ exports.updateByNSR = async (nsr, data) => {
   }
 
   const rowNumber = index + 2;
-
   const updates = [];
 
   for (const key of Object.keys(data)) {
 
     const colIndex = NURSING_COLUMNS.indexOf(key);
-
     if (colIndex === -1) continue;
 
     const colLetter = columnToLetter(colIndex + 1);
@@ -206,7 +236,6 @@ exports.updateByNSR = async (nsr, data) => {
       range: `${SHEET_NAME}!${colLetter}${rowNumber}`,
       values: [[data[key]]]
     });
-
   }
 
   if (updates.length === 0) return;
@@ -218,71 +247,21 @@ exports.updateByNSR = async (nsr, data) => {
       data: updates
     }
   });
-
 };
+
 /* =========================================================
-   MARK LINE SENT
+   CORE SERVICE: STATUS / ACTION MODULE
 ========================================================= */
 
+/* mark ส่ง LINE แล้ว */
 exports.markLineSent = async (nsr) => {
-
   await exports.updateByNSR(nsr, {
-
     LineSent: "YES",
     LineSentAt: new Date().toISOString()
-
   });
-
 };
 
-/* =========================================================
-   GET BY NSR
-========================================================= */
-
-exports.getByNSR = async (nsr) => {
-
-  const sheets = await getSheets();
-
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId: SHEET_ID,
-    range: `${SHEET_NAME}!A2:${getLastColumnLetter()}`
-  });
-
-  const rows = res.data.values || [];
-
-  const index = rows.findIndex(r =>
-    String(r[0]).trim() === String(nsr).trim()
-  );
-
-  if (index === -1) {
-    throw new Error(`NSR not found: ${nsr}`);
-  }
-
-  return rowArrayToObject(rows[index]);
-
-};
-
-/* =========================================================
-   SOFT DELETE
-========================================================= */
-
-exports.softDeleteByNSR = async (nsr, user) => {
-
-  await exports.updateByNSR(nsr, {
-
-    Deleted: "YES",
-    DeletedBy: user,
-    DeletedAt: new Date().toISOString(),
-    status: "DELETED"
-
-  });
-
-};
-
-/* =========================================================
-   MARK RESULT CONFIRMED
-========================================================= */
-
+/* mark ยืนยันผล */
 exports.markResultConfirmed = async (nsr) => {
 
   const record = await exports.getByNSR(nsr);
@@ -298,20 +277,32 @@ exports.markResultConfirmed = async (nsr) => {
   }
 
   await exports.updateByNSR(nsr, {
-
     ResultConfirmed: "YES",
     ConfirmedAt: new Date().toISOString()
-
   });
 
   console.log("✅ Result confirmed:", nsr);
-
 };
 
 /* =========================================================
-   GENERATE NEXT NSR
+   CORE SERVICE: DELETE MODULE
 ========================================================= */
 
+/* Soft Delete */
+exports.softDeleteByNSR = async (nsr, user) => {
+  await exports.updateByNSR(nsr, {
+    Deleted: "YES",
+    DeletedBy: user,
+    DeletedAt: new Date().toISOString(),
+    status: "DELETED"
+  });
+};
+
+/* =========================================================
+   CORE SERVICE: GENERATOR MODULE
+========================================================= */
+
+/* สร้างเลข NSR ใหม่ */
 exports.getNextNSR = async () => {
 
   const sheets = await getSheets();
@@ -347,5 +338,4 @@ exports.getNextNSR = async () => {
   }
 
   return `${prefix}-${String(nextNo).padStart(5, "0")}`;
-
 };

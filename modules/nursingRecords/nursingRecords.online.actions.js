@@ -1,106 +1,170 @@
 /************************************************************
- * nursingRecords.online.actions.js
+ * NURSING RECORDS ONLINE ACTIONS MODULE
+ * NurseStationHub (Frontend - Action Layer)
+ *
+ * -----------------------------------------------------------
+ * หน้าที่:
+ * - จัดการ interaction ฝั่ง UI
+ * - เชื่อม API → Table / Form / LINE
+ * - ควบคุม event (click / search / send / edit)
+ *
+ * -----------------------------------------------------------
+ * STRUCTURE:
+ *
+ * 1. Utilities
+ * 2. Global State
+ * 3. Patient Search
+ * 4. Table (Load + Render)
+ * 5. Table Actions (Edit / Delete / Print / Send)
+ * 6. Form Support (Next NSR)
+ * 7. Send Result (LINE)
+ * 8. Export Module
+ *
  ************************************************************/
+
 console.log("⚙️ nursingRecords.online.actions.js LOADED");
+
+
+/* =========================================================
+   UTILITIES
+========================================================= */
+
+/**
+ * แปลง text เป็น bullet list
+ */
 function formatBullet(text) {
+
   if (!text) return "";
-  
+
   return String(text)
     .split("\n")
     .map(t => t.trim())
     .filter(Boolean)
     .map(t => "• " + t)
     .join("\n");
+
 }
-/* ================================
+
+
+/* =========================================================
    GLOBAL EDITOR STATE
-================================ */
+========================================================= */
+
 window.EditorState = {
+
   mode: "add",
   record: null,
 
   setAdd() {
+
     this.mode = "add";
     this.record = null;
+
   },
 
   setEdit(r) {
+
     this.mode = "edit";
     this.record = r;
+
   },
 
   clear() {
+
     this.mode = "add";
     this.record = null;
+
   }
+
 };
+
+
+/* =========================================================
+   MAIN MODULE
+========================================================= */
 
 window.NursingOnlineActions = (() => {
 
-  /* ================================
-     PATIENT SEARCH
-  ================================ */
+
+  /* =========================================================
+     PATIENT SEARCH MODULE
+  ========================================================= */
+
   function bindPatientSearch() {
 
-  const input = document.getElementById("patientSearch");
-  const resultBox = document.getElementById("searchResults");
-  const btn = document.getElementById("btnSearchPatient");
+    const input = document.getElementById("patientSearch");
+    const resultBox = document.getElementById("searchResults");
+    const btn = document.getElementById("btnSearchPatient");
 
-  if (!input || !resultBox) return;
+    if (!input || !resultBox) return;
 
-  const hideResults = () => {
-    resultBox.innerHTML = "";
-    resultBox.style.display = "none";
-  };
+    const hideResults = () => {
 
-  const doSearch = (keyword) => {
+      resultBox.innerHTML = "";
+      resultBox.style.display = "none";
 
-    if (!keyword) {
-      hideResults();
-      return;
+    };
+
+    const doSearch = (keyword) => {
+
+      if (!keyword) {
+
+        hideResults();
+        return;
+
+      }
+
+      PatientCore.searchPatientCore(keyword, rows => {
+
+        PatientCore.renderPatientResults(
+          resultBox,
+          rows,
+          patient => {
+
+            if (window.fillNursingForm) {
+              window.fillNursingForm(patient);
+            }
+
+            hideResults();
+
+          }
+        );
+
+      });
+
+    };
+
+    /* search while typing */
+    input.addEventListener("input", e => {
+
+      doSearch(e.target.value.trim());
+
+    });
+
+    /* search button */
+    if (btn) {
+
+      btn.addEventListener("click", () => {
+
+        doSearch(input.value.trim());
+
+      });
+
     }
 
-    PatientCore.searchPatientCore(keyword, rows => {
+    input.addEventListener("blur", () => {
 
-      PatientCore.renderPatientResults(
-        resultBox,
-        rows,
-        patient => {
-
-          if (window.fillNursingForm) {
-            window.fillNursingForm(patient);
-          }
-
-          hideResults();
-
-        }
-      );
+      setTimeout(hideResults, 200);
 
     });
 
-  };
-
-  /* search while typing */
-  input.addEventListener("input", e => {
-    doSearch(e.target.value.trim());
-  });
-
-  /* search when clicking button */
-  if (btn) {
-    btn.addEventListener("click", () => {
-      doSearch(input.value.trim());
-    });
   }
 
-  input.addEventListener("blur", () => {
-    setTimeout(hideResults, 200);
-  });
 
-}
+  /* =========================================================
+     TABLE MODULE (LOAD + RENDER)
+  ========================================================= */
 
-  /* ================================
-     LOAD TABLE
-  ================================ */
   async function loadNursingRecords() {
 
     const tbody = document.getElementById("nursingTableBody");
@@ -127,6 +191,7 @@ window.NursingOnlineActions = (() => {
           `<tr><td colspan="7" class="text-center text-muted">ไม่มีข้อมูล</td></tr>`;
 
         return;
+
       }
 
       rows.forEach(r => {
@@ -146,34 +211,15 @@ window.NursingOnlineActions = (() => {
             <div class="d-flex flex-wrap justify-content-center gap-1"
                  style="max-width:90px; margin:auto;">
 
-              <button
-                type="button"
-                class="btn btn-warning btn-sm action-edit"
-                style="width:40px;">
-                ✏️
-              </button>
+              <button class="btn btn-warning btn-sm action-edit" style="width:40px;">✏️</button>
 
-              <button
-                type="button"
-                class="btn btn-sm btn-info action-print"
-                style="width:40px;">
-                🖨️
-              </button>
+              <button class="btn btn-sm btn-info action-print" style="width:40px;">🖨️</button>
 
-              <button
-                type="button"
-                class="btn btn-sm btn-success action-send"
-                data-nsr="${r.NSR}"
-                style="width:40px;">
-                📲
-              </button>
+              <button class="btn btn-sm btn-success action-send"
+                      data-nsr="${r.NSR}"
+                      style="width:40px;">📲</button>
 
-              <button
-                type="button"
-                class="btn btn-sm btn-danger action-delete"
-                style="width:40px;">
-                🗑️
-              </button>
+              <button class="btn btn-sm btn-danger action-delete" style="width:40px;">🗑️</button>
 
             </div>
           </td>
@@ -196,9 +242,11 @@ window.NursingOnlineActions = (() => {
 
   }
 
-  /* ================================
-     TABLE ACTIONS
-  ================================ */
+
+  /* =========================================================
+     TABLE ACTIONS MODULE
+  ========================================================= */
+
   function bindTableActions() {
 
     if (window.__nursingTableBound) return;
@@ -207,35 +255,36 @@ window.NursingOnlineActions = (() => {
     document.body.addEventListener("click", async e => {
 
       const btn = e.target.closest("button");
-
       if (!btn) return;
 
       const row = btn.closest("tr");
-
       if (!row || !row._record) return;
 
       const record = row._record;
 
+      /* ---------- EDIT ---------- */
       if (btn.classList.contains("action-edit")) {
 
         EditorState.setEdit(record);
-
         loadSubView("online");
 
       }
 
+      /* ---------- DELETE ---------- */
       if (btn.classList.contains("action-delete")) {
 
         deleteRecord(record.NSR);
 
       }
 
+      /* ---------- PRINT ---------- */
       if (btn.classList.contains("action-print")) {
 
         handlePrint(record);
 
       }
 
+      /* ---------- SEND LINE ---------- */
       if (btn.classList.contains("action-send")) {
 
         await sendReportToPatient(record.NSR, btn);
@@ -248,15 +297,16 @@ window.NursingOnlineActions = (() => {
 
   }
 
-  /* ================================
-     LOAD NEXT NSR
-  ================================ */
+
+  /* =========================================================
+     FORM SUPPORT MODULE
+  ========================================================= */
+
   async function loadNextNSR() {
 
     if (EditorState.mode === "edit") return;
 
     const input = document.getElementById("NSR");
-
     if (!input) return;
 
     try {
@@ -274,9 +324,11 @@ window.NursingOnlineActions = (() => {
 
   }
 
-  /* ================================
-     SEND REPORT TO PATIENT
-  ================================ */
+
+  /* =========================================================
+     SEND RESULT MODULE (LINE OA)
+  ========================================================= */
+
   async function sendReportToPatient(nsr, button) {
 
     if (!nsr) return;
@@ -324,7 +376,6 @@ window.NursingOnlineActions = (() => {
       }
 
       button.innerHTML = "✅";
-
       button.classList.remove("btn-success");
       button.classList.add("btn-secondary");
 
@@ -353,11 +404,12 @@ window.NursingOnlineActions = (() => {
     }
 
   }
-  
 
-  /* ================================
+
+  /* =========================================================
      EXPORT
-  ================================ */
+  ========================================================= */
+
   return {
     bindPatientSearch,
     bindTableActions,

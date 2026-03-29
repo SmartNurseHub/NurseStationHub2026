@@ -1,8 +1,39 @@
 /******************************************************************
- * lineOA.service.js
- * LINE OA Service Module
+ * LINE OA SERVICE MODULE (CORE)
  * NurseStationHub
- ******************************************************************/
+ *
+ * ---------------------------------------------------------------
+ * หน้าที่:
+ * - จัดการ logic หลักของ LINE OA
+ * - ควบคุม event (follow / message / postback / unfollow)
+ * - เชื่อมต่อกับ:
+ *    - Google Sheet
+ *    - Nursing Records
+ *    - LINE Messaging API
+ *
+ * ---------------------------------------------------------------
+ * MODULE STRUCTURE:
+ *
+ * [CLIENT]
+ * - LINE Client
+ *
+ * [UTILS]
+ * - safeReply()
+ * - pushMessage()
+ *
+ * [EVENT HANDLERS]
+ * - handleFollowEvent()
+ * - handleChatMessage()
+ * - handleUnfollowEvent()
+ *
+ * [BUSINESS LOGIC]
+ * - sendReport()
+ *
+ * ---------------------------------------------------------------
+ * FLOW:
+ * Controller → Service → (LINE API + Google Sheet + Nursing)
+ *****************************************************************/
+
 
 /* =========================================================
    IMPORT MODULES
@@ -20,6 +51,7 @@ const {
   deleteRow
 } = require("../../config/google");
 
+
 /* =========================================================
    LINE CLIENT
 ========================================================= */
@@ -27,6 +59,7 @@ const {
 const lineClient = new Client({
   channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN
 });
+
 
 /* =========================================================
    SHEET CONFIG
@@ -36,10 +69,14 @@ const LINE_UID_SHEET = "LineUID";
 const USER_SHEET = "UserList";
 const FOLLOW_SHEET = "FollowList";
 
+
 /* =========================================================
-   UTILITY : SAFE REPLY
+   UTILITIES
 ========================================================= */
 
+/**
+ * SAFE REPLY (กัน token หมดอายุ / error)
+ */
 async function safeReply(event, message) {
 
   if (
@@ -63,10 +100,10 @@ async function safeReply(event, message) {
 
 }
 
-/* =========================================================
-   UTILITY : PUSH MESSAGE
-========================================================= */
 
+/**
+ * PUSH MESSAGE (direct)
+ */
 async function pushMessage(userId, message) {
 
   if (!userId) throw new Error("userId missing");
@@ -84,8 +121,9 @@ async function pushMessage(userId, message) {
 
 }
 
+
 /* =========================================================
-   EVENT : FOLLOW
+   EVENT HANDLER : FOLLOW
 ========================================================= */
 
 async function handleFollowEvent(event) {
@@ -108,6 +146,8 @@ async function handleFollowEvent(event) {
       profile.pictureUrl || "",
       ""
     ]);
+
+    /* ---------- sync LINE UID ---------- */
 
     const rows = await readRows(LINE_UID_SHEET) || [];
 
@@ -141,6 +181,8 @@ async function handleFollowEvent(event) {
 
     }
 
+    /* ---------- reply ---------- */
+
     await safeReply(event, {
       type: "text",
       text: "สวัสดีค่ะ 👋\nกรุณากรอกเลขบัตรประชาชน 13 หลัก"
@@ -154,8 +196,9 @@ async function handleFollowEvent(event) {
 
 }
 
+
 /* =========================================================
-   EVENT : CHAT MESSAGE
+   EVENT HANDLER : CHAT / POSTBACK
 ========================================================= */
 
 async function handleChatMessage(event) {
@@ -171,20 +214,18 @@ async function handleChatMessage(event) {
     let payload = "";
 
     if (event.type === "message") {
-
       payload = (event.message?.text || "").trim();
-
     }
 
     if (event.type === "postback") {
-
       payload = (event.postback?.data || "").trim();
-
     }
 
     if (!payload) return;
 
     console.log(`📩 MESSAGE ${userId} → ${payload}`);
+
+    /* ---------- log message ---------- */
 
     await appendRow(USER_SHEET, [
       new Date().toISOString(),
@@ -209,8 +250,9 @@ async function handleChatMessage(event) {
 
     const status = String(rows[index][7] || "").trim();
 
+
     /* =====================================================
-       WAIT CID
+       STEP : WAIT CID
     ===================================================== */
 
     if (status === "WAIT_CID") {
@@ -238,9 +280,7 @@ async function handleChatMessage(event) {
         await updateRow(LINE_UID_SHEET, cidIndex + 1, rows[cidIndex]);
 
         if (index !== cidIndex) {
-
           await deleteRow(LINE_UID_SHEET, Math.max(index, cidIndex) + 1);
-
         }
 
         return safeReply(event, {
@@ -262,8 +302,9 @@ async function handleChatMessage(event) {
 
     }
 
+
     /* =====================================================
-       WAIT NAME
+       STEP : WAIT NAME
     ===================================================== */
 
     if (status === "WAIT_NAME") {
@@ -292,8 +333,9 @@ async function handleChatMessage(event) {
 
     }
 
+
     /* =====================================================
-       CONFIRM RESULT
+       ACTION : CONFIRM RESULT
     ===================================================== */
 
     if (payload.startsWith("CONFIRM_RESULT:")) {
@@ -342,8 +384,9 @@ async function handleChatMessage(event) {
 
 }
 
+
 /* =========================================================
-   SERVICE : SEND REPORT
+   BUSINESS LOGIC : SEND REPORT
 ========================================================= */
 
 async function sendReport(nsr) {
@@ -383,8 +426,9 @@ async function sendReport(nsr) {
 
 }
 
+
 /* =========================================================
-   EVENT : UNFOLLOW
+   EVENT HANDLER : UNFOLLOW
 ========================================================= */
 
 async function handleUnfollowEvent(event) {
@@ -409,6 +453,7 @@ async function handleUnfollowEvent(event) {
   }
 
 }
+
 
 /* =========================================================
    EXPORT MODULE
