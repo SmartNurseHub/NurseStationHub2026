@@ -11,8 +11,6 @@ require("dotenv").config();
 require("./jobs/reminder.job");
 const express = require("express");
 const path = require("path");
-const cron = require("node-cron");
-
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -85,11 +83,6 @@ app.use(
   "/lineoa",
   require("./modules/lineOA/lineOA.routes")
 );
-
-<<<<<<< HEAD
-cron.schedule("0 12 * * *", async () => {
-=======
->>>>>>> b70c6c2 (modified2026-03-29(New))
 
 /*****************************************************************
  * MODULE: TEST / DEBUG ROUTES
