@@ -253,11 +253,12 @@ document.addEventListener("click", e => {
 });
 
 
-/* =================================================
-   TABLE INIT
-================================================= */
-(async () => {
+window.initNursingRecords = async function () {
   console.log("🚀 INIT MAIN NURSING TABLE");
+
+  // ⭐ สำคัญมาก
+  showNursingTable(); 
+
   await loadScriptOnce("/modules/nursingRecords/nursingRecords.print.js");
   await loadScriptOnce("/modules/nursingRecords/nursingRecords.online.actions.js");
 
@@ -267,4 +268,4 @@ document.addEventListener("click", e => {
   }
 
   bindSendResultButton();
-})();
+};

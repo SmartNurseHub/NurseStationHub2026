@@ -39,7 +39,8 @@ const VIEW_CONFIG = {
 
   nursingRecords: {
   view: "/modules/nursingRecords/nursingRecords.view.html",
-  script: "/modules/nursingRecords/nursingRecords.client.js"
+  script: "/modules/nursingRecords/nursingRecords.client.js",
+  init: "initNursingRecords" // ⭐ เพิ่มตรงนี้
 },
 
    /* ⭐ NEW */
