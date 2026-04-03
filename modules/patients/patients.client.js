@@ -280,7 +280,9 @@ function bindSave() {
 
   btn.onclick = async () => {
     const state = window.PatientsImportState;
-    if (!state.selectedCID.size) return Swal.fire("ยังไม่ได้เลือกข้อมูล");
+    if (!state.selectedCID.size) {
+      return Swal.fire("ยังไม่ได้เลือกข้อมูล");
+    }
 
     const payload = [...state.selectedCID].map(cid => state.patientMap[cid]);
 
@@ -295,23 +297,45 @@ function bindSave() {
 
     if (!confirm.isConfirmed) return;
 
-    Swal.fire({ title:"กำลังบันทึก...", allowOutsideClick:false, didOpen:()=>Swal.showLoading() });
+    Swal.fire({
+      title: "กำลังบันทึก...",
+      allowOutsideClick: false,
+      didOpen: () => Swal.showLoading()
+    });
 
     try {
       const res = await fetch("/api/patients/import", {
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify(payload)
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
       });
-      if (!res.ok) throw new Error(await res.text() || "บันทึกไม่สำเร็จ");
 
-      Swal.fire({ icon:"success", title:"บันทึกสำเร็จ", timer:2000, showConfirmButton:false });
+      if (!res.ok) {
+        throw new Error(await res.text() || "บันทึกไม่สำเร็จ");
+      }
+
+      await Swal.fire({
+        icon: "success",
+        title: "บันทึกสำเร็จ",
+        timer: 2000,
+        showConfirmButton: false
+      });
+
+      // ล้าง selection และ render ตารางใหม่
       state.selectedCID.clear();
       renderPatientsTable();
       updateCounter();
-    } catch(err) {
+
+      // กลับไปหน้า nursingRecords.view.html
+      window.location.href = "nursingRecords.view.html";
+
+    } catch (err) {
       console.error(err);
-      Swal.fire({ icon:"error", title:"บันทึกไม่สำเร็จ", text:err.message });
+      Swal.fire({
+        icon: "error",
+        title: "บันทึกไม่สำเร็จ",
+        text: err.message
+      });
     }
   };
 }
