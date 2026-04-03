@@ -1,35 +1,22 @@
 /******************************************************************
- * config/google.js (RE-ORGANIZED VERSION)
- *
- * แนวคิด:
- * - เป็นศูนย์กลางสำหรับเชื่อมต่อ Google Sheets API
- * - ใช้ Singleton pattern เพื่อลด overhead การ auth ซ้ำ
- * - รวม utility สำหรับ CRUD บน Google Sheets
+ * GOOGLE SHEET SERVICE (FINAL PRO VERSION)
  ******************************************************************/
 
 const { google } = require("googleapis");
 
-
-/*****************************************************************
- * MODULE: GLOBAL STATE / CACHE
- * หน้าที่:
- * - เก็บ instance ของ sheets (singleton)
- * - cache sheetId เพื่อลด API call ซ้ำ
- *****************************************************************/
+/* =========================================================
+   GLOBAL CACHE
+========================================================= */
 
 let sheetsInstance = null;
 let sheetIdCache = {};
 
-
-/*****************************************************************
- * MODULE: AUTH + SHEETS INSTANCE (SINGLETON)
- * หน้าที่:
- * - สร้าง connection กับ Google Sheets API
- * - ใช้ environment variable สำหรับ credential
- * - คืน instance เดิมถ้ามีอยู่แล้ว
- *****************************************************************/
+/* =========================================================
+   INIT SHEETS
+========================================================= */
 
 async function getSheets() {
+
   if (sheetsInstance) return sheetsInstance;
 
   if (!process.env.GOOGLE_CREDENTIAL_BASE64)
@@ -51,94 +38,120 @@ async function getSheets() {
   });
 
   sheetsInstance = google.sheets({ version: "v4", auth });
+
+  console.log("✅ Google Sheets connected");
+
   return sheetsInstance;
 }
 
+/* =========================================================
+   SAFE EXEC (retry + timeout)
+========================================================= */
 
-/*****************************************************************
- * MODULE: READ OPERATIONS
- * หน้าที่:
- * - อ่านข้อมูลจาก Google Sheets
- *****************************************************************/
+async function safeExec(fn, label = "GoogleAPI") {
 
-/* ============================================================
-   READ ALL (รวม header ทุกคอลัมน์)
-============================================================ */
+  for (let i = 0; i < 2; i++) {
+
+    try {
+
+      return await Promise.race([
+        fn(),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Timeout")), 8000)
+        )
+      ]);
+
+    } catch (err) {
+
+      console.error(`❌ ${label} attempt ${i + 1}:`, err.message);
+
+      if (i === 1) throw err;
+
+      await new Promise(r => setTimeout(r, 300));
+    }
+  }
+}
+
+/* =========================================================
+   READ
+========================================================= */
+
 async function readRows(sheetName) {
+
   const sheets = await getSheets();
 
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId: process.env.SPREADSHEET_ID,
-    range: sheetName,
-  });
+  console.log("📖 READ:", sheetName);
+
+  const res = await safeExec(() =>
+    sheets.spreadsheets.values.get({
+      spreadsheetId: process.env.SPREADSHEET_ID,
+      range: sheetName,
+    }),
+    "readRows"
+  );
 
   return res.data.values || [];
 }
 
+/* =========================================================
+   APPEND (🔥 สำคัญสุด)
+========================================================= */
 
-/* ============================================================
-   READ WITHOUT HEADER
-============================================================ */
-async function getSheetRows(sheetName) {
+async function appendRow(sheetName, row) {
+
   const sheets = await getSheets();
 
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId: process.env.SPREADSHEET_ID,
-    range: `${sheetName}!A2:ZZ`,
-  });
+  console.log("➕ APPEND:", sheetName);
 
-  return res.data.values || [];
+  return safeExec(() =>
+    sheets.spreadsheets.values.append({
+      spreadsheetId: process.env.SPREADSHEET_ID, // ✅ FIX ตรงนี้
+      range: sheetName,
+      valueInputOption: "USER_ENTERED",
+      requestBody: {
+        values: [row]
+      }
+    }),
+    "appendRow"
+  );
+
 }
 
+/* =========================================================
+   UPDATE
+========================================================= */
 
-/*****************************************************************
- * MODULE: WRITE OPERATIONS
- * หน้าที่:
- * - เพิ่ม / แก้ไข / ลบข้อมูลใน Google Sheets
- *****************************************************************/
-
-/* ============================================================
-   APPEND ROW
-============================================================ */
-async function appendRow(sheetName, values) {
-  const sheets = await getSheets();
-
-  await sheets.spreadsheets.values.append({
-    spreadsheetId: process.env.SPREADSHEET_ID,
-    range: sheetName,
-    valueInputOption: "USER_ENTERED",
-    requestBody: { values: [values] },
-  });
-}
-
-
-/* ============================================================
-   UPDATE ROW (Dynamic Column Safe)
-============================================================ */
 async function updateRow(sheetName, rowNumber, values) {
+
   const sheets = await getSheets();
 
-  const columnCount = values.length;
-  const endColumn = getColumnLetter(columnCount);
+  const endColumn = getColumnLetter(values.length);
 
-  await sheets.spreadsheets.values.update({
-    spreadsheetId: process.env.SPREADSHEET_ID,
-    range: `${sheetName}!A${rowNumber}:${endColumn}${rowNumber}`,
-    valueInputOption: "USER_ENTERED",
-    requestBody: { values: [values] },
-  });
+  console.log("✏️ UPDATE:", sheetName, rowNumber);
+
+  return safeExec(() =>
+    sheets.spreadsheets.values.update({
+      spreadsheetId: process.env.SPREADSHEET_ID,
+      range: `${sheetName}!A${rowNumber}:${endColumn}${rowNumber}`,
+      valueInputOption: "USER_ENTERED",
+      requestBody: { values: [values] },
+    }),
+    "updateRow"
+  );
 }
 
+/* =========================================================
+   DELETE
+========================================================= */
 
-/* ============================================================
-   DELETE ROW
-============================================================ */
 async function deleteRow(sheetName, rowNumber) {
+
   const sheets = await getSheets();
 
   let sheetId = sheetIdCache[sheetName];
 
   if (!sheetId) {
+
     const spreadsheet = await sheets.spreadsheets.get({
       spreadsheetId: process.env.SPREADSHEET_ID,
     });
@@ -153,101 +166,71 @@ async function deleteRow(sheetName, rowNumber) {
     sheetIdCache[sheetName] = sheetId;
   }
 
-  await sheets.spreadsheets.batchUpdate({
-    spreadsheetId: process.env.SPREADSHEET_ID,
-    requestBody: {
-      requests: [
-        {
-          deleteDimension: {
-            range: {
-              sheetId,
-              dimension: "ROWS",
-              startIndex: rowNumber - 1,
-              endIndex: rowNumber,
+  console.log("🗑 DELETE:", sheetName, rowNumber);
+
+  return safeExec(() =>
+    sheets.spreadsheets.batchUpdate({
+      spreadsheetId: process.env.SPREADSHEET_ID,
+      requestBody: {
+        requests: [
+          {
+            deleteDimension: {
+              range: {
+                sheetId,
+                dimension: "ROWS",
+                startIndex: rowNumber - 1,
+                endIndex: rowNumber,
+              },
             },
           },
-        },
-      ],
-    },
-  });
+        ],
+      },
+    }),
+    "deleteRow"
+  );
 }
 
+/* =========================================================
+   FIND
+========================================================= */
 
-/*****************************************************************
- * MODULE: QUERY / SEARCH
- * หน้าที่:
- * - ค้นหาข้อมูลใน sheet
- *****************************************************************/
-
-/* ============================================================
-   FIND ROW BY CID (Column B)
-============================================================ */
 async function findRowByCID(sheetName, cid) {
+
   const rows = await readRows(sheetName);
 
   for (let i = 1; i < rows.length; i++) {
-    if (rows[i][1] === cid) {
-      return i + 1; // Google Sheet row index
-    }
+    if (rows[i][1] === cid) return i + 1;
   }
 
   return null;
 }
 
+/* =========================================================
+   UTIL
+========================================================= */
 
-/*****************************************************************
- * MODULE: UTILITIES
- * หน้าที่:
- * - ฟังก์ชันช่วยเหลือทั่วไป
- *****************************************************************/
-
-/* ============================================================
-   COLUMN LETTER CONVERTER (รองรับ > Z)
-============================================================ */
 function getColumnLetter(col) {
+
   let letter = "";
+
   while (col > 0) {
     let temp = (col - 1) % 26;
     letter = String.fromCharCode(temp + 65) + letter;
     col = (col - temp - 1) / 26;
   }
+
   return letter;
 }
 
-
-/*****************************************************************
- * MODULE: METADATA
- * หน้าที่:
- * - ดึงข้อมูล metadata ของ spreadsheet
- *****************************************************************/
-
-/* ============================================================
-   GET ALL SHEET NAMES
-============================================================ */
-async function getSheetNames() {
-  const sheets = await getSheets();
-
-  const res = await sheets.spreadsheets.get({
-    spreadsheetId: process.env.SPREADSHEET_ID,
-  });
-
-  return res.data.sheets.map(s => s.properties.title);
-}
-
-
-/*****************************************************************
- * MODULE: EXPORT
- * หน้าที่:
- * - export function ให้ module อื่นใช้งาน
- *****************************************************************/
+/* =========================================================
+   EXPORT
+========================================================= */
 
 module.exports = {
   getSheets,
   readRows,
   appendRow,
   updateRow,
-  findRowByCID,
-  getSheetRows,
   deleteRow,
-  getSheetNames
+  findRowByCID
 };

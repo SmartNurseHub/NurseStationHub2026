@@ -1,302 +1,202 @@
-/*****************************************************************
- * LINE OA CONTROLLER MODULE
- * NurseStationHub
- *
- * ---------------------------------------------------------------
- * หน้าที่:
- * - รับ Webhook จาก LINE Messaging API
- * - แยกประเภท event (follow / unfollow / message / postback)
- * - ส่งต่อ logic ไปยัง service layer
- *
- * ---------------------------------------------------------------
- * FUNCTION LIST:
- *
- * 1. handleWebhook(req, res)
- *    → entry point ของ LINE webhook
- *
- * 2. handleUnfollowEvent(event)
- *    → บันทึกข้อมูลเมื่อ user กด unfollow
- *
- * 3. sendResultByNSR(req, res)
- *    → ส่งผลตรวจ (report) จาก NSR
- *
- * 4. getFollowList(req, res)
- *    → ดึงข้อมูล follow จาก sheet
- *
- * 5. getUserMessages(req, res)
- *    → ดึง chat log
- *
- * ---------------------------------------------------------------
- * FLOW:
- * LINE → Webhook → Controller → Service → Google Sheet / LINE API
- *****************************************************************/
-
-
-/* =========================================================
-   IMPORTS
-========================================================= */
-
-const service = require("./lineOA.service");
-
-const { 
-  readRows,
-  appendRow
-} = require("../../config/google");
-
-const { FOLLOW_SHEET, USER_SHEET } = require("./lineOA.schema");
+const line = require("@line/bot-sdk");
+const { appendRow, readRows } = require("../../config/google");
 
 const registrationService = require("./lineOA.registration.service");
 
-const { formatBullet, buildFlex } = require("../../utils/flexBuilder");
+const FOLLOW_SHEET = "FollowList";
+const USER_SHEET = "UserList";
+const UID_SHEET = "LineUID";
 
+exports.handleWebhook = async (req, res) => {
 
-/* =========================================================
-   LINE WEBHOOK ENTRY POINT
-========================================================= */
+  const events = req.body.events || [];
 
-exports.handleWebhook = (req, res) => {
+  const client = new line.Client({
+    channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN
+  });
 
-  console.log("📩 LINE webhook received");
+  res.sendStatus(200);
 
-  // ตอบ LINE ทันที (กัน timeout)
-  res.status(200).send("OK");
-
-  // ทำงานต่อแบบ async background
-  setImmediate(async () => {
+  for (const event of events) {
 
     try {
 
-      const events = req.body.events || [];
+      console.log("📩 EVENT:", JSON.stringify(event));
 
-      if (!events.length) {
-        console.log("No events");
-        return;
-      }
+      const userId = event.source?.userId;
 
-      for (const event of events) {
+      if (!userId) continue;
 
-        if (!event) continue;
+      const now = new Date().toISOString();
 
-        console.log("EVENT TYPE:", event.type);
+      /* =====================================================
+         HELPER: CHECK USER EXIST
+      ===================================================== */
+      const isUserExist = async () => {
+        const rows = await readRows(UID_SHEET);
+        return rows.some((r, i) => i > 0 && r[4] === userId);
+      };
 
-        try {
 
-          /* ================= FOLLOW ================= */
+      /* =====================================================
+         1. FOLLOW
+      ===================================================== */
+      if (event.type === "follow") {
 
-          if (event.type === "follow") {
+        const profile = await client.getProfile(userId);
 
-            console.log("FOLLOW USER:", event.source?.userId);
+        await appendRow(FOLLOW_SHEET, [
+          now,
+          "follow",
+          userId,
+          profile.displayName,
+          profile.pictureUrl
+        ]);
 
-            await service.handleFollowEvent(event);
+        // ✅ กันซ้ำ
+        const exists = await isUserExist();
 
-          }
+        if (!exists) {
 
-          /* ================= UNFOLLOW ================= */
-
-          if (event.type === "unfollow") {
-
-            console.log("UNFOLLOW USER:", event.source?.userId);
-
-            await service.handleUnfollowEvent(event);
-
-          }
-
-          /* ================= MESSAGE ================= */
-
-          if (event.type === "message" && event.message?.type === "text") {
-
-            const userId = event.source?.userId;
-            const text = event.message.text;
-            const replyToken = event.replyToken;
-
-            console.log("USER:", userId);
-            console.log("MESSAGE:", text);
-
-            try {
-
-              /* ---------- REGISTRATION FLOW ---------- */
-
-              const handled = await registrationService.handleRegistrationFlow(
-                service.lineClient,
-                userId,
-                text,
-                replyToken
-              );
-
-              if (handled) {
-
-                console.log("Registration handled");
-
-                continue;
-
-              }
-
-              /* ---------- NORMAL CHAT ---------- */
-
-              await service.handleChatMessage(event);
-
-            } catch (err) {
-
-              console.error("Message handling error:", err);
-
-            }
-
-          }
-
-          /* ================= POSTBACK ================= */
-
-          if (event.type === "postback") {
-
-            const data = event.postback?.data;
-
-            console.log("POSTBACK:", data);
-
-            if (data?.startsWith("CONFIRM_RESULT:")) {
-
-              const nsr = data.replace("CONFIRM_RESULT:", "");
-
-              await service.handleChatMessage({
-                type: "postback",
-                postback: { data },
-                source: event.source,
-                replyToken: event.replyToken
-              });
-
-            }
-
-          }
-
-        } catch (err) {
-
-          console.error("EVENT ERROR:", err);
+          await appendRow(UID_SHEET, [
+            now,
+            "",
+            "",
+            "",
+            userId,
+            profile.displayName,
+            profile.pictureUrl,
+            "PENDING_CID",
+            ""
+          ]);
 
         }
+
+        await client.replyMessage(event.replyToken, {
+          type: "text",
+          text: "ยินดีต้อนรับ 🙏 กรุณากรอกเลขบัตรประชาชน 13 หลัก"
+        });
+
+        continue;
+      }
+
+
+      /* =====================================================
+         2. UNFOLLOW
+      ===================================================== */
+      if (event.type === "unfollow") {
+
+        await appendRow(FOLLOW_SHEET, [
+          now,
+          "unfollow",
+          userId,
+          "",
+          ""
+        ]);
+
+        continue;
+      }
+
+
+      /* =====================================================
+         3. MESSAGE
+      ===================================================== */
+      if (event.type === "message" && event.message.type === "text") {
+
+        const text = event.message.text;
+
+        // ✅ log chat (กันพัง)
+        try {
+          await appendRow(USER_SHEET, [now, userId, text]);
+        } catch (e) {
+          console.error("Chat log error:", e.message);
+        }
+
+        // ✅ ถ้ายังไม่มี user → สร้างทันที
+        const exists = await isUserExist();
+
+        if (!exists) {
+
+          const profile = await client.getProfile(userId);
+
+          await appendRow(UID_SHEET, [
+            now,
+            "",
+            "",
+            "",
+            userId,
+            profile.displayName,
+            profile.pictureUrl,
+            "PENDING_CID",
+            ""
+          ]);
+
+          await client.replyMessage(event.replyToken, {
+            type: "text",
+            text: "กรุณากรอกเลขบัตรประชาชน 13 หลัก"
+          });
+
+          continue;
+        }
+
+        // ✅ เข้า flow
+        const handled = await registrationService.handleRegistrationFlow(
+          client,
+          userId,
+          text,
+          event.replyToken
+        );
+
+        if (handled) continue;
+
+        // ✅ fallback
+        await client.replyMessage(event.replyToken, {
+          type: "text",
+          text: "พิมพ์ 'สมัคร' เพื่อเริ่มลงทะเบียน"
+        });
 
       }
 
     } catch (err) {
 
-      console.error("Webhook background error:", err);
+      console.error("❌ EVENT ERROR:", err);
 
     }
-
-  });
-
-};
-
-
-/* =========================================================
-   FOLLOW / UNFOLLOW HANDLER
-========================================================= */
-
-/**
- * HANDLE UNFOLLOW EVENT
- */
-exports.handleUnfollowEvent = async (event) => {
-
-  try {
-
-    const userId = event.source.userId;
-
-    await appendRow(FOLLOW_SHEET, [
-      new Date().toISOString(),
-      "unfollow",
-      userId,
-      "",
-      "",
-      ""
-    ]);
-
-    console.log("User unfollow:", userId);
-
-  } catch (err) {
-
-    console.error("handleUnfollowEvent error:", err);
-
   }
 
 };
 
-
 /* =========================================================
-   REPORT / RESULT API
+   REPORT
 ========================================================= */
 
-/**
- * SEND RESULT BY NSR
- */
 exports.sendResultByNSR = async (req, res) => {
-
   try {
-
-    const { nsr } = req.body;
-
-    if (!nsr) {
-
-      return res.status(400).json({
-        success: false,
-        message: "NSR is required"
-      });
-
-    }
-
-    await service.sendReport(nsr);
-
-    res.json({ success: true });
-
+    res.json({ ok: true, message: "sendResultByNSR working" });
   } catch (err) {
-
-    console.error("sendResultByNSR error:", err.message);
-
-    res.status(500).json({
-      success: false,
-      message: err.message
-    });
-
+    console.error(err);
+    res.status(500).json({ error: err.message });
   }
-
 };
-
 
 /* =========================================================
-   DATA QUERY APIs
+   DATA
 ========================================================= */
 
-/**
- * READ FOLLOW LIST
- */
 exports.getFollowList = async (req, res) => {
-
   try {
-
     const rows = await readRows(FOLLOW_SHEET);
-
-    res.json({ data: rows });
-
+    res.json(rows);
   } catch (err) {
-
     res.status(500).json({ error: err.message });
-
   }
-
 };
 
-
-/**
- * READ USER CHAT LOG
- */
 exports.getUserMessages = async (req, res) => {
-
   try {
-
     const rows = await readRows(USER_SHEET);
-
-    res.json({ data: rows });
-
+    res.json(rows);
   } catch (err) {
-
     res.status(500).json({ error: err.message });
-
   }
-
 };

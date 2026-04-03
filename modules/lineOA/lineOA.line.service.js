@@ -241,11 +241,29 @@ async function pushFlexResult({
   }
 }
 
+async function getProfile(userId) {
 
+  if (!userId) return null;
+
+  try {
+
+    const profile = await client.getProfile(userId);
+
+    return profile;
+
+  } catch (err) {
+
+    console.log("⚠️ getProfile failed:", err.message);
+    return null;
+
+  }
+
+}
 /* =========================================================
    🔥 FIX จริง (ไม่ตัดอะไรเลย เพิ่มแค่นี้)
 ========================================================= */
 module.exports = {
   safePush,
+  getProfile,          
   pushFlexResult
 };

@@ -194,7 +194,22 @@ function formatThaiDate(date){
 /* =========================================================
    4️⃣ ID GENERATORS
 ========================================================= */
+let vcnLock = false;
 
+async function genVCNSafe() {
+
+  while (vcnLock) {
+    await new Promise(r => setTimeout(r, 50));
+  }
+
+  vcnLock = true;
+
+  try {
+    return await genVCN();
+  } finally {
+    vcnLock = false;
+  }
+}
 async function genVCN() {
 
   const sheets = await getSheets();
@@ -205,6 +220,7 @@ async function genVCN() {
   const m = String(now.getMonth() + 1).padStart(2, "0");
 
   const prefix = `VCN${y}${m}`;
+  const yearPrefix = `VCN${y}`;
 
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId,
@@ -213,9 +229,25 @@ async function genVCN() {
 
   const rows = res.data.values || [];
 
-  const count = rows.filter(r => r[0] && r[0].startsWith(prefix)).length + 1;
+  let max = 0;
 
-  return `${prefix}-${String(count).padStart(5, "0")}`;
+  rows.forEach(r => {
+    if (!r[0]) return;
+
+    if (r[0].startsWith(yearPrefix)) {
+      const parts = r[0].split("-");
+      if (parts.length === 2) {
+        const num = parseInt(parts[1], 10);
+        if (!isNaN(num) && num > max) {
+          max = num;
+        }
+      }
+    }
+  });
+
+  const next = max + 1;
+
+  return `${prefix}-${String(next).padStart(5, "0")}`;
 }
 
 async function genAPID() {
@@ -270,7 +302,7 @@ async function genREMID() {
 
 async function getNextVCN(){
 
-  const vcn = await genVCN();
+  const vcn = await genVCNSafe();
 
   return { vcn };
 
@@ -453,6 +485,7 @@ async function createReminder(patient, vaccineCode, doseNo, appointmentDate, api
     valueInputOption: "USER_ENTERED",
     requestBody: { values: rows }
   });
+  await new Promise(r => setTimeout(r, 300));
 
 }
 
@@ -533,6 +566,7 @@ async function saveVaccination(data) {
   const patient = await getPatient(cid);
   if (!patient) throw new Error("Patient not found");
 
+  // 🔥 generate ที่เดียว จบ
   const vcn = await genVCN();
 
   const recordRow = [
@@ -568,7 +602,6 @@ async function saveVaccination(data) {
     doseNo
   );
 
-  // ส่ง LINE แบบไม่ทำให้ระบบล้ม
   sendLineVaccine(vcn).catch(err => {
     console.error("LINE SEND FAILED:", err.message);
   });
@@ -577,7 +610,6 @@ async function saveVaccination(data) {
     success: true,
     vcn
   };
-
 }
 
 
