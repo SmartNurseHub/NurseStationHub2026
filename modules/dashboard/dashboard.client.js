@@ -3,14 +3,19 @@
  *****************************************************************/
 
 console.log("📊 dashboard.client.js LOADED");
-
+let followerData = [];
 /*****************************************************************
  * INIT
  *****************************************************************/
 async function initDashboard() {
-  await loadLineUIDTable();
-  await loadPatients();
-  await loadFollowers();
+
+  // 🔥 FIX: รอ DOM render
+  setTimeout(async () => {
+    await loadLineUIDTable();
+    await loadPatients();
+    await loadFollowers();
+  }, 100);
+
 }
 
 document.addEventListener("DOMContentLoaded", initDashboard);
@@ -35,7 +40,7 @@ function formatThaiDateShort(isoDate) {
 /*****************************************************************
  * LOAD LINE UID TABLE
  *****************************************************************/
-async function loadLineUIDTable() {
+/*async function loadLineUIDTable() {
   try {
     const res = await fetch("/api/lineuid");
     const json = await res.json();
@@ -98,11 +103,85 @@ async function loadLineUIDTable() {
   } catch (err) {
     console.error("❌ loadLineUIDTable error:", err);
   }
+}  
+*/
+
+async function loadLineUIDTable() {
+  try {
+    const res = await fetch("/api/dashboard/lineuid");
+    const json = await res.json();
+
+    const tbody = document.getElementById("followTableBody");
+    if (!tbody) return;
+
+    tbody.innerHTML = "";
+
+    if (!json.success || !Array.isArray(json.data)) {
+      tbody.innerHTML =
+        "<tr><td colspan='7'>โหลดข้อมูลไม่สำเร็จ</td></tr>";
+      return;
+    }
+
+    if (json.data.length === 0) {
+      tbody.innerHTML =
+        "<tr><td colspan='7' class='text-muted'>ไม่พบข้อมูล</td></tr>";
+      return;
+    }
+
+    // 🔥 เก็บ data สำหรับ search
+    followerData = json.data;
+
+    renderFollowerTable(followerData);
+
+  } catch (err) {
+    console.error("❌ loadLineUIDTable error:", err);
+  }
 }
 
+function renderFollowerTable(data) {
+  const tbody = document.getElementById("followTableBody");
+  if (!tbody) return;
+
+  tbody.innerHTML = "";
+
+  data.forEach(row => {
+    tbody.innerHTML += `
+      <tr>
+        <td>${row.cid}</td>
+        <td>${row.name} ${row.lname}</td>
+
+        <td>
+          <img
+            src="${row.pictureUrl || row.picture || '/assets/images/LOGO.png'}"
+            onerror="this.src='/assets/images/LOGO.png';"
+            style="width:45px;height:45px;object-fit:cover;border-radius:50%;">
+        </td>
+
+        <td>${row.displayName}</td>
+        <td>${row.userId}</td>
+
+        <td>
+          <span class="badge bg-success">
+            ${row.status || "Active"}
+          </span>
+        </td>
+
+        <td>
+          <button 
+            class="btn btn-sm btn-danger delete-btn"
+            data-cid="${row.cid}">
+            Delete
+          </button>
+        </td>
+      </tr>
+    `;
+  });
+}
 /*****************************************************************
  * LOAD FOLLOWERS
  *****************************************************************/
+
+
 async function loadFollowers() {
   try {
     const res = await fetch("/api/followlist");
@@ -294,18 +373,30 @@ document.addEventListener("click", async function (e) {
 
   if (!e.target.classList.contains("delete-btn")) return;
 
-  const cid = e.target.dataset.cid;
+  let cid = e.target.dataset.cid;
+
+  // 🔥 FIX 1: กัน undefined
+  if (!cid || cid.trim() === "") {
+    console.error("❌ CID invalid:", cid);
+
+    return Swal.fire({
+      icon: "error",
+      title: "ผิดพลาด",
+      text: "ไม่พบ CID"
+    });
+  }
+
+  // 🔥 FIX 2: sanitize
+  cid = cid.replace(":", "").trim();
+
+  console.log("🗑 DELETE CID =", cid);
 
   const result = await Swal.fire({
     title: "ยืนยันการลบ?",
     text: "ข้อมูลนี้จะถูกลบถาวร!",
     icon: "warning",
     showCancelButton: true,
-    confirmButtonColor: "#dc3545",
-    cancelButtonColor: "#6c757d",
-    confirmButtonText: "ลบข้อมูล",
-    cancelButtonText: "ยกเลิก",
-    reverseButtons: true
+    confirmButtonText: "ลบข้อมูล"
   });
 
   if (!result.isConfirmed) return;
@@ -318,7 +409,8 @@ document.addEventListener("click", async function (e) {
       didOpen: () => Swal.showLoading()
     });
 
-    const res = await fetch(`/api/lineuid/delete/${cid}`, {
+    // 🔥 FIX 3: URL ต้องตรง route ของคุณ
+    const res = await fetch(`/api/dashboard/lineuid/delete/${cid}`, {
       method: "DELETE"
     });
 
@@ -329,7 +421,6 @@ document.addEventListener("click", async function (e) {
     await Swal.fire({
       icon: "success",
       title: "ลบสำเร็จ",
-      text: "ข้อมูลถูกลบเรียบร้อยแล้ว",
       timer: 1500,
       showConfirmButton: false
     });
@@ -338,6 +429,8 @@ document.addEventListener("click", async function (e) {
 
   } catch (err) {
 
+    console.error("DELETE ERROR:", err);
+
     Swal.fire({
       icon: "error",
       title: "เกิดข้อผิดพลาด",
@@ -345,5 +438,22 @@ document.addEventListener("click", async function (e) {
     });
 
   }
+
+});
+
+
+document.addEventListener("input", function (e) {
+
+  if (e.target.id !== "searchFollower") return;
+
+  const keyword = e.target.value.toLowerCase().trim();
+
+  const filtered = followerData.filter(item =>
+    (item.name || "").toLowerCase().includes(keyword) ||
+    (item.lname || "").toLowerCase().includes(keyword) ||
+    (item.displayName || "").toLowerCase().includes(keyword)
+  );
+
+  renderFollowerTable(filtered);
 
 });

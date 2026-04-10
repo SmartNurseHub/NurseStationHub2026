@@ -1,202 +1,220 @@
-const line = require("@line/bot-sdk");
-const { appendRow, readRows } = require("../../config/google");
-
+/* =========================================================
+   IMPORTS
+========================================================= */
+const service = require("./lineOA.service");
+const { readRows,appendRow} = require("../../config/google");
+const { FOLLOW_SHEET, USER_SHEET } = require("./lineOA.schema");
 const registrationService = require("./lineOA.registration.service");
-
-const FOLLOW_SHEET = "FollowList";
-const USER_SHEET = "UserList";
-const UID_SHEET = "LineUID";
-
-exports.handleWebhook = async (req, res) => {
-
-  const events = req.body.events || [];
-
-  const client = new line.Client({
-    channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN
-  });
-
-  res.sendStatus(200);
-
-  for (const event of events) {
-
-    try {
-
-      console.log("📩 EVENT:", JSON.stringify(event));
-
-      const userId = event.source?.userId;
-
-      if (!userId) continue;
-
-      const now = new Date().toISOString();
-
-      /* =====================================================
-         HELPER: CHECK USER EXIST
-      ===================================================== */
-      const isUserExist = async () => {
-        const rows = await readRows(UID_SHEET);
-        return rows.some((r, i) => i > 0 && r[4] === userId);
-      };
-
-
-      /* =====================================================
-         1. FOLLOW
-      ===================================================== */
-      if (event.type === "follow") {
-
-        const profile = await client.getProfile(userId);
-
-        await appendRow(FOLLOW_SHEET, [
-          now,
-          "follow",
-          userId,
-          profile.displayName,
-          profile.pictureUrl
-        ]);
-
-        // ✅ กันซ้ำ
-        const exists = await isUserExist();
-
-        if (!exists) {
-
-          await appendRow(UID_SHEET, [
-            now,
-            "",
-            "",
-            "",
-            userId,
-            profile.displayName,
-            profile.pictureUrl,
-            "PENDING_CID",
-            ""
-          ]);
-
-        }
-
-        await client.replyMessage(event.replyToken, {
-          type: "text",
-          text: "ยินดีต้อนรับ 🙏 กรุณากรอกเลขบัตรประชาชน 13 หลัก"
-        });
-
-        continue;
-      }
-
-
-      /* =====================================================
-         2. UNFOLLOW
-      ===================================================== */
-      if (event.type === "unfollow") {
-
-        await appendRow(FOLLOW_SHEET, [
-          now,
-          "unfollow",
-          userId,
-          "",
-          ""
-        ]);
-
-        continue;
-      }
-
-
-      /* =====================================================
-         3. MESSAGE
-      ===================================================== */
-      if (event.type === "message" && event.message.type === "text") {
-
-        const text = event.message.text;
-
-        // ✅ log chat (กันพัง)
+const { formatBullet, buildFlex } = require("../../utils/flexBuilder");
+/* =========================================================
+   LINE WEBHOOK ENTRY POINT
+========================================================= */
+exports.handleWebhook = (req, res) => {
+  console.log("📩 LINE webhook received");
+  // ตอบ LINE ทันที (กัน timeout)
+  res.status(200).send("OK");
+  // ทำงานต่อแบบ async background
+  setImmediate(async () => {
+    try {const events = req.body.events || [];
+      if (!events.length) {console.log("No events");return;}
+      for (const event of events) {
+        if (!event) continue;
+        console.log("EVENT TYPE:", event.type);
         try {
-          await appendRow(USER_SHEET, [now, userId, text]);
-        } catch (e) {
-          console.error("Chat log error:", e.message);
+          /* ================= FOLLOW ================= */
+          if (event.type === "follow") {
+            console.log("FOLLOW USER:", event.source?.userId);
+            await service.handleFollowEvent(event);}
+          /* ================= UNFOLLOW ================= */
+          if (event.type === "unfollow") {
+            console.log("UNFOLLOW USER:", event.source?.userId);
+            await service.handleUnfollowEvent(event);}
+          /* ================= MESSAGE ================= */
+          if (event.type === "message" && event.message?.type === "text") {
+            const userId = event.source?.userId;
+            const text = event.message.text;
+            const replyToken = event.replyToken;
+            console.log("USER:", userId);
+            console.log("MESSAGE:", text);
+            try {
+              /* ---------- REGISTRATION FLOW ---------- */
+              const handled = await registrationService.handleRegistrationFlow(
+                service.lineClient,
+                userId,
+                text,
+                replyToken
+              );
+              if (handled) {
+                console.log("Registration handled");
+                continue;
+              }
+
+              /* ---------- NORMAL CHAT ---------- */
+
+              await service.handleChatMessage(event);
+
+            } catch (err) {
+
+              console.error("Message handling error:", err);
+
+            }
+
+          }
+
+          /* ================= POSTBACK ================= */
+
+          if (event.type === "postback") {
+
+            const data = event.postback?.data;
+
+            console.log("POSTBACK:", data);
+
+            if (data?.startsWith("CONFIRM_RESULT:")) {
+
+              const nsr = data.replace("CONFIRM_RESULT:", "");
+
+              await service.handleChatMessage({
+                type: "postback",
+                postback: { data },
+                source: event.source,
+                replyToken: event.replyToken
+              });
+
+            }
+
+          }
+
+        } catch (err) {
+
+          console.error("EVENT ERROR:", err);
+
         }
-
-        // ✅ ถ้ายังไม่มี user → สร้างทันที
-        const exists = await isUserExist();
-
-        if (!exists) {
-
-          const profile = await client.getProfile(userId);
-
-          await appendRow(UID_SHEET, [
-            now,
-            "",
-            "",
-            "",
-            userId,
-            profile.displayName,
-            profile.pictureUrl,
-            "PENDING_CID",
-            ""
-          ]);
-
-          await client.replyMessage(event.replyToken, {
-            type: "text",
-            text: "กรุณากรอกเลขบัตรประชาชน 13 หลัก"
-          });
-
-          continue;
-        }
-
-        // ✅ เข้า flow
-        const handled = await registrationService.handleRegistrationFlow(
-          client,
-          userId,
-          text,
-          event.replyToken
-        );
-
-        if (handled) continue;
-
-        // ✅ fallback
-        await client.replyMessage(event.replyToken, {
-          type: "text",
-          text: "พิมพ์ 'สมัคร' เพื่อเริ่มลงทะเบียน"
-        });
 
       }
 
     } catch (err) {
 
-      console.error("❌ EVENT ERROR:", err);
+      console.error("Webhook background error:", err);
 
     }
+
+  });
+
+};
+
+
+/* =========================================================
+   FOLLOW / UNFOLLOW HANDLER
+========================================================= */
+
+/**
+ * HANDLE UNFOLLOW EVENT
+ */
+exports.handleUnfollowEvent = async (event) => {
+
+  try {
+
+    const userId = event.source.userId;
+
+    await appendRow(FOLLOW_SHEET, [
+      new Date().toISOString(),
+      "unfollow",
+      userId,
+      "",
+      "",
+      ""
+    ]);
+
+    console.log("User unfollow:", userId);
+
+  } catch (err) {
+
+    console.error("handleUnfollowEvent error:", err);
+
   }
 
 };
 
+
 /* =========================================================
-   REPORT
+   REPORT / RESULT API
 ========================================================= */
 
+/**
+ * SEND RESULT BY NSR
+ */
 exports.sendResultByNSR = async (req, res) => {
+
   try {
-    res.json({ ok: true, message: "sendResultByNSR working" });
+
+    const { nsr } = req.body;
+
+    if (!nsr) {
+
+      return res.status(400).json({
+        success: false,
+        message: "NSR is required"
+      });
+
+    }
+
+    await service.sendReport(nsr);
+
+    res.json({ success: true });
+
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message });
+
+    console.error("sendResultByNSR error:", err.message);
+
+    res.status(500).json({
+      success: false,
+      message: err.message
+    });
+
   }
+
 };
+
 
 /* =========================================================
-   DATA
+   DATA QUERY APIs
 ========================================================= */
 
+/**
+ * READ FOLLOW LIST
+ */
 exports.getFollowList = async (req, res) => {
+
   try {
+
     const rows = await readRows(FOLLOW_SHEET);
-    res.json(rows);
+
+    res.json({ data: rows });
+
   } catch (err) {
+
     res.status(500).json({ error: err.message });
+
   }
+
 };
 
+
+/**
+ * READ USER CHAT LOG
+ */
 exports.getUserMessages = async (req, res) => {
+
   try {
+
     const rows = await readRows(USER_SHEET);
-    res.json(rows);
+
+    res.json({ data: rows });
+
   } catch (err) {
+
     res.status(500).json({ error: err.message });
+
   }
+
 };

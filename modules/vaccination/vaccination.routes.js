@@ -1,6 +1,5 @@
 /******************************************************************
  * VACCINATION ROUTES
- * เส้นทาง API สำหรับระบบ Vaccination
  ******************************************************************/
 
 const express = require("express");
@@ -10,26 +9,37 @@ const controller = require("./vaccination.controller");
 /* =======================================================
    TIMELINE, LATEST, HISTORY
 ======================================================= */
-router.get("/timeline/:cid", controller.timeline);      // ประวัติ timeline ของผู้ป่วย
-router.get("/latest/:cid", controller.latest);          // วัคซีนล่าสุด
-router.get("/history/:cid", controller.history);        // ประวัติการฉีดทั้งหมด (secure / public)
+router.get("/timeline/:cid", controller.timeline);
+router.get("/latest/:cid", controller.latest);
+router.get("/history/:cid", controller.history);
 
 /* =======================================================
    VACCINE MASTER & NEXT VCN
 ======================================================= */
-router.get("/master", controller.getVaccineMaster);     // รายการวัคซีนทั้งหมด
-router.get("/next-vcn", controller.getNextVCN);         // เลข VCN ถัดไปสำหรับการฉีด
+router.get("/master", controller.getVaccineMaster);
+router.get("/next-vcn", controller.getNextVCN);
+
+/* =======================================================
+   DASHBOARD & SCHEDULE  ⭐ เพิ่มตรงนี้
+======================================================= */
+router.get("/dashboard", controller.getDashboard);
+router.get("/schedule", controller.getSchedule);
+
+/* =======================================================
+   APPOINTMENTS  ⭐ (แนะนำให้เพิ่ม)
+======================================================= */
+router.get("/appointments/:cid", controller.getAppointments);
 
 /* =======================================================
    ADD / DELETE / SEND
 ======================================================= */
-router.post("/add", controller.addVaccination);         // เพิ่มรายการวัคซีนใหม่
-router.delete("/delete/:vcn", controller.deleteVaccination); // ลบรายการวัคซีน (แก้ตรงนี้)
-router.post("/send-line/:vcn", controller.sendLineVaccine);   // ส่งข้อมูลไป LINE
+router.post("/add", controller.addVaccination);
+router.delete("/delete/:vcn", controller.deleteVaccination);
+router.post("/send-line/:vcn", controller.sendLineVaccine);
 
 /* =======================================================
-   SECURE HISTORY FOR LINE
+   SECURE HISTORY
 ======================================================= */
-router.get("/history-secure/:cid/:lineUID", controller.historySecure); // ประวัติ secure ผ่าน LINE UID
+router.get("/history-secure/:cid/:lineUID", controller.historySecure);
 
 module.exports = router;

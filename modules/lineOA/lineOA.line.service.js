@@ -85,12 +85,14 @@ async function pushFlexResult({
   result,
   advice,
   fileURL
-}) {
+}) { 
 
   if (!userId) {
-    console.log("⚠️ LINE userId not found");
-    return;
-  }
+  console.log("⚠️ LINE userId not found");
+  return;
+}
+
+  /* ================= RESULT TRIAGE COLOR ================= */
 
   let resultColor = "#2E7D32";
   let resultIcon = "🟢";
@@ -122,11 +124,16 @@ async function pushFlexResult({
 
   }
 
+  /* ================= FORMAT TEXT ================= */
+
   const listLines = formatBullet(list || []).slice(0, 10);
   const resultLines = formatBullet(result || []).slice(0, 10);
   const adviceLines = formatBullet(advice || []).slice(0, 10);
 
+  /* ================= FLEX BODY ================= */
+
   const contents = [
+
     {
       type: "text",
       text: "📋 ผลการตรวจสุขภาพ",
@@ -135,6 +142,7 @@ async function pushFlexResult({
       align: "center",
       color: "#1B5E20"
     },
+
     {
       type: "text",
       text: fullName || "-",
@@ -143,12 +151,17 @@ async function pushFlexResult({
       margin: "sm",
       color: "#0D47A1"
     },
+
     { type: "separator", margin: "md" },
+
+    /* ---------- TEST LIST ---------- */
 
     {
       type: "text",
       text: "📄 รายการตรวจ",
-      weight: "bold"
+      weight: "bold",
+      color: "#0288D1",
+      size: "lg"
     },
 
     { type: "separator", margin: "md" },
@@ -159,6 +172,49 @@ async function pushFlexResult({
       size: "sm",
       wrap: true
     })),
+
+    { type: "separator", margin: "md" },
+
+    /* ---------- SERVICE DATE ---------- */
+
+    {
+      type: "box",
+      layout: "vertical",
+      margin: "md",
+      spacing: "xs",
+      contents: [
+
+        {
+          type: "text",
+          text: "📅 วันที่ตรวจ",
+          weight: "bold",
+          color: "#0288D1",
+          size: "lg"
+        },
+
+        { type: "separator", margin: "sm" },
+
+        {
+          type: "text",
+          text: dateService || "-",
+          size: "sm",
+          color: "#555555"
+        }
+
+      ]
+    },
+
+    { type: "separator", margin: "md" },
+
+    /* ---------- RESULT ---------- */
+
+    {
+      type: "text",
+      text: "📊 ผลตรวจ",
+      weight: "bold",
+      color: "#0288D1",
+      size: "lg"
+    },
 
     { type: "separator", margin: "md" },
 
@@ -180,10 +236,14 @@ async function pushFlexResult({
 
     { type: "separator", margin: "md" },
 
+    /* ---------- ADVICE ---------- */
+
     {
       type: "text",
-      text: "💡 คำแนะนำ",
-      weight: "bold"
+      text: "💡 คำแนะนำจากพยาบาล",
+      weight: "bold",
+          color: "#0288D1",
+          size: "lg"
     },
 
     { type: "separator", margin: "md" },
@@ -194,76 +254,165 @@ async function pushFlexResult({
       wrap: true,
       size: "sm"
     }))
+
   ];
 
+  /* ================= FILE ATTACHMENT ================= */
+
   if (fileURL) {
-    contents.push({
-      type: "button",
-      action: {
-        type: "uri",
-        label: "📎 เปิดไฟล์",
-        uri: fileURL
+
+    contents.push(
+
+      { type: "separator", margin: "lg" },
+
+      {
+        type: "button",
+        style: "primary",
+        color: "#0288D1",
+        margin: "md",
+        action: {
+          type: "uri",
+          label: "📎 เปิดไฟล์ผลตรวจ",
+          uri: fileURL
+        }
       }
-    });
+
+    );
+
   }
 
+  /* ================= FLEX MESSAGE ================= */
+
   const flex = {
+
     type: "flex",
     altText: "แจ้งผลการตรวจสุขภาพ",
+
     contents: {
+
       type: "bubble",
+      size: "mega",
+
+      hero: {
+        type: "image",
+        url: "https://drive.google.com/uc?export=view&id=1O366lb3XphBKeVv51F5nNHIOEvdEh-jI",
+        size: "full",
+        aspectRatio: "20:13",
+        aspectMode: "cover"
+      },
+
       body: {
         type: "box",
         layout: "vertical",
+        spacing: "sm",
         contents
+      },
+
+      footer: {
+        type: "box",
+        layout: "vertical",
+        spacing: "sm",
+        contents: [
+
+          {
+            type: "text",
+            text: "กรุณากดยืนยันรับผลตรวจ\nและประเมินความพึงพอใจ\nเพื่อเป็นข้อมูลในการปรับปรุง\nบริการให้ดียิ่งขึ้น",
+            align: "center",
+            size: "sm",
+            margin: "sm",
+            color: "#0D47A1",
+            wrap: true
+          },
+
+          {
+            type: "button",
+            style: "primary",
+            color: "#2E7D32",
+            action: {
+              type: "message",
+              label: "✅ ยืนยันรับผลแล้ว",
+              text: `CONFIRM_RESULT:${nsr}`
+            }
+          },
+
+          {
+            type: "button",
+            style: "secondary",
+            color: "#F9A825",
+            action: {
+              type: "uri",
+              label: "⭐ ประเมินความพึงพอใจ",
+              uri: "https://liff.line.me/2007902507-7OKhdnNW?nsr=" + nsr
+            }
+          }
+
+        ]
       }
+
     }
+
   };
 
+  /* ================= PUSH ================= */
   let pushSuccess = false;
 
   try {
 
-    pushSuccess = await safePush(userId, flex);
+  if (!client || !client.pushMessage) {
+  console.error("❌ LINE client.pushMessage missing");
+  return;
+}
 
-    if (!pushSuccess) return;
+pushSuccess = await safePush(userId, flex)
 
-  } catch (err) {
-    console.error("❌ push error:", err.message);
+if (!pushSuccess) {
+  console.log("⚠️ pushFlexResult skipped:", userId)
+  return
+}
+
+console.log("✅ pushFlexResult sent:", userId)
+
+} catch (err) {
+
+  const msg = String(err.response?.data?.message || err.message);
+
+  if (msg.includes("not a friend")) {
+    console.log("⚠️ user not follow bot:", userId);
+    return;
   }
+
+  if (msg.includes("blocked")) {
+    console.log("⚠️ user blocked bot:", userId);
+    return;
+  }
+
+  console.error("❌ pushFlexResult error:", msg);
+
+}
+
+  /* 🔧 FIX สำคัญ — บันทึกว่า LINE ส่งผลแล้ว */
 
   if (nsr && pushSuccess) {
-    try {
-      await nursingService.markLineSent(nsr);
-    } catch (err) {
-      console.error("❌ markLineSent failed:", err);
-    }
-  }
-}
-
-async function getProfile(userId) {
-
-  if (!userId) return null;
-
   try {
 
-    const profile = await client.getProfile(userId);
+    await nursingService.markLineSent(nsr);
+      
+    console.log("✅ LineSent updated:", nsr);
 
-    return profile;
+    } catch (err) {
 
-  } catch (err) {
+      console.error("❌ markLineSent failed:", err);
 
-    console.log("⚠️ getProfile failed:", err.message);
-    return null;
+    }
 
   }
 
-}
+};
+
 /* =========================================================
    🔥 FIX จริง (ไม่ตัดอะไรเลย เพิ่มแค่นี้)
 ========================================================= */
 module.exports = {
   safePush,
-  getProfile,          
   pushFlexResult
 };

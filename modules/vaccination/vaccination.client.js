@@ -27,6 +27,7 @@ const VaccineState = {
 window.initVaccination = async function(){
   console.log("🚀 initVaccination");
   bindTabs();
+  bindVaccineDropdown(); // ⭐ เพิ่มบรรทัดนี้
   bindPatientSearch();
   bindForm(); // ⭐ เพิ่มตรงนี้
 
@@ -37,6 +38,7 @@ window.initVaccination = async function(){
 
   await loadVaccineMaster();
   await loadNextVCN();
+  await loadDashboard(); // ✅ ใช้ตัวที่มีอยู่จริง
 };
 
 /*****************************************************************
@@ -105,12 +107,161 @@ function setText(id,val){
 function bindTabs(){
   document.querySelectorAll(".open-tab").forEach(btn=>{
     btn.addEventListener("click",()=>{
+
+      // 🔻 ซ่อน dashboard
+      document.getElementById("VaccineDashboard")
+        ?.classList.add("d-none");
+
+      // 🔺 แสดง main container
+      document.getElementById("mainContainer")
+        ?.classList.remove("d-none");
+
+      // 🔻 ซ่อน tab ทั้งหมด
+      document.querySelectorAll(".vaccine-tab")
+        .forEach(el=>el.classList.add("d-none"));
+
+      // 🔺 เปิด tab ที่เลือก
       const tab = btn.dataset.tab;
+      const target = document.getElementById(tab+"Tab");
+      if(target) target.classList.remove("d-none");
+
+    });
+  });
+}
+
+/*****************************************************************
+ * VACCINE MANAGEMENT DROPDOWN
+ *****************************************************************/
+function bindVaccineDropdown(){
+  document.querySelectorAll(".open-tab").forEach(btn=>{
+    btn.addEventListener("click", async ()=>{
+
+      // ซ่อน dashboard
+      document.getElementById("VaccineDashboard")?.classList.add("d-none");
+
+      // แสดง container หลัก
+      document.getElementById("mainContainer")?.classList.remove("d-none");
+
+      // ซ่อน tab ทั้งหมด
       document.querySelectorAll(".vaccine-tab").forEach(el=>el.classList.add("d-none"));
+
+      // เปิด tab ตามที่เลือก
+      const tab = btn.dataset.tab;
+
+      // 🔹 โหลดตารางข้อมูลตาม tab
+      if(tab === "vaccineMaster"){
+        await loadVaccineMasterTab();
+      } else if(tab === "vaccineSchedule"){
+        await loadVaccineScheduleTab();
+      }
+
+      // แสดง tab target
       const target = document.getElementById(tab+"Tab");
       if(target) target.classList.remove("d-none");
     });
   });
+}
+
+/** โหลด VaccineMaster สำหรับ tab management */
+async function loadVaccineMasterTab(){
+  const res = await fetch("/api/vaccination/master");
+  const result = await res.json();
+  if(!result.success) return;
+
+  const container = document.getElementById("vaccineMasterTab");
+  container.innerHTML = ""; // ล้างก่อน
+
+  // สร้างตาราง
+  const table = document.createElement("table");
+  table.className = "table table-sm table-bordered";
+  table.innerHTML = `
+    <thead>
+      <tr>
+        <th>Code</th>
+        <th>Name</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${result.data.map((v,i)=>`
+        <tr>
+          <td>${v.code}</td>
+          <td>${v.name}</td>
+          <td>
+            <button class="btn btn-sm btn-warning" onclick="editVaccineMaster(${i})">✏️ Edit</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteVaccineMaster('${v.code}')">🗑️ Delete</button>
+          </td>
+        </tr>
+      `).join('')}
+    </tbody>
+  `;
+  container.appendChild(table);
+
+  // ปุ่มเพิ่ม
+  const addBtn = document.createElement("button");
+  addBtn.className = "btn btn-sm btn-success mt-2";
+  addBtn.textContent = "➕ Add Vaccine";
+  addBtn.onclick = ()=>addVaccineMaster();
+  container.appendChild(addBtn);
+}
+
+/** โหลด VaccineSchedule สำหรับ tab management */
+async function loadVaccineScheduleTab(){
+  const res = await fetch("/api/vaccination/schedule");
+  const result = await res.json();
+  if(!result.success) return;
+
+  const container = document.getElementById("vaccineScheduleTab");
+  container.innerHTML = "";
+
+  const table = document.createElement("table");
+  table.className = "table table-sm table-bordered";
+  table.innerHTML = `
+    <thead>
+      <tr>
+        <th>VaccineCode</th>
+        <th>DoseNo</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${result.data.map((v,i)=>`
+        <tr>
+          <td>${v.vaccineCode}</td>
+          <td>${v.doseNo}</td>
+          <td>
+            <button class="btn btn-sm btn-warning" onclick="editVaccineSchedule(${i})">✏️ Edit</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteVaccineSchedule(${i})">🗑️ Delete</button>
+          </td>
+        </tr>
+      `).join('')}
+    </tbody>
+  `;
+  container.appendChild(table);
+
+  const addBtn = document.createElement("button");
+  addBtn.className = "btn btn-sm btn-success mt-2";
+  addBtn.textContent = "➕ Add Schedule";
+  addBtn.onclick = ()=>addVaccineSchedule();
+  container.appendChild(addBtn);
+}
+
+
+
+function showDashboard(){
+
+  // 🔻 ซ่อน container ทั้งหมด
+  document.getElementById("mainContainer")
+    ?.classList.add("d-none");
+
+  // 🔻 ซ่อน tabs
+  document.querySelectorAll(".vaccine-tab")
+    .forEach(el=>el.classList.add("d-none"));
+
+  // 🔺 แสดง dashboard
+  document.getElementById("VaccineDashboard")
+    ?.classList.remove("d-none");
+
 }
 
 /*****************************************************************
@@ -219,6 +370,7 @@ function bindForm(){
   if(!form) return;
   form.addEventListener("submit",saveVaccine);
 }
+
 
 async function saveVaccine(e){
   e.preventDefault();
@@ -333,6 +485,8 @@ async function loadVaccinationTable(cid){
   });
 }
 
+
+
 /*****************************************************************
  * LATEST VACCINES
  *****************************************************************/
@@ -416,6 +570,78 @@ async function loadNextVCN(){
   if(input) input.value = result.data.vcn;
 }
 
+async function loadDashboard() {
+  const tbody = document.getElementById("dashboardTable");
+
+  tbody.innerHTML = `
+    <tr>
+      <td colspan="7" class="text-center text-muted">กำลังโหลด...</td>
+    </tr>
+  `;
+
+  try {
+    const res = await fetch("/api/vaccination/dashboard");
+    const json = await res.json();
+
+    if (!json.ok) throw new Error();
+
+    const rows = json.data;
+
+    if (!rows.length) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="7" class="text-center text-muted">ไม่พบข้อมูล</td>
+        </tr>
+      `;
+      return;
+    }
+
+    tbody.innerHTML = rows.map(r => `
+  <tr>
+    <td>${r.CID}</td>
+    <td>${r.fullname}</td>
+    <td style="font-size:10px;">${r.vaccines}</td>
+    <td>${formatThaiDate(r.lastDate)}</td>
+    <td>${formatThaiDate(r.nextAppt)}</td>
+    <td>
+      <button class="btn btn-sm btn-info" onclick="openPatientFromDashboard('${r.CID}')">
+        ดู
+      </button>
+    </td>
+  </tr>
+`).join("");
+
+  } catch (err) {
+    console.error(err);
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="7" class="text-center text-danger">โหลดข้อมูลล้มเหลว</td>
+      </tr>
+    `;
+  }
+}
+
+
+function openPatientFromDashboard(cid){
+  VaccineState.currentCID = cid;
+
+  // เปิด tab addVaccine
+  document.querySelectorAll(".vaccine-tab")
+    .forEach(el=>el.classList.add("d-none"));
+
+  document.getElementById("addVaccineTab")
+    ?.classList.remove("d-none");
+
+  // ซ่อน dashboard
+  document.getElementById("VaccineDashboard")
+    ?.classList.add("d-none");
+
+  // โหลดข้อมูลคน
+  loadTimeline(cid);
+  loadVaccinationTable(cid);
+  loadLatestVaccines(cid);
+  loadAppointments(cid);
+}
 /*****************************************************************
  * HELPER FUNCTIONS
  *****************************************************************/
@@ -476,3 +702,4 @@ async function sendLineVaccine(vcn){
     alert("Server error");
   }
 }
+

@@ -1,3 +1,6 @@
+
+
+
 <!-- ===================================== -->
 <!-- 💉 VACCINATION ACTION MENU -->
 <!-- ===================================== -->
@@ -78,29 +81,92 @@
 
     <!-- VACCINE MASTER -->
     <div class="dropdown">
-      <button class="btn dropdown-toggle"
-        style="background-color:#006666;color:#fff;font-size:12px;"
-        data-bs-toggle="dropdown">
-        🛠 จัดการวัคซีน
-      </button>
+  <button class="btn dropdown-toggle"
+          style="background-color:#006666;color:#fff;font-size:12px;"
+          data-bs-toggle="dropdown">
+    🛠 จัดการวัคซีน
+  </button>
 
-      <ul class="dropdown-menu">
-        <li>
-          <a href="javascript:void(0)"
-             class="dropdown-item open-tab"
-             data-tab="vaccineMaster"
-             style="font-size:12px;">
-            📦 Vaccine Master
-          </a>
-        </li>
-      </ul>
-    </div>
+  <ul class="dropdown-menu">
+    <li>
+      <a href="javascript:void(0)"
+         class="dropdown-item open-tab"
+         data-tab="vaccineMaster"
+         style="font-size:12px;">
+        📦 Vaccine Master
+      </a>
+    </li>
+    <li>
+      <a href="javascript:void(0)"
+         class="dropdown-item open-tab"
+         data-tab="vaccineSchedule"
+         style="font-size:12px;">
+        📆 Vaccine Schedule
+      </a>
+    </li>
+  </ul>
+</div>
+
+<!-- Container สำหรับแสดงตารางและฟอร์ม -->
+<div id="tabContainer" class="mt-3"></div>
 
   </div>
 </div>
 
-<div class="container-fluid p-3">
+<!-- ===================================== -->
+<!-- 📊 DEFAULT: ALL VACCINATION TABLE -->
+<!-- ===================================== -->
 
+<div id="VaccineDashboard" class="container-fluid p-3">
+  <div class="card shadow-sm">
+
+    <div class="card-header text-white"
+     style="background-color:#006666;">
+  📊 รายการฉีดวัคซีนทั้งหมด
+</div>
+
+    <div class="card-body">
+
+      <div class="table-responsive">
+
+        <table class="table table-bordered table-sm" style="font-size:11px;">
+
+          <thead class="table-light">
+            <tr>
+              <th width="15%">เลขบัตรประชาชน</th>
+              <th width="15%">ชื่อ-สกุล</th>
+              <th width="25%">วัคซีนที่ฉีด</th>
+              <th width="15%">วันที่ฉีดล่าสุด</th>
+              <th width="15%">วันที่ฉีดครั้งต่อไป</th>
+              <th width="15%">รายละเอียด</th>
+            </tr>
+          </thead>
+
+          <tbody id="dashboardTable">
+            <tr>
+              <td colspan="7" class="text-center text-muted" style="font-size:11px;">
+                กำลังโหลด...
+              </td>
+            </tr>
+          </tbody>
+
+        </table>
+
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
+
+
+<div id="mainContainer" class="container-fluid p-3 d-none">
+  <button class="btn"
+          style="background-color:#006666; color:#fff; font-size:12px; padding:6px 12px; border-radius:4px; margin-bottom:8px;"
+          onclick="showDashboard()">
+    ⬅ กลับ Dashboard
+  </button>
 <!-- ===================================== -->
 <!-- 👤 PATIENT HEADER -->
 <!-- ===================================== -->
@@ -108,7 +174,7 @@
 <div class="card shadow-sm border-0 my-3">
   <div class="card-body text-center py-4">
 
-    <h6 class="fw-bold mb-3" style="font-size:20 px;">
+    <h6 class="fw-bold mb-3" style="font-size:20px;">
       🔎 ค้นหาผู้รับบริการ
     </h6>
 
@@ -274,8 +340,6 @@ style="font-size:10px;font-weight:bold;background:#fba003fd;">
 
 <tbody id="appointmentTable"></tbody>
 
-</tbody>
-
 </table>
 
 </div>
@@ -303,15 +367,9 @@ style="font-size:10px;font-weight:bold;background:#fba003fd;">
 </tr>
 </thead>
 
-<tbody id="historyTable">
+<!-- ADD TAB -->
+<tbody id="historyTable"></tbody>
 
-<tr>
-<td colspan="4" class="text-center text-muted">
-ยังไม่มีประวัติ
-</td>
-</tr>
-
-</tbody>
 
 </table>
 
@@ -382,22 +440,20 @@ style="font-size:10px;font-weight:bold;background:#fba003fd;">
 <div class="table-responsive">
 
 <table class="table table-bordered table-sm" style="font-size:10px;">
+  <thead class="table-light">
+    <tr>
+      <th>VCN</th>
+      <th>วันที่</th>
+      <th>วัคซีน</th>
+      <th>เข็ม</th>
+      <th>Lot</th>
+      <th>Provider</th>
+      <th>สถานที่</th>
+      <th>จัดการ</th>
+    </tr>
+  </thead>
 
-<thead class="table-light">
-<tr>
-<th>VCN</th>
-<th>วันที่</th>
-<th>วัคซีน</th>
-<th>เข็ม</th>
-<th>Lot</th>
-<th>Provider</th>
-<th>สถานที่</th>
-<th>จัดการ</th>
-</tr>
-</thead>
-
-<tbody id="vaccinationHistoryTable"></tbody>
-
+  <tbody id="vaccinationTableBody"></tbody>  <!-- ✅ ใส่ตรงนี้ -->
 </table>
 
 </div>
@@ -444,3 +500,13 @@ style="font-size:10px;font-weight:bold;background:#fba003fd;">
 </div>
 </div>
 </div>
+
+<!-- ===================================== -->
+<!-- TAB: VACCINE MASTER -->
+<!-- ===================================== -->
+<div id="vaccineMasterTab" class="vaccine-tab d-none"></div>
+
+<!-- ===================================== -->
+<!-- TAB: VACCINE SCHEDULE -->
+<!-- ===================================== -->
+<div id="vaccineScheduleTab" class="vaccine-tab d-none"></div>

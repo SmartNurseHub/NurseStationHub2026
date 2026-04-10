@@ -268,8 +268,13 @@ async function createPatientService(data) {
    GET PATIENT BY CID
 ========================================================= */
 async function getPatientByCID(cid) {
+
+  const searchCID = normalizeCID(cid);
+
   const patients = await getAllPatients();
-  return patients.find(p => p.CID === cid) || null;
+
+  return patients.find(p => normalizeCID(p.CID) === searchCID) || null;
+
 }
 
 /* =========================================================

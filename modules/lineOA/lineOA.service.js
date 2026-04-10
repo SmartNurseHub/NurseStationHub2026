@@ -1,124 +1,474 @@
-/*****************************************************************
- * LINE OA SERVICE (FINAL FIX)
+/******************************************************************
+ * LINE OA SERVICE MODULE (CORE)
+ * NurseStationHub
+ *
+ * ---------------------------------------------------------------
+ * หน้าที่:
+ * - จัดการ logic หลักของ LINE OA
+ * - ควบคุม event (follow / message / postback / unfollow)
+ * - เชื่อมต่อกับ:
+ *    - Google Sheet
+ *    - Nursing Records
+ *    - LINE Messaging API
+ *
+ * ---------------------------------------------------------------
+ * MODULE STRUCTURE:
+ *
+ * [CLIENT]
+ * - LINE Client
+ *
+ * [UTILS]
+ * - safeReply()
+ * - pushMessage()
+ *
+ * [EVENT HANDLERS]
+ * - handleFollowEvent()
+ * - handleChatMessage()
+ * - handleUnfollowEvent()
+ *
+ * [BUSINESS LOGIC]
+ * - sendReport()
+ *
+ * ---------------------------------------------------------------
+ * FLOW:
+ * Controller → Service → (LINE API + Google Sheet + Nursing)
  *****************************************************************/
 
-const line = require("@line/bot-sdk");
-const { appendRow } = require("../../config/google");
-const { FOLLOW_SHEET, USER_SHEET } = require("./lineOA.schema");
-
-const config = {
-  channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
-  channelSecret: process.env.LINE_CHANNEL_SECRET
-};
-
-const client = new line.Client(config);
 
 /* =========================================================
-   SAFE GET PROFILE
+   IMPORT MODULES
 ========================================================= */
 
-async function getProfileSafe(userId) {
+const { Client } = require("@line/bot-sdk");
 
-  if (!userId) return null;
+const lineAPI = require("./lineOA.line.service");
+const nursingService = require("../nursingRecords/nursingRecords.service");
+
+const {
+  appendRow,
+  readRows,
+  updateRow,
+  deleteRow
+} = require("../../config/google");
+
+
+/* =========================================================
+   LINE CLIENT
+========================================================= */
+
+const lineClient = new Client({
+  channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN
+});
+
+
+/* =========================================================
+   SHEET CONFIG
+========================================================= */
+
+const LINE_UID_SHEET = "LineUID";
+const USER_SHEET = "UserList";
+const FOLLOW_SHEET = "FollowList";
+
+
+/* =========================================================
+   UTILITIES
+========================================================= */
+
+/**
+ * SAFE REPLY (กัน token หมดอายุ / error)
+ */
+async function safeReply(event, message) {
+
+  if (
+    !event ||
+    !event.replyToken ||
+    event.replyToken === "00000000000000000000000000000000"
+  ) {
+    console.log("⚠️ Skip reply → invalid token");
+    return;
+  }
 
   try {
-    const profile = await client.getProfile(userId);
-    return profile;
+
+    await lineClient.replyMessage(event.replyToken, message);
+
   } catch (err) {
-    console.log("⚠️ getProfile failed:", err.message);
-    return null;
+
+    console.error("LINE REPLY ERROR:", err.message);
+
   }
 
 }
 
-/* =========================================================
-   FOLLOW
-========================================================= */
 
-exports.handleFollowEvent = async (event) => {
+/**
+ * PUSH MESSAGE (direct)
+ */
+async function pushMessage(userId, message) {
 
-  const userId = event.source?.userId;
+  if (!userId) throw new Error("userId missing");
 
   try {
 
-    console.log("👉 handleFollowEvent:", userId);
+    return await lineClient.pushMessage(userId, message);
 
-    const profile = await getProfileSafe(userId);
+  } catch (err) {
+
+    console.error("LINE PUSH ERROR:", err.message);
+    throw err;
+
+  }
+
+}
+
+
+/* =========================================================
+   EVENT HANDLER : FOLLOW
+========================================================= */
+
+async function handleFollowEvent(event) {
+
+  try {
+
+    const userId = String(event.source?.userId || "").trim();
+
+    if (!userId) return;
+
+    const profile = await lineAPI.getProfile(userId) || {};
+
+    /* ---------- save follow log ---------- */
 
     await appendRow(FOLLOW_SHEET, [
       new Date().toISOString(),
       "follow",
       userId,
-      profile?.displayName || "",
-      profile?.pictureUrl || ""
+      profile.displayName || "",
+      profile.pictureUrl || "",
+      ""
     ]);
 
+    /* ---------- sync LINE UID ---------- */
+
+    const rows = await readRows(LINE_UID_SHEET) || [];
+
+    const index = rows.findIndex((r, i) =>
+      i > 0 && String(r[4] || "").trim() === userId
+    );
+
+    const newRow = [
+      new Date().toISOString(),
+      "",
+      "",
+      "",
+      userId,
+      profile.displayName || "",
+      profile.pictureUrl || "",
+      "WAIT_CID",
+      ""
+    ];
+
+    if (index !== -1) {
+
+      rows[index][4] = userId;
+      rows[index][5] = profile.displayName || "";
+      rows[index][6] = profile.pictureUrl || "";
+
+      await updateRow(LINE_UID_SHEET, index + 1, rows[index]);
+
+    } else {
+
+      await appendRow(LINE_UID_SHEET, newRow);
+
+    }
+
+    /* ---------- reply ---------- */
+
+    await safeReply(event, {
+      type: "text",
+      text: "สวัสดีค่ะ 👋\nกรุณากรอกเลขบัตรประชาชน 13 หลัก"
+    });
+
   } catch (err) {
-    console.error("❌ handleFollowEvent:", err.message);
+
+    console.error("handleFollowEvent error:", err);
+
   }
 
-};
+}
+
 
 /* =========================================================
-   UNFOLLOW
+   EVENT HANDLER : CHAT / POSTBACK
 ========================================================= */
 
-exports.handleUnfollowEvent = async (event) => {
-
-  const userId = event.source?.userId;
+async function handleChatMessage(event) {
 
   try {
 
-    console.log("👉 handleUnfollowEvent:", userId);
+    if (event.type === "message" && event.message.type !== "text") return;
+
+    const userId = event.source?.userId;
+
+    if (!userId) return;
+
+    let payload = "";
+
+    if (event.type === "message") {
+      payload = (event.message?.text || "").trim();
+    }
+
+    if (event.type === "postback") {
+      payload = (event.postback?.data || "").trim();
+    }
+
+    if (!payload) return;
+
+    console.log(`📩 MESSAGE ${userId} → ${payload}`);
+
+    /* ---------- log message ---------- */
+
+    await appendRow(USER_SHEET, [
+      new Date().toISOString(),
+      userId,
+      payload
+    ]);
+
+    const rows = await readRows(LINE_UID_SHEET) || [];
+
+    const index = rows.findIndex((r, i) =>
+      i > 0 && String(r[4] || "").trim() === userId
+    );
+
+    if (index === -1) {
+
+      return safeReply(event, {
+        type: "text",
+        text: "กรุณาเพิ่มเพื่อน LINE ใหม่อีกครั้งค่ะ"
+      });
+
+    }
+
+    const status = String(rows[index][7] || "").trim();
+
+
+    /* =====================================================
+       STEP : WAIT CID
+    ===================================================== */
+
+    if (status === "WAIT_CID") {
+
+      const cid = payload.replace(/\D/g, "");
+
+      if (!/^\d{13}$/.test(cid)) {
+
+        return safeReply(event, {
+          type: "text",
+          text: "กรุณากรอกเลขบัตรประชาชน 13 หลัก"
+        });
+
+      }
+
+      const cidIndex = rows.findIndex((r, i) =>
+        i > 0 && String(r[1] || "").trim() === cid
+      );
+
+      if (cidIndex !== -1) {
+
+        rows[cidIndex][4] = userId;
+        rows[cidIndex][7] = "ACTIVE";
+
+        await updateRow(LINE_UID_SHEET, cidIndex + 1, rows[cidIndex]);
+
+        if (index !== cidIndex) {
+          await deleteRow(LINE_UID_SHEET, Math.max(index, cidIndex) + 1);
+        }
+
+        return safeReply(event, {
+          type: "text",
+          text: "เชื่อมต่อ LINE กับข้อมูลผู้ป่วยเรียบร้อยแล้วค่ะ ✅"
+        });
+
+      }
+
+      rows[index][1] = cid;
+      rows[index][7] = "WAIT_NAME";
+
+      await updateRow(LINE_UID_SHEET, index + 1, rows[index]);
+
+      return safeReply(event, {
+        type: "text",
+        text: "กรุณากรอกชื่อและนามสกุล\nตัวอย่าง: สมชาย ใจดี"
+      });
+
+    }
+
+
+    /* =====================================================
+       STEP : WAIT NAME
+    ===================================================== */
+
+    if (status === "WAIT_NAME") {
+
+      const parts = payload.split(/\s+/);
+
+      if (parts.length < 2) {
+
+        return safeReply(event, {
+          type: "text",
+          text: "กรุณากรอกแบบ: ชื่อ นามสกุล"
+        });
+
+      }
+
+      rows[index][2] = parts[0];
+      rows[index][3] = parts.slice(1).join(" ");
+      rows[index][7] = "ACTIVE";
+
+      await updateRow(LINE_UID_SHEET, index + 1, rows[index]);
+
+      return safeReply(event, {
+        type: "text",
+        text: "ลงทะเบียนสำเร็จแล้วค่ะ 🎉"
+      });
+
+    }
+
+
+    /* =====================================================
+       ACTION : CONFIRM RESULT
+    ===================================================== */
+
+    if (payload.startsWith("CONFIRM_RESULT:")) {
+
+      const nsr = payload.split(":")[1]?.trim();
+
+      const record = await nursingService.getByNSR(nsr);
+
+      if (!record) {
+
+        return safeReply(event, {
+          type: "text",
+          text: "❌ ไม่พบข้อมูลผลตรวจ"
+        });
+
+      }
+
+      if (record.ResultConfirmed === "YES") {
+
+        return safeReply(event, {
+          type: "text",
+          text: "ℹ️ ระบบบันทึกไว้แล้ว"
+        });
+
+      }
+
+      await nursingService.markResultConfirmed(nsr);
+
+      return safeReply(event, {
+        type: "text",
+        text: "✅ ยืนยันรับผลตรวจเรียบร้อยแล้ว"
+      });
+
+    }
+
+  } catch (err) {
+
+    console.error("handleChatMessage error:", err);
+
+    await safeReply(event, {
+      type: "text",
+      text: "❌ ระบบขัดข้อง กรุณาลองใหม่"
+    });
+
+  }
+
+}
+
+
+/* =========================================================
+   BUSINESS LOGIC : SEND REPORT
+========================================================= */
+
+async function sendReport(nsr) {
+
+  const record = await nursingService.getByNSR(nsr);
+
+  if (!record) throw new Error("ไม่พบ NSR");
+
+  const rows = await readRows(LINE_UID_SHEET);
+
+  const userRow = rows.find(r =>
+    String(r[1] || "").trim() === String(record.CID).trim() &&
+    String(r[7] || "").toUpperCase() === "ACTIVE"
+  );
+
+  if (!userRow) throw new Error("ยังไม่ได้ผูก LINE");
+
+  const userId = String(userRow[4] || "").trim();
+
+  console.log(`📤 Sending result → ${userId}`);
+
+  await lineAPI.pushFlexResult({
+
+    userId,
+    nsr,
+    fullName: `${record.PRENAME} ${record.NAME} ${record.LNAME}`,
+    dateService: record.DateService,
+    list: record.Activity,
+    result: record.HealthInform,
+    advice: record.HealthAdvice,
+    status: record.status,
+    fileURL: record.fileURL || null
+
+  });
+
+  return true;
+
+}
+
+
+/* =========================================================
+   EVENT HANDLER : UNFOLLOW
+========================================================= */
+
+async function handleUnfollowEvent(event) {
+
+  try {
+
+    const userId = event.source?.userId;
 
     await appendRow(FOLLOW_SHEET, [
       new Date().toISOString(),
       "unfollow",
       userId,
       "",
+      "",
       ""
     ]);
 
   } catch (err) {
-    console.error("❌ handleUnfollowEvent:", err.message);
+
+    console.error("handleUnfollowEvent error:", err);
+
   }
 
-};
+}
+
 
 /* =========================================================
-   CHAT LOG
+   EXPORT MODULE
 ========================================================= */
 
-exports.handleChatMessage = async (event) => {
+module.exports = {
 
-  const userId = event.source?.userId;
+  lineClient,
 
-  let message = "";
+  pushMessage,
 
-  if (event.type === "message") {
-    message = event.message?.text || "";
-  }
+  handleFollowEvent,
+  handleChatMessage,
+  handleUnfollowEvent,
 
-  if (event.type === "postback") {
-    message = event.postback?.data || "";
-  }
-
-  try {
-
-    console.log("👉 log chat:", userId, message);
-
-    await appendRow(USER_SHEET, [
-      new Date().toISOString(),
-      userId,
-      message
-    ]);
-
-  } catch (err) {
-    console.error("❌ handleChatMessage:", err.message);
-  }
+  sendReport
 
 };
-
-/* ========================================================= */
-
-exports.lineClient = client;

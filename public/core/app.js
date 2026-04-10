@@ -1,10 +1,9 @@
 /*************************************************
- * public/core/app.js
- * SPA CORE — MODULE-BASED (FINAL CLEAN)
+ * SPA CORE — MODULE-BASED (HARDENED VERSION)
  *************************************************/
 
-let currentScript = null;
-const loadedScripts = new Map(); 
+const loadedScripts = new Map();
+
 /* ===============================
    SIDEBAR
 ================================ */
@@ -12,11 +11,8 @@ function toggleSidebar() {
   document.body.classList.toggle("sidebar-collapsed");
 }
 
-
-
 /* ===============================
-   VIEW CONFIG (SOURCE OF TRUTH)
-   ➜ เพิ่ม module ที่นี่ที่เดียว
+   VIEW CONFIG
 ================================ */
 const VIEW_CONFIG = {
   dashboard: {
@@ -38,12 +34,11 @@ const VIEW_CONFIG = {
   },
 
   nursingRecords: {
-  view: "/modules/nursingRecords/nursingRecords.view.html",
-  script: "/modules/nursingRecords/nursingRecords.client.js",
-  init: "initNursingRecords" // ⭐ เพิ่มตรงนี้
-},
+    view: "/modules/nursingRecords/nursingRecords.view.html",
+    script: "/modules/nursingRecords/nursingRecords.client.js",
+    init: "initNursingRecords"
+  },
 
-   /* ⭐ NEW */
   nursingCounselor: {
     view: "/modules/nursingCounselor/nursingCounselor.view.html",
     script: "/modules/nursingCounselor/nursingCounselor.client.js",
@@ -55,7 +50,7 @@ const VIEW_CONFIG = {
     script: "/modules/reports/reports.client.js",
     init: "initReports"
   },
-  /* ✅ ADD THIS */
+
   vaccination: {
     view: "/modules/vaccination/vaccination.view.html",
     script: "/modules/vaccination/vaccination.client.js",
@@ -64,10 +59,7 @@ const VIEW_CONFIG = {
 };
 
 /* ===============================
-   LOAD VIEW
-================================ */
-/* ===============================
-   LOAD VIEW
+   LOAD VIEW (FIXED HARDENED)
 ================================ */
 async function loadView(name) {
   const cfg = VIEW_CONFIG[name];
@@ -92,19 +84,27 @@ async function loadView(name) {
     const html = await res.text();
     container.innerHTML = html;
 
-    /* ---------- 2. LOAD SCRIPT (SAFE) ---------- */
+    /* ---------- 2. LOAD SCRIPT ---------- */
     if (cfg.script) {
-
       let scriptPromise = loadedScripts.get(cfg.script);
 
       if (!scriptPromise) {
         scriptPromise = new Promise((resolve, reject) => {
           const s = document.createElement("script");
-          s.src = cfg.script;
+
+          // ⭐ FIX สำคัญ: กันโหลดซ้ำ + debug ง่าย
+          s.src = cfg.script + "?v=" + Date.now();
           s.defer = true;
 
-          s.onload = () => resolve();
-          s.onerror = () => reject(new Error("Script load failed: " + cfg.script));
+          s.onload = () => {
+            console.log("📦 Script loaded:", cfg.script);
+            resolve();
+          };
+
+          s.onerror = () => {
+            console.error("❌ Script load failed:", cfg.script);
+            reject();
+          };
 
           document.body.appendChild(s);
         });
@@ -114,14 +114,24 @@ async function loadView(name) {
 
       await scriptPromise;
 
-      if (cfg.init && typeof window[cfg.init] === "function") {
-        window[cfg.init]();
-        console.log(`✅ Init ${cfg.init}()`);
+      /* ---------- 3. INIT ---------- */
+      if (cfg.init) {
+        if (typeof window[cfg.init] === "function") {
+          try {
+            await window[cfg.init]();
+            console.log(`✅ Init ${cfg.init}()`);
+          } catch (err) {
+            console.error(`❌ Init error (${cfg.init}):`, err);
+          }
+        } else {
+          console.warn(`⚠️ ไม่พบ function ${cfg.init}`);
+        }
       }
     }
 
   } catch (err) {
-    console.error(err);
+    console.error("❌ loadView error:", err);
+
     container.innerHTML = `
       <div class="alert alert-danger m-3">
         ❌ โหลดหน้า <b>${name}</b> ไม่สำเร็จ
@@ -129,41 +139,6 @@ async function loadView(name) {
     `;
   }
 }
-
-/* ===============================
-   OPEN NURSING COUNSELOR FORM
-   ใช้ร่วมทุก module
-================================ */
-window.openNursingCounselor = function (tab = "general") {
-
-  loadView("nursingCounselor");
-
-  setTimeout(() => {
-
-    // เปิด tab
-    const tabBtn = document.querySelector(
-      `button[data-bs-target="#${tab}"]`
-    );
-
-    if (tabBtn && window.bootstrap) {
-      bootstrap.Tab.getOrCreateInstance(tabBtn).show();
-    }
-
-    // scroll ไปที่ form
-    const formMap = {
-      general: "generalForm",
-      disease: "diseaseForm",
-      universal: "universalForm"
-    };
-
-    const form = document.getElementById(formMap[tab]);
-    if (form) {
-      form.scrollIntoView({ behavior: "smooth" });
-    }
-
-  }, 300);
-};
-
 
 /* ===============================
    NAVIGATION (SPA)
@@ -178,7 +153,35 @@ document.addEventListener("click", e => {
   loadView(page);
 });
 
+/* ===============================
+   GLOBAL NAV HELPERS
+================================ */
+window.openNursingCounselor = function (tab = "general") {
 
+  loadView("nursingCounselor");
+
+  setTimeout(() => {
+    const tabBtn = document.querySelector(
+      `button[data-bs-target="#${tab}"]`
+    );
+
+    if (tabBtn && window.bootstrap) {
+      bootstrap.Tab.getOrCreateInstance(tabBtn).show();
+    }
+
+    const formMap = {
+      general: "generalForm",
+      disease: "diseaseForm",
+      universal: "universalForm"
+    };
+
+    const form = document.getElementById(formMap[tab]);
+    if (form) {
+      form.scrollIntoView({ behavior: "smooth" });
+    }
+
+  }, 300);
+};
 
 /* ===============================
    INIT

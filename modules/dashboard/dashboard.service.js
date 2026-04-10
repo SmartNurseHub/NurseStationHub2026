@@ -1,32 +1,18 @@
 /*****************************************************************
- * dashboard.service.js (CLEAN & COMMENTED VERSION)
- *
- * แนวคิด:
- * - Business Logic Layer สำหรับหน้า Dashboard
- * - ติดต่อ Google Sheets
- * - จัดการข้อมูล Follow / Dashboard
+ * dashboard.service.js (FINAL CLEAN PRODUCTION)
  *****************************************************************/
 
-const { google } = require("googleapis");
-const { getAuth } = require("../../config/google");
-
+const { getSheets } = require("../../config/google");
 
 /*****************************************************************
- * FUNCTION: getSheetsInstance
- * หน้าที่:
- * - สร้าง instance สำหรับเรียกใช้งาน Google Sheets API
+ * GET SHEETS
  *****************************************************************/
 async function getSheetsInstance() {
-  const auth = await getAuth();
-  return google.sheets({ version: "v4", auth });
+  return await getSheets();
 }
 
-
 /*****************************************************************
- * FUNCTION: getDashboardSummaryService
- * หน้าที่:
- * - คืนค่าภาพรวม dashboard (placeholder)
- * - Response: { patients, appointmentsToday, records, pending }
+ * SUMMARY
  *****************************************************************/
 async function getDashboardSummaryService() {
   return {
@@ -37,48 +23,53 @@ async function getDashboardSummaryService() {
   };
 }
 
-
 /*****************************************************************
- * FUNCTION: getFollowListService
- * หน้าที่:
- * - ดึงรายการผู้ติดตามจาก Google Sheets
- * - Response: array ของ follower objects
+ * FOLLOW LIST
  *****************************************************************/
 async function getFollowListService() {
-  const sheets = await getSheetsInstance();
+  try {
+    const sheets = await getSheetsInstance();
 
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId: process.env.SPREADSHEET_ID,
-    range: `${process.env.SHEET_FOLLOW}!A2:F`
-  });
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: process.env.SPREADSHEET_ID,
+      range: `${process.env.SHEET_LINEUID}!A2:H`
+    });
 
-  const rows = res.data.values || [];
+    const rows = res.data.values || [];
 
-  return rows
-    .map(r => ({
-      Timestamp: r[0] || "",
-      EventType: r[1] || "",
-      UserId: r[2] || "",
-      DisplayName: r[3] || "",
-      PictureUrl: r[4] || ""
-    }))
-    .sort((a, b) => new Date(b.Timestamp) - new Date(a.Timestamp));
+    const clean = v => (v || "").toString().trim();
+
+return rows.map(r => ({
+  cid: clean(r[1]),
+  name: clean(r[2]),
+  lname: clean(r[3]),
+  userId: clean(r[4]),
+  displayName: clean(r[5]),
+  pictureUrl: clean(r[6]),
+  status: clean(r[7])
+}));
+
+
+  } catch (err) {
+    console.error("❌ getFollowListService error:", err.message);
+    return [];
+  }
 }
 
-
 /*****************************************************************
- * FUNCTION: addFollowerService
- * หน้าที่:
- * - เพิ่ม follower ใหม่
- * - ตรวจสอบ duplicate (CID / UserId)
+ * ADD FOLLOWER
  *****************************************************************/
 async function addFollowerService(data) {
   const sheets = await getSheetsInstance();
   const existing = await getFollowListService();
 
+  const clean = v => (v || "").toString().trim();
+
   const duplicate = existing.find(
-    r => r.CID === data.CID || r.UserId === data.UserId
+    r => clean(r.cid) === clean(data.CID) ||
+         clean(r.userId) === clean(data.UserId)
   );
+
   if (duplicate) throw new Error("Duplicate CID or UserId");
 
   const row = [
@@ -101,12 +92,8 @@ async function addFollowerService(data) {
   });
 }
 
-
 /*****************************************************************
- * FUNCTION: updateFollowService
- * หน้าที่:
- * - อัปเดต CID + ชื่อ จาก userId
- * - รับ params: userId, fullName, cid
+ * UPDATE FOLLOW
  *****************************************************************/
 async function updateFollowService(userId, fullName, cid) {
   const sheets = await getSheetsInstance();
@@ -117,54 +104,69 @@ async function updateFollowService(userId, fullName, cid) {
   });
 
   const rows = res.data.values || [];
-  const rowIndex = rows.findIndex(r => r[5] === userId);
+
+  const clean = v => (v || "").toString().trim();
+
+  const rowIndex = rows.findIndex(r => clean(r[5]) === clean(userId));
+
   if (rowIndex === -1) throw new Error("User not found");
 
   const [name = "", lname = ""] = (fullName || "").split(" ");
-  const updateRange = `${process.env.SHEET_FOLLOW}!A${rowIndex + 2}:C${rowIndex + 2}`;
+
+  const updateRange =
+    `${process.env.SHEET_FOLLOW}!A${rowIndex + 2}:C${rowIndex + 2}`;
 
   await sheets.spreadsheets.values.update({
     spreadsheetId: process.env.SPREADSHEET_ID,
     range: updateRange,
     valueInputOption: "RAW",
-    requestBody: { values: [[cid || "", name, lname]] }
+    requestBody: {
+      values: [[cid || "", name, lname]]
+    }
   });
 }
 
-
 /*****************************************************************
- * FUNCTION: deleteFollowByCidService
- * หน้าที่:
- * - ลบ follower ตาม CID
- * - ใช้วิธี rewrite sheet ทั้งหมด
- * - รับ param: cid
+ * DELETE FOLLOW BY CID (🔥 FIX จริง)
  *****************************************************************/
 async function deleteFollowByCidService(cid) {
   const sheets = await getSheetsInstance();
 
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: process.env.SPREADSHEET_ID,
-    range: `${process.env.SHEET_FOLLOW}!A2:H`
+    range: `${process.env.SHEET_LINEUID}!A2:I`
   });
 
   const rows = res.data.values || [];
-  const rowIndex = rows.findIndex(r => r[0] === cid); // สมมติ CID อยู่คอลัมน์ A
-  if (rowIndex === -1) throw new Error("CID not found");
+
+  const clean = v => (v || "").toString().trim();
+  const targetCid = clean(cid);
+
+  console.log("🔍 FIND CID (LineUID):", targetCid);
+
+  const rowIndex = rows.findIndex(r => clean(r[1]) === targetCid);
+
+  if (rowIndex === -1) {
+    console.error("❌ CID NOT FOUND (LineUID)", {
+      targetCid,
+      sample: rows.slice(0, 5)
+    });
+    throw new Error("CID not found in LineUID");
+  }
+
+  console.log("✅ FOUND ROW:", rowIndex + 2);
 
   rows.splice(rowIndex, 1);
 
   await sheets.spreadsheets.values.update({
     spreadsheetId: process.env.SPREADSHEET_ID,
-    range: `${process.env.SHEET_FOLLOW}!A2:H`,
+    range: `${process.env.SHEET_LINEUID}!A2:I`,
     valueInputOption: "RAW",
     requestBody: { values: rows }
   });
 }
-
-
 /*****************************************************************
- * MODULE: EXPORT
- * ส่งออกฟังก์ชันทั้งหมดให้ controller ใช้งาน
+ * EXPORT
  *****************************************************************/
 module.exports = {
   getDashboardSummaryService,

@@ -1,44 +1,23 @@
-/*****************************************************************
- * dashboard.routes.js (CLEAN VERSION)
- *
- * แนวคิด:
- * - Routing layer สำหรับ Dashboard
- * - เชื่อม HTTP endpoint → controller
- *****************************************************************/
-
 const express = require("express");
 const router = express.Router();
 
-/*****************************************************************
- * MODULE: CONTROLLER IMPORT
- *****************************************************************/
-const controller = require("./dashboard.controller");
-
-/*****************************************************************
- * DASHBOARD ROUTES
- *****************************************************************/
+const {
+  getDashboardSummary,
+  getFollowList,
+  updateFollow,
+  deleteFollowByCid
+} = require("./dashboard.controller");
 
 /* ===============================
-   GET DASHBOARD SUMMARY
+   SUMMARY
 ================================ */
-router.get("/summary", controller.getDashboardSummary);
+router.get("/summary", getDashboardSummary);
 
 /* ===============================
-   GET FOLLOW LIST
+   LINE UID
 ================================ */
-router.get("/followList", controller.getFollowList);
+router.get("/lineuid", getFollowList);
+router.post("/lineuid/update", updateFollow);
+router.delete("/lineuid/delete/:cid", deleteFollowByCid);
 
-/* ===============================
-   UPDATE FOLLOW (CID + Name)
-================================ */
-router.post("/followList/update", controller.updateFollow);
-
-/* ===============================
-   DELETE FOLLOW BY CID
-================================ */
-router.delete("/lineuid/delete/:cid", controller.deleteFollowByCid);
-
-/*****************************************************************
- * EXPORT ROUTER
- *****************************************************************/
 module.exports = router;

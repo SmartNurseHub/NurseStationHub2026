@@ -255,3 +255,30 @@ exports.historySecure = async (req,res)=>{
     res.status(500).json({ error:"server error" });
   }
 };
+
+/******************************************************************
+ * DASHBOARD SUMMARY
+ * GET /api/vaccination/dashboard
+ ******************************************************************/
+exports.getDashboard = async (req, res) => {
+  try {
+    const data = await service.getDashboardSummary(); // ✅ ใช้ service
+    res.json({ ok: true, data });
+  } catch (err) {
+    console.error("Dashboard Error:", err);
+    res.status(500).json({ ok: false });
+  }
+};
+/******************************************************************
+ * VACCINE SCHEDULE
+ * GET /api/vaccination/schedule
+ ******************************************************************/
+exports.getSchedule = async (req, res) => {
+  try {
+    const data = await service.getSchedule();
+    res.json({ success: true, data });
+  } catch (err) {
+    console.error("❌ schedule error:", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+};

@@ -21,7 +21,7 @@
  SECTION 1 : Upload File
 ================================ -->
 <div id="uploadSection" class="card shadow-lg border-0 p-3 mb-3">
-  <h6 class="text-center" style="font-size:14px">
+  <h6 class="text-center" style="font-size:12px">
     📤 อัปโหลดรายชื่อผู้รับบริการ
   </h6>
 
@@ -30,7 +30,7 @@
            id="patientsTxtFile"
            accept=".txt"
            class="form-control mx-auto"
-           style="font-size:14px; max-width:400px">
+           style="font-size:12px; max-width:400px">
 
     <small id="fileName"
            class="text-muted d-block mt-1">
@@ -70,7 +70,8 @@
              id="manualCid"
              maxlength="13"
              class="form-control form-control-sm rounded-3"
-             placeholder="กรอก 13 หลัก">
+             placeholder="กรอก 13 หลัก"
+             style="font-size:12px">
     </div>
 
     <!-- HN -->
@@ -78,6 +79,7 @@
       <label class="form-label small text-muted">HN</label>
       <input type="text"
              id="manualHN"
+             style="font-size:12px"
              class="form-control form-control-sm rounded-3"
              placeholder="Hospital Number">
     </div>
@@ -86,7 +88,7 @@
     <div class="col-md-4">
       <label class="form-label small text-muted">คำนำหน้า</label>
       <select id="manualPrename"
-        class="form-select form-select-sm rounded-3">
+        class="form-select form-select-sm rounded-3" style="font-size:12px">
         <option value="">-- เลือก --</option>
         <option value="1">ด.ช.</option>
         <option value="2">ด.ญ.</option>
@@ -101,6 +103,7 @@
       <label class="form-label small text-muted">ชื่อ *</label>
       <input type="text"
              id="manualName"
+             style="font-size:12px"
              class="form-control form-control-sm rounded-3"
              placeholder="ชื่อ">
     </div>
@@ -110,6 +113,7 @@
       <label class="form-label small text-muted">นามสกุล *</label>
       <input type="text"
              id="manualSurname"
+             style="font-size:12px"
              class="form-control form-control-sm rounded-3"
              placeholder="นามสกุล">
     </div>
@@ -121,14 +125,16 @@
         <input class="form-check-input"
                type="radio"
                name="manualSex"
-               value="M">
+               value="M"
+               style="font-size:12px">
         <label class="form-check-label small">ชาย</label>
       </div>
       <div class="form-check form-check-inline">
         <input class="form-check-input"
                type="radio"
                name="manualSex"
-               value="F">
+               value="F"
+               style="font-size:12px">
         <label class="form-check-label small">หญิง</label>
       </div>
     </div>
@@ -138,6 +144,7 @@
       <label class="form-label small text-muted">วันเกิด</label>
       <input type="date"
              id="manualBirth"
+             style="font-size:12px"
              class="form-control form-control-sm rounded-3">
     </div>
 
@@ -146,6 +153,7 @@
       <label class="form-label small text-muted">โทรศัพท์บ้าน</label>
       <input type="text"
              id="manualTelephone"
+             style="font-size:12px"
              class="form-control form-control-sm rounded-3"
              placeholder="038-xxx-xxx">
     </div>
@@ -155,6 +163,7 @@
       <label class="form-label small text-muted">มือถือ</label>
       <input type="text"
              id="manualMobile"
+             style="font-size:12px"
              class="form-control form-control-sm rounded-3"
              placeholder="08x-xxx-xxxx">
     </div>
@@ -174,15 +183,15 @@
 ================================ -->
 <div id="searchSection"
      class="card shadow border-0 p-3 mt-3 d-none"
-     style="font-size:14px">
+     style="font: size 12px;">
 
-  <input style="font-size:14px"
+  <input style="font-size:12px"
          type="text"
          id="patientsSearch"
          class="form-control"
          placeholder="ค้นหา CID / ชื่อ / นามสกุล">
 
-  <div style="font-size:14px"
+  <div style="font-size:12px"
        id="patientsImportCounter"
        class="small text-muted mt-2">
   </div>
@@ -206,20 +215,20 @@
   </div>
 
   <div class="table-responsive">
-    <table class="table table-bordered table-sm">
+    <table class="table table-bordered table-sm" style="font-size:12px;">
       <thead>
         <tr>
           <th style="width:40px;" class="text-center">
             <input type="checkbox" id="checkAll">
           </th>
-          <th>Citizen Identification</th>
-          <th>Name - Surname</th>
-          <th>Birth Date</th>
-          <th>Telephone</th>
+          <th >หมายเลขบัตรประชาชน</th>
+          <th>ชื่อ-นามสกุล</th>
+          <th>วันเกิด</th>
+          <th>โทรศัพท์</th>
         </tr>
       </thead>
       <tbody id="patientsImportBody"
-             style="font-size:14px">
+             style="font-size:12px">
       </tbody>
     </table>
   </div>

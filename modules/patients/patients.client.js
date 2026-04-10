@@ -21,6 +21,33 @@ window.PatientsImportState = window.PatientsImportState || {
   patientMap: {},        // ✅ เพิ่มตรงนี้
   MAX_RENDER: 500
 };
+
+const PRENAME_MAP = {
+  "1": "เด็กชาย",
+  "2": "เด็กหญิง",
+  "3": "นาย",
+  "4": "นางสาว",
+  "5": "นาง",
+
+  "001": "เด็กชาย",
+  "002": "เด็กหญิง",
+  "003": "นาย",
+  "004": "นางสาว",
+  "005": "นาง",
+
+  "ด.ช.": "เด็กชาย",
+  "ด.ญ.": "เด็กหญิง",
+  "นาย": "นาย",
+  "น.ส.": "นางสาว",
+  "นาง": "นาง"
+};
+
+function mapPrename(code) {
+  if (!code) return "";
+  return PRENAME_MAP[code.trim()] || code;
+}
+
+
 // =========================================================
 // INIT FUNCTION
 // =========================================================
@@ -96,7 +123,6 @@ function parsePatientsTxt(text) {
     const birth = c[9]?.trim();
     const sex = c[8]?.trim();
     const hn = c[7]?.trim();
-
     const obj = {
       CID: c[1]?.trim(),
       HN: hn || "",
@@ -178,9 +204,7 @@ function renderPatientsTable() {
           <input type="checkbox" data-cid="${r.CID}" class="patient-checkbox" ${checked}>
         </td>
         <td>${r.CID}</td>
-        <td>${r.HN}</td>
-        <td>${r.PRENAME} ${r.NAME} ${r.LNAME}</td>
-        <td>${r.SEX}</td>
+        <td>${r.NAME} ${r.LNAME}</td>
         <td>${r.BIRTH_THAI}</td>
         <td>${r.MOBILE || r.TELEPHONE}</td>
       </tr>
@@ -280,62 +304,53 @@ function bindSave() {
 
   btn.onclick = async () => {
     const state = window.PatientsImportState;
-    if (!state.selectedCID.size) {
-      return Swal.fire("ยังไม่ได้เลือกข้อมูล");
-    }
+    if (!state.selectedCID.size) return Swal.fire("ยังไม่ได้เลือกข้อมูล");
 
-    const payload = [...state.selectedCID].map(cid => state.patientMap[cid]);
+    const payload = [...state.selectedCID].map(cid => {
+  const p = state.patientMap[cid];
+
+  return {
+    CID: p.CID || "",
+    PRENAME: p.PRENAME || "",
+    NAME: p.NAME || "",
+    LNAME: p.LNAME || "",
+    HN: p.HN || "",
+    SEX: p.SEX || "",
+    BIRTH: p.BIRTH || "",
+    BIRTH_THAI: p.BIRTH_THAI || "",
+    TELEPHONE: p.TELEPHONE || "",
+    MOBILE: p.MOBILE || ""
+  };
+});
 
     const confirm = await Swal.fire({
-      icon: "question",
-      title: "ยืนยันการบันทึก",
-      html: `ต้องการบันทึกข้อมูล <b>${payload.length}</b> รายการ ใช่หรือไม่ ?`,
-      showCancelButton: true,
-      confirmButtonText: "บันทึก",
-      cancelButtonText: "ยกเลิก"
-    });
+  icon: "question",
+  title: "ยืนยันการบันทึก",
+  html: `ต้องการบันทึกข้อมูล <b>${payload.length}</b> รายการ ใช่หรือไม่ ?`,
+  showCancelButton: true,
+  confirmButtonText: "บันทึก",
+  cancelButtonText: "ยกเลิก"
+});
 
-    if (!confirm.isConfirmed) return;
+if (!confirm.isConfirmed) return;
 
-    Swal.fire({
-      title: "กำลังบันทึก...",
-      allowOutsideClick: false,
-      didOpen: () => Swal.showLoading()
-    });
+    Swal.fire({ title:"กำลังบันทึก...", allowOutsideClick:false, didOpen:()=>Swal.showLoading() });
 
     try {
       const res = await fetch("/api/patients/import", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify(payload)
       });
+      if (!res.ok) throw new Error(await res.text() || "บันทึกไม่สำเร็จ");
 
-      if (!res.ok) {
-        throw new Error(await res.text() || "บันทึกไม่สำเร็จ");
-      }
-
-      await Swal.fire({
-        icon: "success",
-        title: "บันทึกสำเร็จ",
-        timer: 2000,
-        showConfirmButton: false
-      });
-
-      // ล้าง selection และ render ตารางใหม่
+      Swal.fire({ icon:"success", title:"บันทึกสำเร็จ", timer:2000, showConfirmButton:false });
       state.selectedCID.clear();
       renderPatientsTable();
       updateCounter();
-
-      // กลับไปหน้า nursingRecords.view.html
-      window.location.href = "nursingRecords.view.html";
-
-    } catch (err) {
+    } catch(err) {
       console.error(err);
-      Swal.fire({
-        icon: "error",
-        title: "บันทึกไม่สำเร็จ",
-        text: err.message
-      });
+      Swal.fire({ icon:"error", title:"บันทึกไม่สำเร็จ", text:err.message });
     }
   };
 }
@@ -362,11 +377,17 @@ function bindManualSave() {
     if (!NAME || !LNAME) return Swal.fire("กรุณากรอกชื่อและนามสกุล");
 
     const payload = [{
-      CID, HN, PRENAME, NAME, LNAME, SEX,
-      BIRTH: BIRTH ? BIRTH.replace(/-/g,"") : "",
-      BIRTH_THAI: BIRTH ? toDisplayThaiDate(BIRTH) : "",
-      TELEPHONE, MOBILE
-    }];
+  CID: CID || "",
+  PRENAME: PRENAME || "",
+  NAME: NAME || "",
+  LNAME: LNAME || "",
+  HN: HN || "",
+  SEX: SEX || "",
+  BIRTH: BIRTH ? BIRTH.replace(/-/g,"") : "",
+  BIRTH_THAI: BIRTH ? formatThaiDateLong(BIRTH.replace(/-/g,"")) : "",
+  TELEPHONE: TELEPHONE || "",
+  MOBILE: MOBILE || ""
+}];
 
     try {
       Swal.fire({title:"กำลังบันทึก...", allowOutsideClick:false, didOpen:()=>Swal.showLoading()});

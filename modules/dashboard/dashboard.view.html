@@ -57,18 +57,25 @@
 
   <div class="card shadow-sm border-0 p-3 mt-4">
 
-  <div class="d-flex justify-content-between align-items-center mb-3">
-    <h6 class="fw-bold mb-0">📋 รายชื่อผู้ติดตาม LINE OA</h6>
+ <div class="d-flex justify-content-between align-items-center mb-3">
+  <h6 class="fw-bold mb-0">📋 รายชื่อผู้ติดตาม LINE OA</h6>
 
-    <button
-      class="btn btn-success btn-sm px-3 shadow-sm rounded-pill"
-      data-bs-toggle="modal"
-      data-bs-target="#addFollowerModal">
-      <i class="bi bi-person-plus-fill me-1"></i>
-      เพิ่มผู้ติดตาม
-    </button>
-  </div>
+  <button
+    class="btn btn-success btn-sm px-3 shadow-sm rounded-pill"
+    data-bs-toggle="modal"
+    data-bs-target="#addFollowerModal">
+    <i class="bi bi-person-plus-fill me-1"></i>
+    เพิ่มผู้ติดตาม
+  </button>
+</div>
 
+<!-- 🔍 SEARCH -->
+<div class="mb-3">
+  <input 
+    type="text"
+    id="searchFollower"
+    class="form-control form-control-sm"
+    placeholder="🔍 ค้นหาชื่อ / นามสกุล / Display Name">
 </div>
 
   <div class="table-responsive">
@@ -77,13 +84,13 @@
   
     <thead class="table-light">
       <tr>
-        <th>CID</th>
-        <th>Name - Surname</th>       
-        <th>LINE Picture</th>
-        <th>LINE Name</th>
-        <th>LINE UID</th>
-        <th>Status</th>         
-        <th>management</th>
+        <th width="10%">CID</th>
+        <th width="20%">Name - Surname</th>       
+        <th width="10%">LINE Picture</th>
+        <th width="20%">LINE Name</th>
+        <th width="20%">LINE UID</th>
+        <th width="10%">Status</th>         
+        <th width="10%">management</th>
       </tr>
     </thead>
 

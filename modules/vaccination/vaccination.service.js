@@ -8,7 +8,7 @@
 ========================================================= */
 
 const { getSheets } = require("../../config/google");
-const lineService = require("../lineOA/lineOA.service");
+const lineService = require('../lineOA/lineOA.service')
 
 /* =========================================================
    CACHE SYSTEM (ลด Google API)
@@ -567,7 +567,7 @@ async function saveVaccination(data) {
   if (!patient) throw new Error("Patient not found");
 
   // 🔥 generate ที่เดียว จบ
-  const vcn = await genVCN();
+  const vcn = await genVCNSafe(); // ✅ กันชน collision
 
   const recordRow = [
     vcn,
@@ -1126,49 +1126,205 @@ async function getVaccinationByVCN(vcn){
 
 }
 
-async function getLineUIDByCID(cid){
+async function getLineUIDByCID(cid) {
 
-  const cacheKey = `lineuid_${cid}`;
+  if (!cid) return null;
+
+  const normalizedCID = String(cid).trim();
+
+  const cacheKey = `lineuid_${normalizedCID}`;
   const cached = getCache(cacheKey);
-  if(cached) return cached;
+  if (cached) {
+    console.log("⚡ cache hit:", normalizedCID);
+    return cached;
+  }
+
+  try {
+
+    const sheets = await getSheets();
+    const spreadsheetId = process.env.SPREADSHEET_ID;
+
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: "LineUID!A2:I"
+    });
+
+    const rows = res.data.values || [];
+
+    for (const r of rows) {
+
+      const sheetCID = String(r[1] || "").trim();
+
+      if (sheetCID === normalizedCID) {
+
+        const lineUID = String(r[4] || "").trim();
+
+        if (lineUID) {
+
+          setCache(cacheKey, lineUID, 300000); // 5 นาที
+
+          console.log("✅ FOUND LINE UID:", normalizedCID);
+
+          return lineUID;
+
+        }
+
+      }
+
+    }
+
+    console.warn("⚠️ ไม่พบ LINE UID:", normalizedCID);
+
+    return null;
+
+  } catch (err) {
+
+    console.error("❌ getLineUIDByCID error:", err.message);
+
+    return null;
+
+  }
+
+}
+/* =========================================================
+   15 EXPORT
+========================================================= */
+/* =========================================================
+   DASHBOARD SUMMARY
+========================================================= */
+
+async function getDashboardSummary() {
+  try {
+
+    const sheets = await getSheets();
+    const spreadsheetId = process.env.SPREADSHEET_ID;
+
+    const [recordsRes, patientsRes, vaccineRes, apptRes] = await Promise.all([
+      sheets.spreadsheets.values.get({ spreadsheetId, range: "VaccinationRecords!A2:M" }),
+      sheets.spreadsheets.values.get({ spreadsheetId, range: "Patients!A2:J" }),
+      sheets.spreadsheets.values.get({ spreadsheetId, range: "VaccineMaster!A2:H" }),
+      sheets.spreadsheets.values.get({ spreadsheetId, range: "VaccinationAppointments!A2:H" }),
+    ]);
+
+    const records = recordsRes.data.values || [];
+    const patients = patientsRes.data.values || [];
+    const vaccines = vaccineRes.data.values || [];
+    const appointments = apptRes.data.values || [];
+
+    // ---------------- MAP ----------------
+    const patientMap = {};
+    patients.forEach(r => {
+      if (!r[0]) return;
+      patientMap[r[0]] = `${r[2] || ""} ${r[3] || ""}`;
+    });
+
+    const vaccineMap = {};
+    vaccines.forEach(r => {
+      if (!r[0]) return;
+      vaccineMap[r[0]] = r[1];
+    });
+
+    const apptMap = {};
+    appointments.forEach(r => {
+      const CID = r[1];
+      const date = r[5];
+
+      if (!CID || !date) return;
+
+      if (!apptMap[CID]) apptMap[CID] = [];
+
+      const d = new Date(date);
+      if (!isNaN(d)) apptMap[CID].push(d);
+    });
+
+    // ---------------- GROUP ----------------
+    const personMap = {};
+
+    records.forEach(r => {
+      const CID = r[1];
+      if (!CID) return;
+
+      if (!personMap[CID]) {
+        personMap[CID] = {
+          CID,
+          fullname: patientMap[CID] || "-",
+          vaccines: new Set(),
+          lastDate: null
+        };
+      }
+
+      const vaccineCode = r[3];
+      const dateService = new Date(r[5]);
+
+      if (vaccineCode) {
+        const name = vaccineMap[vaccineCode] || vaccineCode;
+        personMap[CID].vaccines.add(name);
+      }
+
+      if (!isNaN(dateService)) {
+        if (!personMap[CID].lastDate || dateService > new Date(personMap[CID].lastDate)) {
+          personMap[CID].lastDate = dateService;
+        }
+      }
+    });
+
+    // ---------------- BUILD ----------------
+    const result = Object.values(personMap).map(p => {
+
+      let nextAppt = "-";
+
+      if (apptMap[p.CID]) {
+        const now = new Date();
+
+        const future = apptMap[p.CID]
+          .filter(d => d >= now)
+          .sort((a, b) => a - b);
+
+        if (future.length) {
+          nextAppt = future[0];
+        }
+      }
+
+      return {
+        CID: p.CID,
+        fullname: p.fullname,
+        vaccines: Array.from(p.vaccines).join(", "),
+        lastDate: p.lastDate,
+        nextAppt
+      };
+    });
+
+    return result;
+
+  } catch (err) {
+    console.error("❌ getDashboardSummary ERROR:", err);
+    throw err;
+  }
+}
+
+async function getSchedule(){
 
   const sheets = await getSheets();
   const spreadsheetId = process.env.SPREADSHEET_ID;
 
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId,
-    range: "LineUID!A2:I"
+    range: `${SHEET_SCHEDULE}!A2:D`
   });
 
   const rows = res.data.values || [];
 
-  const targetCID = String(cid).trim();
+  return rows.map(r => ({
+    vaccineCode: r[0],
+    doseNo: Number(r[1] || 0),
+    intervalType: r[2] || "days",
+    intervalValue: Number(r[3] || 0)
+  }));
 
-  for (const r of rows) {
-
-    const sheetCID = String(r[1] || "").trim();
-
-    if (sheetCID === targetCID) {
-
-      const lineUID = String(r[4] || "").trim();
-
-      if(lineUID){
-
-        setCache(cacheKey,lineUID,300000);
-
-        return lineUID;
-
-      }
-
-    }
-
-  }
-
-  return null;
 }
-/* =========================================================
-   15 EXPORT
-========================================================= */
+
+
+
 
 module.exports = {
 
@@ -1185,10 +1341,14 @@ module.exports = {
   getVaccinationHistory,
 
   getAppointments,
+  getSchedule,
 
   deleteVaccination,
 
-  sendLineVaccine,   // ตรงนี้จะใช้ได้แล้ว
+  sendLineVaccine,
+
+  // ✅ เพิ่มตรงนี้
+  getDashboardSummary,
 
   timeline:getVaccinationTimeline,
   latest:getLatestVaccines,

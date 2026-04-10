@@ -49,9 +49,7 @@ const controller = require("./lineOA.controller");
  * @desc    รับ event จาก LINE Messaging API
  */
 router.post("/webhook", controller.handleWebhook);
-router.post("/send-result", controller.sendResultByNSR);
-router.get("/follows", controller.getFollowList);
-router.get("/messages", controller.getUserMessages);
+
 
 /* =========================================================
    REPORT APIs

@@ -180,3 +180,129 @@ Scheduler ตรวจทุกวัน
 ระบบสร้างนัดครั้งถัดไป
         ↓
 ทำซ้ำจนกว่าจะครบโดส
+
+
+1. ภาพรวม Architecture (HIS Style)
+
+
+                        ┌─────────────────────┐
+                        │      Frontend       │
+                        │  SPA + LIFF Client  │
+                        └──────────┬──────────┘
+                                   │
+                           HTTP / REST API
+                                   │
+                        ┌──────────▼──────────┐
+                        │      API Layer      │
+                        │   (Controllers)     │
+                        └──────────┬──────────┘
+                                   │
+                        ┌──────────▼──────────┐
+                        │    Service Layer    │
+                        │  Business Logic     │
+                        └──────────┬──────────┘
+                                   │
+                 ┌─────────────────┴─────────────────┐
+                 │                                   │
+        ┌────────▼─────────┐               ┌─────────▼─────────┐
+        │   Data Adapter   │               │  External Systems │
+        │ Sheets / DB      │               │ LINE / SMS / API  │
+        └────────┬─────────┘               └─────────┬─────────┘
+                 │                                   │
+           ┌─────▼─────┐                      ┌──────▼──────┐
+           │   Cache   │                      │ Background  │
+           │  Memory   │                      │ Jobs/Queue  │
+           └───────────┘                      └─────────────┘
+
+
+2. โครงสร้างระบบ (Production HIS Structure)
+
+NurseStationHub2026
+│
+├─ server.js
+├─ package.json
+├─ .env
+│
+├─ config
+│   ├─ google.js
+│   ├─ line.js
+│   └─ system.config.js
+│
+├─ core                ⭐ Shared system services
+│   ├─ logger.js
+│   ├─ cache.js
+│   ├─ sheets.js
+│   ├─ auth.js
+│   └─ errors.js
+│
+├─ modules             ⭐ Business Domains
+│
+│   ├─ patients
+│   ├─ nursingRecords
+│   ├─ vaccination
+│   ├─ appointments
+│   ├─ followList
+│   ├─ dashboard
+│   ├─ satisfactionSurvey
+│   ├─ lineOA
+│   └─ lineUID
+│
+├─ jobs                ⭐ background automation
+│   ├─ reminder.job.js
+│   └─ autoSend.job.js
+│
+├─ integrations        ⭐ external systems
+│   ├─ line
+│   │   └─ line.client.js
+│   └─ sms
+│
+├─ routes
+│   └─ index.js
+│
+├─ public              ⭐ frontend
+│   ├─ core
+│   ├─ assets
+│   └─ liff
+│
+├─ uploads
+│
+└─ views
+    └─ index.html
+
+
+3. Domain Modules (แบบ HIS จริง)
+modules
+ └─ patients
+    ├─ api
+    │   ├─ patients.routes.js
+    │   ├─ patients.controller.js
+    │   └─ patients.validator.js
+    │
+    ├─ services
+    │   ├─ patients.service.js
+    │   ├─ patients.cache.js
+    │   └─ patients.repository.js
+    │
+    ├─ adapters
+    │   └─ patients.sheet.js
+    │
+    ├─ client
+    │   ├─ patients.client.js
+    │   ├─ patients.table.js
+    │   ├─ patients.form.js
+    │   └─ patients.search.js
+    │
+    ├─ utils
+    │   ├─ cid.util.js
+    │   └─ date.util.js
+    │
+    └─ views
+        └─ patients.view.html
+
+4. Core System Services (สำคัญมาก)
+core
+ ├─ logger.js
+ ├─ cache.js
+ ├─ sheets.js
+ ├─ auth.js
+ └─ errors.js
