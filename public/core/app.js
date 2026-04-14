@@ -55,7 +55,12 @@ const VIEW_CONFIG = {
     view: "/modules/vaccination/vaccination.view.html",
     script: "/modules/vaccination/vaccination.client.js",
     init: "initVaccination"
-  }
+  },
+  inventory: {
+  view: "/modules/inventory/inventory.view.html",
+  script: "/modules/inventory/inventory.client.js",
+  init: "initInventory"
+}
 };
 
 /* ===============================

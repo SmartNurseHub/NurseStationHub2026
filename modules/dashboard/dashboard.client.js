@@ -37,6 +37,18 @@ function formatThaiDateShort(isoDate) {
   });
 }
 
+const btn = document.getElementById("reportsBtn");
+const sub = document.getElementById("reportsSub");
+
+btn.addEventListener("click", () => {
+  sub.style.display = sub.style.display === "block" ? "none" : "block";
+});
+
+// ไปหน้า inventory
+function goInventory(){
+  loadView("inventory");
+}
+
 /*****************************************************************
  * LOAD LINE UID TABLE
  *****************************************************************/

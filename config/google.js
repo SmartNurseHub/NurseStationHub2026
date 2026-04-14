@@ -222,6 +222,50 @@ function getColumnLetter(col) {
   return letter;
 }
 
+async function readRowsById(sheetId, sheetName) {
+
+  const sheets = await getSheets();
+
+  const res = await safeExec(() =>
+    sheets.spreadsheets.values.get({
+      spreadsheetId: sheetId,
+      range: sheetName,
+    }),
+    "readRowsById"
+  );
+
+  return res.data.values || [];
+}
+
+async function appendRowById(sheetId, sheetName, row) {
+
+  const sheets = await getSheets();
+
+  return safeExec(() =>
+    sheets.spreadsheets.values.append({
+      spreadsheetId: sheetId,
+      range: sheetName,
+      valueInputOption: "USER_ENTERED",
+      requestBody: {
+        values: [row]
+      }
+    }),
+    "appendRowById"
+  );
+}
+async function clearSheetById(spreadsheetId, sheetName){
+
+  const sheets = await getSheets(); // ⭐ สำคัญมาก
+
+  return safeExec(() =>
+    sheets.spreadsheets.values.clear({
+      spreadsheetId,
+      range: sheetName
+    }),
+    "clearSheetById"
+  );
+}
+
 /* =========================================================
    EXPORT
 ========================================================= */
@@ -232,5 +276,11 @@ module.exports = {
   appendRow,
   updateRow,
   deleteRow,
-  findRowByCID
+  findRowByCID,
+
+
+  // 🔥 NEW
+  readRowsById,
+  appendRowById,
+  clearSheetById
 };

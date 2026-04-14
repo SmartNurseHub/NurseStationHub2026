@@ -208,7 +208,6 @@ async function handleChatMessage(event) {
     if (event.type === "message" && event.message.type !== "text") return;
 
     const userId = event.source?.userId;
-
     if (!userId) return;
 
     let payload = "";
@@ -225,8 +224,7 @@ async function handleChatMessage(event) {
 
     console.log(`📩 MESSAGE ${userId} → ${payload}`);
 
-    /* ---------- log message ---------- */
-
+    /* ---------- log ---------- */
     await appendRow(USER_SHEET, [
       new Date().toISOString(),
       userId,
@@ -239,33 +237,46 @@ async function handleChatMessage(event) {
       i > 0 && String(r[4] || "").trim() === userId
     );
 
+    /* =====================================================
+       ❌ ไม่พบ user ในระบบ
+    ===================================================== */
     if (index === -1) {
-
       return safeReply(event, {
         type: "text",
         text: "กรุณาเพิ่มเพื่อน LINE ใหม่อีกครั้งค่ะ"
       });
-
     }
 
     const status = String(rows[index][7] || "").trim();
 
 
     /* =====================================================
-       STEP : WAIT CID
+       ✅ GLOBAL: พิมพ์ "สมัคร"
     ===================================================== */
+    if (payload === "สมัคร") {
 
-    if (status === "WAIT_CID") {
-
-      const cid = payload.replace(/\D/g, "");
-
-      if (!/^\d{13}$/.test(cid)) {
-
+      if (status !== "ACTIVE") {
         return safeReply(event, {
           type: "text",
           text: "กรุณากรอกเลขบัตรประชาชน 13 หลัก"
         });
+      }
 
+      // ถ้าลงทะเบียนแล้ว → ไม่ต้องตอบ
+      return;
+    }
+
+
+    /* =====================================================
+       STEP : WAIT CID
+    ===================================================== */
+    if (status === "WAIT_CID") {
+
+      const cid = payload.replace(/\D/g, "");
+
+      // ❌ ไม่ตอบอะไรเลย (กัน spam)
+      if (!/^\d{13}$/.test(cid)) {
+        return;
       }
 
       const cidIndex = rows.findIndex((r, i) =>
@@ -306,18 +317,15 @@ async function handleChatMessage(event) {
     /* =====================================================
        STEP : WAIT NAME
     ===================================================== */
-
     if (status === "WAIT_NAME") {
 
       const parts = payload.split(/\s+/);
 
       if (parts.length < 2) {
-
         return safeReply(event, {
           type: "text",
           text: "กรุณากรอกแบบ: ชื่อ นามสกุล"
         });
-
       }
 
       rows[index][2] = parts[0];
@@ -337,7 +345,6 @@ async function handleChatMessage(event) {
     /* =====================================================
        ACTION : CONFIRM RESULT
     ===================================================== */
-
     if (payload.startsWith("CONFIRM_RESULT:")) {
 
       const nsr = payload.split(":")[1]?.trim();
@@ -345,21 +352,17 @@ async function handleChatMessage(event) {
       const record = await nursingService.getByNSR(nsr);
 
       if (!record) {
-
         return safeReply(event, {
           type: "text",
           text: "❌ ไม่พบข้อมูลผลตรวจ"
         });
-
       }
 
       if (record.ResultConfirmed === "YES") {
-
         return safeReply(event, {
           type: "text",
           text: "ℹ️ ระบบบันทึกไว้แล้ว"
         });
-
       }
 
       await nursingService.markResultConfirmed(nsr);
@@ -370,6 +373,9 @@ async function handleChatMessage(event) {
       });
 
     }
+
+    // ❌ default = เงียบ
+    return;
 
   } catch (err) {
 

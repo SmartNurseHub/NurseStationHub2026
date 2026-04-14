@@ -70,6 +70,7 @@ safeUse("/vaccination", "../modules/vaccination/vaccination.routes", "Vaccinatio
 // Satisfaction Survey
 safeUse("/satisfaction-survey", "../modules/satisfactionSurvey/satisfactionSurvey.routes", "SatisfactionSurvey");
 
+safeUse("/inventory", "../modules/inventory/inventory.routes", "Inventory");
 /*****************************************************************
  * MODULE: DIRECT IMPORT (SPECIAL CASE)
  * - ใช้ในกรณีต้องการ reference vaccination routes โดยตรง
@@ -102,6 +103,15 @@ router.post("/followlist/delete", async (req, res) => {
       message: "Server error"
     });
   }
+});
+
+const path = require("path");
+
+/*****************************************************************
+ * SPA FALLBACK (สำคัญสุด)
+ *****************************************************************/
+router.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "../views/index.html"));
 });
 
 /*****************************************************************

@@ -67,7 +67,7 @@ td,th { border:1px solid #000; padding:2px; }
 
       <td width="60%" align="center">
         <b style="font-size:10px;">บันทึกการพยาบาลออนไลน์</b><br>
-        <span style="font-size:8px;">มิตรไมตรีคลินิกเวชกรรม สาขาเขาน้อย</span>
+        <span style="font-size:8px;">มิตรไมตรีคลินิกเวชกรรม สาขาสะพานสี่</span>
       </td>
 
       <td width="30%" align="left">
