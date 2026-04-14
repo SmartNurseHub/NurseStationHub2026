@@ -10,7 +10,7 @@ const { formatBullet, buildFlex } = require("../../utils/flexBuilder");
    LINE WEBHOOK ENTRY POINT
 ========================================================= */
 exports.handleWebhook = (req, res) => {
-  console.log("📩 LINE webhook received");
+  console.log("📩 WEBHOOK HIT:", JSON.stringify(req.body));
   // ตอบ LINE ทันที (กัน timeout)
   res.status(200).send("OK");
   // ทำงานต่อแบบ async background
@@ -18,12 +18,12 @@ exports.handleWebhook = (req, res) => {
     try {const events = req.body.events || [];
       if (!events.length) {console.log("No events");return;}
       for (const event of events) {
+        console.log("📦 EVENT TYPE:", event.type);
         if (!event) continue;
-        console.log("EVENT TYPE:", event.type);
         try {
           /* ================= FOLLOW ================= */
           if (event.type === "follow") {
-            console.log("FOLLOW USER:", event.source?.userId);
+            console.log("➡️ CALL handleFollowEvent");
             await service.handleFollowEvent(event);}
           /* ================= UNFOLLOW ================= */
           if (event.type === "unfollow") {

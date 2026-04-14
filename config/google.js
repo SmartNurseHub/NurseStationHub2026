@@ -82,15 +82,26 @@ async function readRows(sheetName) {
 
   console.log("📖 READ:", sheetName);
 
-  const res = await safeExec(() =>
-    sheets.spreadsheets.values.get({
-      spreadsheetId: process.env.SPREADSHEET_ID,
-      range: sheetName,
-    }),
-    "readRows"
-  );
+  try {
 
-  return res.data.values || [];
+    const res = await safeExec(() =>
+      sheets.spreadsheets.values.get({
+        spreadsheetId: process.env.SPREADSHEET_ID,
+        range: sheetName,
+      }),
+      "readRows"
+    );
+
+    console.log("✅ READ SUCCESS:", sheetName);
+
+    return res.data.values || [];
+
+  } catch (err) {
+
+    console.error("💥 READ FAIL:", sheetName, err);
+
+    throw err;
+  }
 }
 
 /* =========================================================
@@ -101,20 +112,32 @@ async function appendRow(sheetName, row) {
 
   const sheets = await getSheets();
 
-  console.log("➕ APPEND:", sheetName);
+  console.log("➕ APPEND:", sheetName, "DATA:", JSON.stringify(row));
 
-  return safeExec(() =>
-    sheets.spreadsheets.values.append({
-      spreadsheetId: process.env.SPREADSHEET_ID, // ✅ FIX ตรงนี้
-      range: sheetName,
-      valueInputOption: "USER_ENTERED",
-      requestBody: {
-        values: [row]
-      }
-    }),
-    "appendRow"
-  );
+  try {
 
+    const res = await safeExec(() =>
+      sheets.spreadsheets.values.append({
+        spreadsheetId: process.env.SPREADSHEET_ID,
+        range: sheetName,
+        valueInputOption: "USER_ENTERED",
+        requestBody: {
+          values: [row]
+        }
+      }),
+      "appendRow"
+    );
+
+    console.log("✅ APPEND SUCCESS:", sheetName);
+
+    return res;
+
+  } catch (err) {
+
+    console.error("💥 APPEND FAIL:", sheetName, err);
+
+    throw err; // 🔥 สำคัญมาก
+  }
 }
 
 /* =========================================================

@@ -409,10 +409,38 @@ console.log("✅ pushFlexResult sent:", userId)
 
 };
 
+async function getProfile(userId) {
+
+  if (!userId) {
+    console.log("⚠️ getProfile: missing userId");
+    return {};
+  }
+
+  try {
+
+    const profile = await client.getProfile(userId);
+
+    console.log("✅ getProfile success:", profile);
+
+    return profile;
+
+  } catch (err) {
+
+    const msg = err.response?.data || err.message;
+
+    console.error("❌ getProfile error:", msg);
+
+    return {};
+
+  }
+
+}
+
 /* =========================================================
    🔥 FIX จริง (ไม่ตัดอะไรเลย เพิ่มแค่นี้)
 ========================================================= */
 module.exports = {
   safePush,
-  pushFlexResult
+  pushFlexResult,
+  getProfile
 };
