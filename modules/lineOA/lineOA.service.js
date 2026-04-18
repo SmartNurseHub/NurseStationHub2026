@@ -108,34 +108,61 @@ async function handleFollowEvent(event) {
 /* =========================================================
    CHAT EVENT
 ========================================================= */
-
 async function handleChatMessage(event) {
   try {
-    if (event.type === "message" && event.message.type !== "text") return;
-
     const userId = normalize(event.source?.userId);
     if (!userId) return;
 
-    const text = normalize(event.message?.text);
+    const isText = event.type === "message" && event.message.type === "text";
+    const text = isText ? normalize(event.message.text) : "";
 
     const rows = await readRows(LINE_UID_SHEET) || [];
 
-    // 🔍 หา row ล่าสุด
+    // 🔍 หา row ล่าสุดของ user
     const matched = rows
       .map((r, i) => ({ r, i }))
       .filter(x => x.i > 0 && normalize(x.r[4]) === userId);
 
-    if (!matched.length) {
+    const hasUser = matched.length > 0;
+    const latest = hasUser ? matched[matched.length - 1] : null;
+    const row = latest?.r;
+    const index = latest?.i;
+    const status = row ? normalize(row[7]).toUpperCase() : null;
+
+    console.log("USER:", userId, "STATUS:", status);
+
+    /* ================= FOLLOW ================= */
+    if (event.type === "follow") {
+
+      // ✅ เคยลงทะเบียนแล้ว
+      if (status === "ACTIVE") {
+        return safeReply(event, {
+          type: "text",
+          text: "คุณลงทะเบียนแล้วค่ะ ✅"
+        });
+      }
+
+      // ❌ ยังไม่เคย → สร้าง row ใหม่ + เริ่ม flow
+      await appendRow(LINE_UID_SHEET, [
+        "", "", "", "", userId, "", "", "WAIT_CID", ""
+      ]);
+
       return safeReply(event, {
         type: "text",
-        text: "กรุณาเพิ่มเพื่อน LINE ใหม่อีกครั้งค่ะ"
+        text: "กรุณากรอกเลขบัตรประชาชน 13 หลัก"
       });
     }
 
-    const { r: row, i: index } = matched[matched.length - 1];
-    const status = normalize(row[7]).toUpperCase();
+    /* ================= ไม่ใช่ text → ignore ================= */
+    if (!isText) return;
 
-    console.log("USER:", userId, "STATUS:", status);
+    /* ================= ยังไม่มี user ================= */
+    if (!hasUser) {
+      return safeReply(event, {
+        type: "text",
+        text: "กรุณากดเพิ่มเพื่อนใหม่อีกครั้งค่ะ"
+      });
+    }
 
     /* ================= WAIT_CID ================= */
     if (status === "WAIT_CID") {
@@ -148,7 +175,6 @@ async function handleChatMessage(event) {
         });
       }
 
-      // 🔍 หา CID
       const cidIndex = rows.findIndex((r, i) =>
         i > 0 && normalize(r[1]) === cid
       );
@@ -159,7 +185,6 @@ async function handleChatMessage(event) {
 
         await updateRow(LINE_UID_SHEET, cidIndex + 1, rows[cidIndex]);
 
-        // 🔥 ลบ row เก่า
         if (index !== cidIndex) {
           await deleteRow(LINE_UID_SHEET, index + 1);
         }
@@ -172,7 +197,6 @@ async function handleChatMessage(event) {
 
       row[1] = cid;
       row[7] = "WAIT_NAME";
-
       await updateRow(LINE_UID_SHEET, index + 1, row);
 
       return safeReply(event, {
@@ -226,6 +250,10 @@ async function handleChatMessage(event) {
 
     /* ================= ACTIVE ================= */
     if (status === "ACTIVE") {
+
+      // ❗ ไม่ใช่ "สมัคร" → เงียบ
+      if (text !== "สมัคร") return;
+
       return safeReply(event, {
         type: "text",
         text: "คุณลงทะเบียนแล้วค่ะ ✅"
