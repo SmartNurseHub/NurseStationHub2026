@@ -39,7 +39,8 @@ async function getFollowListService() {
 
     const clean = v => (v || "").toString().trim();
 
-return rows.map(r => ({
+return rows.map((r, i) => ({
+  rowIndex: i + 2, // 🔥 สำคัญ (เพราะเริ่ม A2)
   cid: clean(r[1]),
   name: clean(r[2]),
   lname: clean(r[3]),
@@ -48,7 +49,6 @@ return rows.map(r => ({
   pictureUrl: clean(r[6]),
   status: clean(r[7])
 }));
-
 
   } catch (err) {
     console.error("❌ getFollowListService error:", err.message);
@@ -129,38 +129,28 @@ async function updateFollowService(userId, fullName, cid) {
 /*****************************************************************
  * DELETE FOLLOW BY CID (🔥 FIX จริง)
  *****************************************************************/
-async function deleteFollowByCidService(cid) {
+async function deleteLineUID(rowIndex) {
   const sheets = await getSheetsInstance();
 
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: process.env.SPREADSHEET_ID,
-    range: `${process.env.SHEET_LINEUID}!A2:I`
+    range: `${process.env.SHEET_LINEUID}!A2:H`
   });
 
   const rows = res.data.values || [];
 
-  const clean = v => (v || "").toString().trim();
-  const targetCid = clean(cid);
+  const realIndex = rowIndex - 2; // 🔥 แปลงกลับ
 
-  console.log("🔍 FIND CID (LineUID):", targetCid);
-
-  const rowIndex = rows.findIndex(r => clean(r[1]) === targetCid);
-
-  if (rowIndex === -1) {
-    console.error("❌ CID NOT FOUND (LineUID)", {
-      targetCid,
-      sample: rows.slice(0, 5)
-    });
-    throw new Error("CID not found in LineUID");
+  if (realIndex < 0 || realIndex >= rows.length) {
+    throw new Error("Row index out of range");
   }
 
-  console.log("✅ FOUND ROW:", rowIndex + 2);
-
-  rows.splice(rowIndex, 1);
+  // ลบ row
+  rows.splice(realIndex, 1);
 
   await sheets.spreadsheets.values.update({
     spreadsheetId: process.env.SPREADSHEET_ID,
-    range: `${process.env.SHEET_LINEUID}!A2:I`,
+    range: `${process.env.SHEET_LINEUID}!A2:H`,
     valueInputOption: "RAW",
     requestBody: { values: rows }
   });
@@ -173,5 +163,5 @@ module.exports = {
   getFollowListService,
   addFollowerService,
   updateFollowService,
-  deleteFollowByCidService
+  deleteLineUID // ✅ ใช้ตัวนี้
 };

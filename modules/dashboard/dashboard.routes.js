@@ -18,6 +18,6 @@ router.get("/summary", getDashboardSummary);
 ================================ */
 router.get("/lineuid", getFollowList);
 router.post("/lineuid/update", updateFollow);
-router.delete("/lineuid/delete/:cid", deleteFollowByCid);
+router.delete("/lineuid/delete/:rowIndex", deleteFollowByCid);
 
 module.exports = router;

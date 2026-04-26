@@ -97,7 +97,7 @@ async function handleFollowEvent(event) {
 
     return safeReply(event, {
       type: "text",
-      text: "สวัสดีค่ะ 👋\nกรุณากรอกเลขบัตรประชาชน 13 หลัก"
+      text: "กรุณาลงทะเบียนเพื่อใช้งานระบบ\nรอตรวจสอบข้อมูลสักครู่\nแล้วจะนำเข้าสู่ขั้นตอนถัดไป"
     });
 
   } catch (err) {
@@ -138,7 +138,7 @@ async function handleChatMessage(event) {
       if (status === "ACTIVE") {
         return safeReply(event, {
           type: "text",
-          text: "คุณลงทะเบียนแล้วค่ะ ✅"
+          text: "คุณลงทะเบียนแล้ว ✅"
         });
       }
 

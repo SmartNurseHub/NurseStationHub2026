@@ -3,7 +3,7 @@
  *****************************************************************/
 
 const dashboardService = require("./dashboard.service");
-
+const lineUIDService = require("../lineUID/lineUID.service");
 /*****************************************************************
  * DASHBOARD SUMMARY
  *****************************************************************/
@@ -68,21 +68,23 @@ async function updateFollow(req, res) {
   }
 }
 
+
 /*****************************************************************
- * DELETE FOLLOW BY CID (🔥 FIX สำคัญ)
+ * DELETE FOLLOW (FIX: BY rowIndex)
  *****************************************************************/
 async function deleteFollowByCid(req, res) {
   try {
-    const { cid } = req.params;
 
-    if (!cid) {
+    const rowIndex = parseInt(req.params.rowIndex);
+
+    if (!rowIndex || rowIndex < 2) {
       return res.status(400).json({
         success: false,
-        message: "cid required"
+        message: "Invalid rowIndex"
       });
     }
 
-    await dashboardService.deleteFollowByCidService(cid);
+    await lineUIDService.deleteLineUID(rowIndex);
 
     res.json({
       success: true,
@@ -90,7 +92,7 @@ async function deleteFollowByCid(req, res) {
     });
 
   } catch (err) {
-    console.error("deleteFollowByCid error:", err);
+    console.error("delete error:", err);
 
     res.status(500).json({
       success: false,

@@ -62,7 +62,10 @@ safeUse("/line", "../modules/lineOA/lineOA.routes", "LineOA(alias)");
 safeUse("/followlist", "../modules/followList/followList.routes", "FollowList");
 
 // LineUID (case-sensitive path)
-safeUse("/lineuid", "../modules/lineUID/lineUID.routes", "LineUID");
+const lineUIDRoutes = require("../modules/lineUID/lineUID.routes");
+router.use("/lineuid", lineUIDRoutes);
+
+console.log("🔥 LineUID ROUTE LOADED");
 
 // Vaccination
 safeUse("/vaccination", "../modules/vaccination/vaccination.routes", "Vaccination");
@@ -107,12 +110,6 @@ router.post("/followlist/delete", async (req, res) => {
 
 const path = require("path");
 
-/*****************************************************************
- * SPA FALLBACK (สำคัญสุด)
- *****************************************************************/
-router.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "../views/index.html"));
-});
 
 /*****************************************************************
  * EXPORT ROUTER

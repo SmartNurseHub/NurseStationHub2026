@@ -1,48 +1,14 @@
 /*****************************************************************
- * LINE UID CONTROLLER MODULE
- * NurseStationHub
- *
- * ---------------------------------------------------------------
- * หน้าที่:
- * - จัดการ API สำหรับ LineUID
- * - รับ request จาก client แล้วส่งต่อไปยัง service
- *
- * ---------------------------------------------------------------
- * FUNCTION LIST:
- *
- * 1. getLineUID(req, res)
- *    → ดึงรายการ LineUID ทั้งหมด
- *
- * 2. addLineUID(req, res)
- *    → เพิ่มข้อมูล LineUID
- *
- * 3. deleteLineUID(req, res)
- *    → ลบข้อมูล LineUID ตาม CID
- *
- * ---------------------------------------------------------------
- * FLOW:
- * Client → Controller → Service → Google Sheet
+ * LINE UID CONTROLLER MODULE (FIXED: DELETE BY rowIndex)
  *****************************************************************/
-
-
-/* =========================================================
-   IMPORTS
-========================================================= */
 
 const service = require("./lineUID.service");
 
-
 /* =========================================================
-   READ DATA
+   GET
 ========================================================= */
-
-/**
- * GET LineUID List
- */
 exports.getLineUID = async (req, res) => {
-
   try {
-
     const data = await service.getLineUIDList();
 
     res.json({
@@ -51,30 +17,21 @@ exports.getLineUID = async (req, res) => {
     });
 
   } catch (err) {
-
     console.error("LineUID load error:", err);
 
     res.status(500).json({
       success: false,
       message: "Failed to load LineUID"
     });
-
   }
-
 };
 
 
 /* =========================================================
-   CREATE DATA
+   ADD
 ========================================================= */
-
-/**
- * ADD LineUID
- */
 exports.addLineUID = async (req, res) => {
-
   try {
-
     await service.addLineUID(req.body);
 
     res.json({
@@ -82,33 +39,33 @@ exports.addLineUID = async (req, res) => {
     });
 
   } catch (err) {
-
     console.error("LineUID save error:", err);
 
     res.status(500).json({
       success: false,
       message: "Failed to save LineUID"
     });
-
   }
-
 };
 
 
 /* =========================================================
-   DELETE DATA
+   DELETE (FIXED)
 ========================================================= */
-
-/**
- * DELETE LineUID by CID
- */
 exports.deleteLineUID = async (req, res) => {
 
   try {
 
-    const cid = req.params.cid;
+    const rowIndex = parseInt(req.params.rowIndex);
 
-    await service.deleteLineUID(cid);
+    if (!rowIndex || rowIndex < 2) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid rowIndex"
+      });
+    }
+
+    await service.deleteLineUID(rowIndex);
 
     res.json({
       success: true
@@ -116,7 +73,7 @@ exports.deleteLineUID = async (req, res) => {
 
   } catch (err) {
 
-    console.error(err);
+    console.error("Delete error:", err);
 
     res.status(500).json({
       success: false

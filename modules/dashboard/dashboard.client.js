@@ -49,74 +49,6 @@ function goInventory(){
   loadView("inventory");
 }
 
-/*****************************************************************
- * LOAD LINE UID TABLE
- *****************************************************************/
-/*async function loadLineUIDTable() {
-  try {
-    const res = await fetch("/api/lineuid");
-    const json = await res.json();
-
-    const tbody = document.getElementById("followTableBody");
-    if (!tbody) return;
-
-    tbody.innerHTML = "";
-
-    if (!json.success || !Array.isArray(json.data)) {
-      tbody.innerHTML =
-        "<tr><td colspan='7'>โหลดข้อมูลไม่สำเร็จ</td></tr>";
-      return;
-    }
-
-    if (json.data.length === 0) {
-      tbody.innerHTML =
-        "<tr><td colspan='7' class='text-muted'>ไม่พบข้อมูล</td></tr>";
-      return;
-    }
-
-    json.data.forEach(row => {
-      tbody.innerHTML += `
-        <tr>
-          <td>${row.cid}</td>
-          <td>${row.name} ${row.lname}</td>
-
-          <td>
-            <img
-              src="${row.pictureUrl || row.picture || '/assets/images/LOGO.png'}"
-              onerror="this.src='/assets/images/LOGO.png';"
-              style="width:45px;
-                    height:45px;
-                    object-fit:cover;
-                    border-radius:50%;
-                    border:2px solid #28a745;">
-          </td>
-
-          <td>${row.displayName}</td>
-          <td>${row.userId}</td>
-
-          <td>
-            <span class="badge bg-success">
-              ${row.status || "Active"}
-            </span>
-          </td>
-
-          <td>
-            <button 
-              class="btn btn-sm btn-danger delete-btn"
-              data-cid="${row.cid}"
-              style="font-size:10px;padding:2px 8px;">
-              Delete
-            </button>
-          </td>
-        </tr>
-      `;
-    });
-
-  } catch (err) {
-    console.error("❌ loadLineUIDTable error:", err);
-  }
-}  
-*/
 
 async function loadLineUIDTable() {
   try {
@@ -157,16 +89,17 @@ function renderFollowerTable(data) {
   tbody.innerHTML = "";
 
   data.forEach(row => {
+
+    console.log("ROW DEBUG:", row); // 👈 ใส่บรรทัดนี้
+
     tbody.innerHTML += `
-      <tr>
+      <tr id="row-${row.rowIndex}">
         <td>${row.cid}</td>
         <td>${row.name} ${row.lname}</td>
 
         <td>
-          <img
-            src="${row.pictureUrl || row.picture || '/assets/images/LOGO.png'}"
-            onerror="this.src='/assets/images/LOGO.png';"
-            style="width:45px;height:45px;object-fit:cover;border-radius:50%;">
+          <img src="${row.pictureUrl || '/assets/images/LOGO.png'}"
+               style="width:45px;height:45px;border-radius:50%;">
         </td>
 
         <td>${row.displayName}</td>
@@ -181,7 +114,7 @@ function renderFollowerTable(data) {
         <td>
           <button 
             class="btn btn-sm btn-danger delete-btn"
-            data-cid="${row.cid}">
+            data-rowindex="${row.rowIndex}">
             Delete
           </button>
         </td>
@@ -381,78 +314,54 @@ document.addEventListener("submit", async function (e) {
 /*****************************************************************
  * DELETE
  *****************************************************************/
+/*****************************************************************
+ * DELETE (REAL DELETE)
+ *****************************************************************/
 document.addEventListener("click", async function (e) {
 
-  if (!e.target.classList.contains("delete-btn")) return;
+  const btn = e.target.closest(".delete-btn");
+  if (!btn) return;
 
-  let cid = e.target.dataset.cid;
+  const rowIndex = btn.dataset.rowindex;
 
-  // 🔥 FIX 1: กัน undefined
-  if (!cid || cid.trim() === "") {
-    console.error("❌ CID invalid:", cid);
-
-    return Swal.fire({
-      icon: "error",
-      title: "ผิดพลาด",
-      text: "ไม่พบ CID"
-    });
-  }
-
-  // 🔥 FIX 2: sanitize
-  cid = cid.replace(":", "").trim();
-
-  console.log("🗑 DELETE CID =", cid);
-
-  const result = await Swal.fire({
+  const confirm = await Swal.fire({
     title: "ยืนยันการลบ?",
-    text: "ข้อมูลนี้จะถูกลบถาวร!",
+    text: "ลบจริงในระบบ",
     icon: "warning",
     showCancelButton: true,
-    confirmButtonText: "ลบข้อมูล"
+    confirmButtonText: "ลบ"
   });
 
-  if (!result.isConfirmed) return;
+  if (!confirm.isConfirmed) return;
 
   try {
 
-    Swal.fire({
-      title: "กำลังลบ...",
-      allowOutsideClick: false,
-      didOpen: () => Swal.showLoading()
-    });
-
-    // 🔥 FIX 3: URL ต้องตรง route ของคุณ
-    const res = await fetch(`/api/dashboard/lineuid/delete/${cid}`, {
-      method: "DELETE"
-    });
-
+    const res = await fetch(`/api/lineuid/delete/${rowIndex}`, {
+  method: "DELETE"
+});
     const json = await res.json();
 
-    if (!json.success) throw new Error();
+    if (!json.success) throw new Error(json.message);
 
-    await Swal.fire({
+    document.getElementById(`row-${rowIndex}`)?.remove();
+
+    Swal.fire({
       icon: "success",
       title: "ลบสำเร็จ",
-      timer: 1500,
+      timer: 1200,
       showConfirmButton: false
     });
 
-    loadLineUIDTable();
-
   } catch (err) {
-
-    console.error("DELETE ERROR:", err);
+    console.error("❌ DELETE ERROR:", err);
 
     Swal.fire({
       icon: "error",
-      title: "เกิดข้อผิดพลาด",
-      text: "ไม่สามารถลบข้อมูลได้"
+      title: "ลบไม่สำเร็จ"
     });
-
   }
 
 });
-
 
 document.addEventListener("input", function (e) {
 

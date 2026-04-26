@@ -53,7 +53,6 @@ app.use("/views", express.static(path.join(__dirname, "views")));
  * หน้าที่:
  * - รวม route หลักทั้งหมดผ่าน /api
  *****************************************************************/
-
 app.use("/api", require("./routes"));
 
 
@@ -83,6 +82,7 @@ app.use(
   "/lineoa",
   require("./modules/lineOA/lineOA.routes")
 );
+
 
 /*****************************************************************
  * MODULE: TEST / DEBUG ROUTES
@@ -129,25 +129,18 @@ app.get("/test-reminder", async (req, res) => {
  * - ทุก route ที่ไม่ใช่ API จะ redirect ไป index.html
  *****************************************************************/
 
-app.get("*", (req, res) => {
-
-  // ❌ กัน API ไม่ให้โดน fallback
-  if (req.path.startsWith("/api")) {
+app.use((req, res, next) => {
+  if (req.originalUrl.startsWith("/api")) {
     return res.status(404).json({
       success: false,
       message: "API not found"
     });
   }
+  next();
+});
 
-  // ❌ กันไฟล์ static
-  if (req.path.includes(".")) {
-    return res.status(404).end();
-  }
-
-  res.sendFile(
-    path.join(__dirname, "views/index.html")
-  );
-
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "views/index.html"));
 });
 
 

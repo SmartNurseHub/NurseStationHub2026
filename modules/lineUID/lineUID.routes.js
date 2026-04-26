@@ -1,75 +1,20 @@
-/*****************************************************************
- * LINE UID ROUTES MODULE
- * NurseStationHub
- *
- * ---------------------------------------------------------------
- * หน้าที่:
- * - กำหนด API endpoints สำหรับจัดการ LineUID
- * - เชื่อม request ไปยัง controller
- *
- * ---------------------------------------------------------------
- * ROUTE LIST:
- *
- * [READ]
- * - GET    /
- *
- * [CREATE]
- * - POST   /save
- *
- * [DELETE]
- * - DELETE /delete/:cid
- *
- * ---------------------------------------------------------------
- * FLOW:
- * Client → Routes → Controller → Service → Google Sheet
- *****************************************************************/
-
-
-/* =========================================================
-   IMPORTS
-========================================================= */
-
 const express = require("express");
 const router = express.Router();
 
 const controller = require("./lineUID.controller");
 
+console.log("🔥 lineUID.routes.js LOADED");
 
-/* =========================================================
-   READ API
-========================================================= */
-
-/**
- * @route   GET /
- * @desc    ดึงรายการ LineUID ทั้งหมด
- */
+// GET
 router.get("/", controller.getLineUID);
 
-
-/* =========================================================
-   CREATE API
-========================================================= */
-
-/**
- * @route   POST /save
- * @desc    เพิ่มข้อมูล LineUID
- */
+// POST
 router.post("/save", controller.addLineUID);
 
-
-/* =========================================================
-   DELETE API
-========================================================= */
-
-/**
- * @route   DELETE /delete/:cid
- * @desc    ลบข้อมูล LineUID ตาม CID
- */
-router.delete("/delete/:cid", controller.deleteLineUID);
-
-
-/* =========================================================
-   EXPORT
-========================================================= */
+// ✅ DELETE (ตัวเดียวพอ)
+router.delete("/delete/:rowIndex", (req, res, next) => {
+  console.log("🔥 DELETE HIT:", req.params.rowIndex);
+  next();
+}, controller.deleteLineUID);
 
 module.exports = router;
