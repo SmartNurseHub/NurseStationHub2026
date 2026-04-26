@@ -8,8 +8,7 @@
 ========================================================= */
 
 const { getSheets } = require("../../config/google");
-const lineService = require('../lineOA/lineOA.service')
-
+const lineService = require("../lineOA/lineOA.service");
 /* =========================================================
    CACHE SYSTEM (ลด Google API)
 ========================================================= */
@@ -581,7 +580,6 @@ async function saveVaccination(data) {
     data.locationType || "",
     data.locationDetail || "",
     data.lotNumber || "",
-    "",
     "COMPLETED",
     new Date().toISOString()
   ];
@@ -632,7 +630,7 @@ async function getVaccinationRecords(cid){
   const rows = res.data.values || [];
 
   return rows
-    .filter(r => String(r[1]) === String(cid))
+    .filter(r => String(r[1] || "").trim() === String(cid || "").trim())
     .map(r => {
 
       const code = r[3];
@@ -653,9 +651,8 @@ async function getVaccinationRecords(cid){
         locationType: r[8],
         locationDetail: r[9],
         lotNumber: r[10],
-        nextDueDate: r[11],
-        status: r[12],
-        createdAt: r[13]
+        status: r[11],
+        createdAt: r[12]
       };
 
     });
@@ -820,53 +817,56 @@ async function deleteVaccination(vcn){
 
 }
 
-async function sendLineVaccine(vcn){
+async function sendLineVaccine(vcn) {
 
-  try{
+  try {
 
-    logInfo("SEND_LINE_VACCINE_START",{vcn});
+    logInfo("[SEND_LINE_VACCINE_START]", { vcn });
 
+    /* ================= GET RECORD ================= */
     const record = await getVaccinationByVCN(vcn);
 
-    if(!record){
+    if (!record) {
       throw new Error("Vaccination record not found");
     }
 
+    /* ================= GET PATIENT ================= */
     const patient = await getPatient(record.cid);
 
-    if(!patient){
+    if (!patient) {
       throw new Error("Patient not found");
     }
 
+    /* ================= LINE UID RESOLVE ================= */
     let lineUID = String(patient.lineUID || "").trim();
 
-    if(!lineUID){
-
-      logInfo("LINE_UID_SEARCH",{cid:record.cid});
-
+    if (!lineUID) {
+      logInfo("[LINE_UID_CACHE_MISS]", { cid: record.cid });
       lineUID = await getLineUIDByCID(record.cid);
-
     }
 
-    if(!lineUID){
-
-      logError("LINE_UID_NOT_FOUND",{cid:record.cid});
-
-      return { success:false };
-
+    if (!lineUID) {
+      logError("[LINE_UID_NOT_FOUND]", { cid: record.cid });
+      return { success: false, error: "LINE UID not found" };
     }
 
-    // 🔹 ดึง vaccine master
+    logInfo("[LINE_UID_FOUND]", { lineUID });
+
+    /* ================= VACCINE MASTER ================= */
     const vaccines = await getVaccineMaster();
+
     const code = String(record.vaccineCode || "").trim().toUpperCase();
-    const vaccine = vaccines.find(
-      v => String(v.code).trim().toUpperCase() === code
+
+    const vaccine = vaccines.find(v =>
+      String(v.code || "").trim().toUpperCase() === code
     ) || {};
-    const vaccineNameTH = vaccine?.TH_Name || "-";
-    const vaccineNameEN = vaccine?.name || "-";
-    const totalDose = vaccine?.totalDose ?? "-";
-    // 🔹 แปลง role
-    const providerRole = convertProviderRole(record.providerRole);
+
+    const vaccineNameTH = vaccine.TH_Name || "-";
+    const vaccineNameEN = vaccine.name || "-";
+    const totalDose = vaccine.totalDose ?? "-";
+
+    /* ================= FLEX MESSAGE ================= */
+
     const flex = {
       type: "flex",
       altText: "Vaccination Record",
@@ -915,7 +915,7 @@ async function sendLineVaccine(vcn){
               align: "center",
               color: "#fba003fd"
             },
-            
+
             { type: "separator" },
 
             {
@@ -927,10 +927,10 @@ async function sendLineVaccine(vcn){
 
             {
               type: "text",
-              text: `${formatThaiDate(record.dateService)}`,
-              size: "md",
-            }, 
-            
+              text: record.dateService || "-",
+              size: "md"
+            },
+
             { type: "separator" },
 
             {
@@ -946,153 +946,114 @@ async function sendLineVaccine(vcn){
               spacing: "sm",
               margin: "md",
               contents: [
-
                 {
                   type: "text",
-                  text: `${vaccineNameTH}`,
+                  text: vaccineNameTH,
                   weight: "bold",
                   size: "md",
                   wrap: true
                 },
-
                 {
                   type: "text",
                   text: `(${vaccineNameEN})`,
                   size: "xs",
-                  color: "#757575",
-                  wrap: true
+                  color: "#757575"
                 },
-
                 {
                   type: "text",
-                  text: `เลขที่ Lot : ${record.lotNumber || "-"}  เข็มที่ : ${record.doseNo} / ${totalDose} `,
+                  text: `Lot: ${record.lotNumber || "-"} | Dose ${record.doseNo}/${totalDose}`,
                   size: "xs",
-                  color: "#757575",
-                  wrap: true
-                },
-
-              ]
-            },
-
-            { type: "separator" },
-
-            {
-              type: "box",
-              layout: "vertical",
-              spacing: "sm",
-              contents: [
-
-                {
-                  type: "text",
-                  text: "👩‍⚕️ ผู้ให้บริการ",
-                  weight: "bold",
-                  color: "#0277BD"
-                },
-
-                {
-                  type: "text",
-                  text: `${record.providerName || "-"} (${providerRole})`,
-                  weight: "bold",
-                  size: "md",
-                  wrap: true
-                },
-
-                { type: "separator" },
-
-                {
-                  type: "text",
-                  text: "🏥 สถานที่",
-                  weight: "bold",
-                  color: "#0277BD"
-                },
-
-
-                {
-                  type: "text",
-                  text: `${record.locationType || "-"}`,
-                  size: "sm",
-                  wrap: true
-                },
-                {
-                  type: "text",
-                  text: `${record.locationDetail || ""}`,
-                  size: "sm",
-                  wrap: true
-                },
-                {
-                  type: "separator"
-                },
-                {
-                  type: "text",
-                  text: "📲 เมนูบริการ",
-                  weight: "bold",
-                  color: "#0277BD"
-                },
-
-                {
-                  type: "box",
-                  layout: "vertical",
-                  spacing: "sm",
-                  margin: "md",
-                  contents: [
-                    {
-                      type: "button",
-                      style: "primary",
-                      color: "#6A1B9A",
-                      action: {
-                        type: "uri",
-                        label: "💉 ประวัติวัคซีน",
-                        uri: `https://liff.line.me/2007902507-7OKhdnNW/vaccine-history.html?cid=${record.cid}`
-                      }
-                    }
-
-                  ]
-                },
-          
-                {
-                  type: "button",
-                  style: "secondary",
-                  color: "#F9A825",
-                  action: {
-                    type: "uri",
-                    label: "⭐ ประเมินความพึงพอใจ",
-                    uri: "https://liff.line.me/2007902507-7OKhdnNW?nsr=" + vcn
-                  }
+                  color: "#757575"
                 }
-
               ]
             }
+          ]
+        },
 
+        footer: {
+          type: "box",
+          layout: "vertical",
+          spacing: "sm",
+          contents: [
+            {
+              type: "button",
+              style: "primary",
+              color: "#6A1B9A",
+              action: {
+                type: "uri",
+                label: "💉 ประวัติวัคซีน",
+                uri: `https://liff.line.me/2007902507-7OKhdnNW/vaccine-history.html?cid=${record.cid}`
+              }
+            }
           ]
         }
       }
     };
 
+    /* ================= PUSH WITH RETRY ================= */
 
+    let pushSuccess = false;
+    let lastError = null;
 
+    for (let i = 1; i <= 3; i++) {
 
-              try{
-      await pushLineRetry(lineUID,flex);
-    }catch(err){
-      logError("LINE_PUSH_FAIL",err.message);
+      try {
+
+        await lineService.pushMessage(lineUID, flex);
+
+        pushSuccess = true;
+
+        logInfo("[LINE_PUSH_SUCCESS]", { vcn, lineUID, try: i });
+
+        break;
+
+      } catch (err) {
+
+        lastError = err;
+
+        logError("[LINE_RETRY_FAIL]", {
+          try: i,
+          error: err.message
+        });
+
+        await new Promise(r => setTimeout(r, 300 * i));
+
+      }
+
     }
 
-              logInfo("SEND_LINE_SUCCESS",{vcn,lineUID});
+    /* ================= FINAL RESULT ================= */
 
-              return { success:true };
+    if (!pushSuccess) {
 
-            }catch(err){
+      logError("[LINE_PUSH_FAILED_FINAL]", lastError?.message);
 
-              logError("SEND_LINE_ERROR", err.message);
+      return {
+        success: false,
+        error: lastError?.message || "push failed"
+      };
 
-              return {
-                success:false,
-                error:err.message
-              };
+    }
 
-            }
+    logInfo("[SEND_LINE_SUCCESS]", { vcn, lineUID });
 
-          }
+    return {
+      success: true,
+      lineUID
+    };
+
+  } catch (err) {
+
+    logError("[SEND_LINE_ERROR]", err.message);
+
+    return {
+      success: false,
+      error: err.message
+    };
+
+  }
+
+}
 
 async function getVaccinationByVCN(vcn){
 

@@ -456,10 +456,26 @@ async function loadTimeline(cid){
 async function loadVaccinationTable(cid){
   const res = await fetch(`/api/vaccination/history/${cid}`);
   const result = await res.json();
-  if(!result.success) return;
 
-  const table = document.getElementById("vaccinationHistoryTable");
+  console.log("📦 HISTORY RESULT:", result);
+
+  const table = document.getElementById("vaccinationTableBody");
+
+  if(!table){
+    console.error("❌ ไม่พบ vaccinationHistoryTable");
+    return;
+  }
+
   table.innerHTML = "";
+
+  if(!result.success || !Array.isArray(result.data) || result.data.length === 0){
+    table.innerHTML = `
+      <tr>
+        <td colspan="8" class="text-center text-muted">ไม่มีข้อมูล</td>
+      </tr>
+    `;
+    return;
+  }
 
   result.data.forEach(v=>{
     const tr = document.createElement("tr");
@@ -480,8 +496,11 @@ async function loadVaccinationTable(cid){
 
     table.appendChild(tr);
 
-    tr.querySelector(".send-line").addEventListener("click",()=>sendLineVaccine(v.vcn));
-    tr.querySelector(".delete-vaccine").addEventListener("click",()=>deleteVaccine(v.vcn));
+    tr.querySelector(".send-line")
+      .addEventListener("click",()=>sendLineVaccine(v.vcn));
+
+    tr.querySelector(".delete-vaccine")
+      .addEventListener("click",()=>deleteVaccine(v.vcn));
   });
 }
 

@@ -1,5 +1,5 @@
 /******************************************************************
- * LINE OA SERVICE MODULE (FINAL - PRODUCTION READY)
+ * LINE OA SERVICE MODULE (CLEAN PRODUCTION VERSION)
  *****************************************************************/
 
 const { Client } = require("@line/bot-sdk");
@@ -18,7 +18,6 @@ const {
 ========================================================= */
 
 const LINE_UID_SHEET = "LineUID";
-const USER_SHEET = "UserList";
 const FOLLOW_SHEET = "FollowList";
 
 const lineClient = new Client({
@@ -29,46 +28,49 @@ const lineClient = new Client({
    UTILS
 ========================================================= */
 
-const normalize = (v) => String(v || "").trim();
+const norm = (v) => (v ?? "").toString().trim();
 
-/**
- * SAFE REPLY
- */
-async function safeReply(event, message) {
-  if (!event?.replyToken || event.replyToken === "00000000000000000000000000000000") {
-    return;
-  }
+const safeReply = async (event, message) => {
+  if (!event?.replyToken || event.replyToken === "00000000000000000000000000000000") return;
+
   try {
     await lineClient.replyMessage(event.replyToken, message);
   } catch (err) {
-    console.error("LINE REPLY ERROR:", err.message);
+    console.error("[LINE_REPLY_ERROR]", err.message);
   }
+};
+
+/* =========================================================
+   LINE UID FINDER
+========================================================= */
+
+async function findUserRow(userId) {
+  const rows = await readRows(LINE_UID_SHEET);
+  if (!rows?.length) return null;
+
+  const idx = rows.findIndex((r, i) => i > 0 && norm(r[4]) === userId);
+  if (idx === -1) return null;
+
+  return { row: rows[idx], index: idx };
 }
 
 /* =========================================================
-   FOLLOW EVENT
+   FOLLOW EVENT (CLEAN)
 ========================================================= */
 
 async function handleFollowEvent(event) {
   try {
-    const userId = normalize(event.source?.userId);
+    const userId = norm(event.source?.userId);
     if (!userId) return;
 
     const profile = await lineAPI.getProfile(userId) || {};
-    const rows = await readRows(LINE_UID_SHEET) || [];
+    const found = await findUserRow(userId);
 
-    // 🔍 หา row ล่าสุด
-    const matched = rows
-      .map((r, i) => ({ r, i }))
-      .filter(x => x.i > 0 && normalize(x.r[4]) === userId);
+    if (found) {
+      found.row[5] = profile.displayName || found.row[5];
+      found.row[6] = profile.pictureUrl || found.row[6];
 
-    if (matched.length > 0) {
-      const { r: row, i: index } = matched[matched.length - 1];
-
-      row[5] = profile.displayName || row[5];
-      row[6] = profile.pictureUrl || row[6];
-
-      await updateRow(LINE_UID_SHEET, index + 1, row);
+      await updateRow(LINE_UID_SHEET, found.index + 1, found.row);
 
       return safeReply(event, {
         type: "text",
@@ -76,96 +78,55 @@ async function handleFollowEvent(event) {
       });
     }
 
-    // 🔒 กัน append ซ้ำ
-    const exists = rows.some((r, i) =>
-      i > 0 && normalize(r[4]) === userId
-    );
-
-    if (!exists) {
-      await appendRow(LINE_UID_SHEET, [
-        new Date().toISOString(),
-        "",
-        "",
-        "",
-        userId,
-        profile.displayName || "",
-        profile.pictureUrl || "",
-        "WAIT_CID",
-        ""
-      ]);
-    }
+    await appendRow(LINE_UID_SHEET, [
+      new Date().toISOString(),
+      "",
+      "",
+      "",
+      userId,
+      profile.displayName || "",
+      profile.pictureUrl || "",
+      "WAIT_CID",
+      ""
+    ]);
 
     return safeReply(event, {
       type: "text",
-      text: "กรุณาลงทะเบียนเพื่อใช้งานระบบ\nรอตรวจสอบข้อมูลสักครู่\nแล้วจะนำเข้าสู่ขั้นตอนถัดไป"
+      text: "กรุณาลงทะเบียนด้วยเลขบัตรประชาชน 13 หลัก"
     });
 
   } catch (err) {
-    console.error("handleFollowEvent error:", err);
+    console.error("[FOLLOW_ERROR]", err);
   }
-}
+};
 
 /* =========================================================
-   CHAT EVENT
+   CHAT HANDLER
 ========================================================= */
+
 async function handleChatMessage(event) {
   try {
-    const userId = normalize(event.source?.userId);
+
+    const userId = norm(event.source?.userId);
+    const text = norm(event.message?.text);
+
     if (!userId) return;
 
-    const isText = event.type === "message" && event.message.type === "text";
-    const text = isText ? normalize(event.message.text) : "";
+    const found = await findUserRow(userId);
 
-    const rows = await readRows(LINE_UID_SHEET) || [];
-
-    // 🔍 หา row ล่าสุดของ user
-    const matched = rows
-      .map((r, i) => ({ r, i }))
-      .filter(x => x.i > 0 && normalize(x.r[4]) === userId);
-
-    const hasUser = matched.length > 0;
-    const latest = hasUser ? matched[matched.length - 1] : null;
-    const row = latest?.r;
-    const index = latest?.i;
-    const status = row ? normalize(row[7]).toUpperCase() : null;
-
-    console.log("USER:", userId, "STATUS:", status);
-
-    /* ================= FOLLOW ================= */
-    if (event.type === "follow") {
-
-      // ✅ เคยลงทะเบียนแล้ว
-      if (status === "ACTIVE") {
-        return safeReply(event, {
-          type: "text",
-          text: "คุณลงทะเบียนแล้ว ✅"
-        });
-      }
-
-      // ❌ ยังไม่เคย → สร้าง row ใหม่ + เริ่ม flow
-      await appendRow(LINE_UID_SHEET, [
-        "", "", "", "", userId, "", "", "WAIT_CID", ""
-      ]);
-
+    if (!found) {
       return safeReply(event, {
         type: "text",
-        text: "กรุณากรอกเลขบัตรประชาชน 13 หลัก"
+        text: "กรุณากดเพิ่มเพื่อนใหม่อีกครั้ง"
       });
     }
 
-    /* ================= ไม่ใช่ text → ignore ================= */
-    if (!isText) return;
-
-    /* ================= ยังไม่มี user ================= */
-    if (!hasUser) {
-      return safeReply(event, {
-        type: "text",
-        text: "กรุณากดเพิ่มเพื่อนใหม่อีกครั้งค่ะ"
-      });
-    }
+    const { row, index } = found;
+    const status = norm(row[7]).toUpperCase();
 
     /* ================= WAIT_CID ================= */
     if (status === "WAIT_CID") {
+
       const cid = text.replace(/\D/g, "");
 
       if (!/^\d{13}$/.test(cid)) {
@@ -175,23 +136,23 @@ async function handleChatMessage(event) {
         });
       }
 
-      const cidIndex = rows.findIndex((r, i) =>
-        i > 0 && normalize(r[1]) === cid
-      );
+      const rows = await readRows(LINE_UID_SHEET);
 
-      if (cidIndex !== -1) {
-        rows[cidIndex][4] = userId;
-        rows[cidIndex][7] = "ACTIVE";
+      const existsIndex = rows.findIndex((r, i) => i > 0 && norm(r[1]) === cid);
 
-        await updateRow(LINE_UID_SHEET, cidIndex + 1, rows[cidIndex]);
+      if (existsIndex !== -1) {
+        rows[existsIndex][4] = userId;
+        rows[existsIndex][7] = "ACTIVE";
 
-        if (index !== cidIndex) {
+        await updateRow(LINE_UID_SHEET, existsIndex + 1, rows[existsIndex]);
+
+        if (existsIndex !== index) {
           await deleteRow(LINE_UID_SHEET, index + 1);
         }
 
         return safeReply(event, {
           type: "text",
-          text: "เชื่อมข้อมูลเรียบร้อยแล้ว ✅"
+          text: "เชื่อมข้อมูลสำเร็จ ✅"
         });
       }
 
@@ -207,6 +168,7 @@ async function handleChatMessage(event) {
 
     /* ================= WAIT_NAME ================= */
     if (status === "WAIT_NAME") {
+
       const parts = text.split(/\s+/);
 
       if (parts.length < 2) {
@@ -224,16 +186,17 @@ async function handleChatMessage(event) {
 
       return safeReply(event, {
         type: "text",
-        text: "กรุณากรอกเบอร์โทรศัพท์"
+        text: "กรุณากรอกเบอร์โทร"
       });
     }
 
     /* ================= WAIT_PHONE ================= */
     if (status === "WAIT_PHONE") {
+
       if (!/^0\d{8,9}$/.test(text)) {
         return safeReply(event, {
           type: "text",
-          text: "กรุณากรอกเบอร์โทรให้ถูกต้อง"
+          text: "เบอร์โทรไม่ถูกต้อง"
         });
       }
 
@@ -244,14 +207,12 @@ async function handleChatMessage(event) {
 
       return safeReply(event, {
         type: "text",
-        text: "ลงทะเบียนสำเร็จแล้ว 🎉"
+        text: "ลงทะเบียนสำเร็จ 🎉"
       });
     }
 
     /* ================= ACTIVE ================= */
     if (status === "ACTIVE") {
-
-      // ❗ ไม่ใช่ "สมัคร" → เงียบ
       if (text !== "สมัคร") return;
 
       return safeReply(event, {
@@ -261,7 +222,7 @@ async function handleChatMessage(event) {
     }
 
   } catch (err) {
-    console.error("handleChatMessage error:", err);
+    console.error("[CHAT_ERROR]", err);
   }
 }
 
@@ -271,18 +232,18 @@ async function handleChatMessage(event) {
 
 async function sendReport(nsr) {
   const record = await nursingService.getByNSR(nsr);
-  if (!record) throw new Error("ไม่พบ NSR");
+  if (!record) throw new Error("NSR not found");
 
   const rows = await readRows(LINE_UID_SHEET);
 
-  const userRow = rows.find(r =>
-    normalize(r[1]) === normalize(record.CID) &&
-    normalize(r[7]).toUpperCase() === "ACTIVE"
+  const user = rows.find(r =>
+    norm(r[1]) === norm(record.CID) &&
+    norm(r[7]).toUpperCase() === "ACTIVE"
   );
 
-  if (!userRow) throw new Error("ยังไม่ได้ผูก LINE");
+  if (!user) throw new Error("User not linked LINE");
 
-  const userId = normalize(userRow[4]);
+  const userId = norm(user[4]);
 
   await lineAPI.pushFlexResult({
     userId,
@@ -305,7 +266,7 @@ async function sendReport(nsr) {
 
 async function handleUnfollowEvent(event) {
   try {
-    const userId = normalize(event.source?.userId);
+    const userId = norm(event.source?.userId);
 
     await appendRow(FOLLOW_SHEET, [
       new Date().toISOString(),
@@ -316,18 +277,35 @@ async function handleUnfollowEvent(event) {
       ""
     ]);
   } catch (err) {
-    console.error(err);
+    console.error("[UNFOLLOW_ERROR]", err);
   }
 }
 
+
+async function safePush(userId, message, retry = 3) {
+  for (let i = 0; i < retry; i++) {
+    try {
+      return await lineClient.pushMessage(userId, message);
+    } catch (err) {
+      console.error(`[LINE_PUSH_RETRY] try ${i + 1}`, err.message);
+
+      if (i === retry - 1) throw err;
+
+      await new Promise(r => setTimeout(r, 500 * (i + 1)));
+    }
+  }
+}
 /* =========================================================
    EXPORT
 ========================================================= */
-
 module.exports = {
   lineClient,
   handleFollowEvent,
   handleChatMessage,
   handleUnfollowEvent,
+
+  pushMessage: safePush,   // ✅ ใส่ตรงนี้แทน
+
+  safePush,
   sendReport
 };
