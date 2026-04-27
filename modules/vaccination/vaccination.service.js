@@ -982,7 +982,7 @@ async function sendLineVaccine(vcn) {
               action: {
                 type: "uri",
                 label: "💉 ประวัติวัคซีน",
-                uri: `https://liff.line.me/2007902507-7OKhdnNW/vaccine-history.html?cid=${record.cid}`
+                uri: `https://liff.line.me/2007902507-SCwT4XsP/vaccine-history.html?cid=${record.cid}`
               }
             }
           ]
