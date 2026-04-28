@@ -2,7 +2,7 @@
    IMPORTS
 ========================================================= */
 
-const { readRows, updateRow } = require("../../config/google");
+const { readRows, updateRow } = require("@config/google")
 const { LINE_UID_SHEET } = require("./lineOA.schema");
 
 

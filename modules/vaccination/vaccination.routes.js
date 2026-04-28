@@ -9,10 +9,10 @@ const controller = require("./vaccination.controller");
 /* =======================================================
    TIMELINE, LATEST, HISTORY
 ======================================================= */
-router.get("/timeline/:cid", controller.timeline);
-router.get("/latest/:cid", controller.latest);
-router.get("/history/:cid", controller.history);
 
+router.get("/timeline/:cid", controller.getVaccinationTimeline);
+router.get("/latest/:cid", controller.getLatestVaccines);
+router.get("/history/:cid", controller.getVaccinationHistory);
 /* =======================================================
    VACCINE MASTER & NEXT VCN
 ======================================================= */
@@ -35,8 +35,7 @@ router.get("/appointments/:cid", controller.getAppointments);
 ======================================================= */
 router.post("/add", controller.addVaccination);
 router.delete("/delete/:vcn", controller.deleteVaccination);
-router.post("/send-line/:vcn", controller.sendLineVaccine);
-
+router.post("/send-line/:vcn", controller.sendLineByButton);
 /* =======================================================
    SECURE HISTORY
 ======================================================= */

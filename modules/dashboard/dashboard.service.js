@@ -2,7 +2,7 @@
  * dashboard.service.js (FINAL CLEAN PRODUCTION)
  *****************************************************************/
 
-const { getSheets } = require("../../config/google");
+const { getSheets } = require("@config/google")
 
 /*****************************************************************
  * GET SHEETS

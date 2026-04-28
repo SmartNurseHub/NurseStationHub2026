@@ -2,8 +2,8 @@
  * lineUID.service.js (FIXED - USE getSheets ONLY)
  *****************************************************************/
 
-const { readRows, appendRow, getSheets } = require("../../config/google");
-const { deleteRow } = require("../../config/google");
+const { readRows, appendRow, getSheets } = require("@config/google")
+const { deleteRow } = require("@config/google")
 const SHEET = "LineUID";
 
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID;

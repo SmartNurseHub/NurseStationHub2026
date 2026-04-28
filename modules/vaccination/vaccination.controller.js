@@ -161,23 +161,7 @@ exports.getLatestVaccination = async (req, res) => {
   }
 };
 
-exports.timeline = async (req,res)=>{
-  const cid = req.params.cid;
-  const data = await service.timeline(cid);
-  res.json({ success:true, data });
-};
 
-exports.latest = async (req,res)=>{
-  const cid = req.params.cid;
-  const data = await service.latest(cid);
-  res.json({ success:true, data });
-};
-
-exports.history = async (req,res)=>{
-  const cid = req.params.cid;
-  const data = await service.history(cid);
-  res.json({ success:true, data });
-};
 
 /******************************************************************
  * APPOINTMENTS
@@ -280,5 +264,30 @@ exports.getSchedule = async (req, res) => {
   } catch (err) {
     console.error("❌ schedule error:", err);
     res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+exports.sendLineByButton = async (req, res) => {
+  try {
+
+    const { vcn } = req.params;
+
+    if (!vcn) {
+      return res.status(400).json({
+        success: false,
+        message: "vcn required"
+      });
+    }
+
+    const result = await service.sendLineByButton(vcn);
+
+    res.json(result);
+
+  } catch (err) {
+    console.error("sendLineByButton error:", err);
+    res.status(500).json({
+      success: false,
+      error: err.message
+    });
   }
 };

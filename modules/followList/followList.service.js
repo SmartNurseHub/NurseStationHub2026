@@ -2,7 +2,7 @@
  * followList.service.js (FINAL FIX)
  *****************************************************************/
 
-const { readRows } = require("../../config/google");
+const { readRows } = require("@config/google")
 
 const SHEET = "FollowList";
 

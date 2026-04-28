@@ -2,7 +2,7 @@
    IMPORTS
 ========================================================= */
 const service = require("./lineOA.service");
-const { readRows,appendRow} = require("../../config/google");
+const { readRows,appendRow} = require("@config/google")
 const { FOLLOW_SHEET, USER_SHEET } = require("./lineOA.schema");
 const registrationService = require("./lineOA.registration.service");
 const { formatBullet, buildFlex } = require("../../utils/flexBuilder");

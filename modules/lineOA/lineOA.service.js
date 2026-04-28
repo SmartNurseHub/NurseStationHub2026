@@ -11,7 +11,7 @@ const {
   readRows,
   updateRow,
   deleteRow
-} = require("../../config/google");
+} = require("@config/google")
 
 /* =========================================================
    CONFIG
@@ -285,12 +285,17 @@ async function handleUnfollowEvent(event) {
 async function safePush(userId, message, retry = 3) {
   for (let i = 0; i < retry; i++) {
     try {
-      return await lineClient.pushMessage(userId, message);
+      const res = await lineClient.pushMessage(userId, message);
+      console.log("📨 LINE PUSH SUCCESS:", res);
+      return res;
     } catch (err) {
-      console.error(`[LINE_PUSH_RETRY] try ${i + 1}`, err.message);
+      console.error("❌ LINE PUSH ERROR:", {
+        status: err.status,
+        message: err.message,
+        data: err.originalError?.response?.data
+      });
 
       if (i === retry - 1) throw err;
-
       await new Promise(r => setTimeout(r, 500 * (i + 1)));
     }
   }

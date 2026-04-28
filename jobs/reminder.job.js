@@ -3,8 +3,7 @@
  *****************************************************************/
 
 const cron = require("node-cron"); // ✅ สำคัญมาก (แก้ error)
-const reminderService = require("../modules/vaccination/vaccination.reminder.service");
-
+const reminderService = require('../modules/vaccination/reminder/vaccination.reminder.service');
 let isRunning = false; // 🔒 กัน cron ชนกัน
 
 /**

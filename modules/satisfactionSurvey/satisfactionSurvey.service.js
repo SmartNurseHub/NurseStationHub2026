@@ -1,4 +1,4 @@
-const { appendRow, readRows } = require("../../config/google");
+const { appendRow, readRows } = require("@config/google")
 
 const SHEET_NAME = "SatisfactionSurvey";
 

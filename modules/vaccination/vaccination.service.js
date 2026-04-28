@@ -6,9 +6,38 @@
 /* =========================================================
    1️⃣ IMPORT
 ========================================================= */
-
 const { getSheets } = require("../../config/google");
-const lineService = require("../lineOA/lineOA.service");
+const lineService = require('../lineOA/lineOA.service')
+/* =========================================================
+   🔒 ENTERPRISE SAFETY LAYER (ADD ONLY - DO NOT MODIFY OLD CODE)
+========================================================= */
+const _locks = new Map();
+const _idempotency = new Set();
+/* ---------- LOCK ---------- */
+async function lock(key, fn) {
+  while (_locks.get(key)) {
+    await new Promise(r => setTimeout(r, 20));
+  }
+
+  _locks.set(key, true);
+
+  try {
+    return await fn();
+  } finally {
+    _locks.delete(key);
+  }
+}
+
+/* ---------- IDEMPOTENCY ---------- */
+function isDuplicate(key) {
+  return _idempotency.has(key);
+}
+
+function markDone(key) {
+  _idempotency.add(key);
+
+  if (_idempotency.size > 5000) _idempotency.clear();
+}
 /* =========================================================
    CACHE SYSTEM (ลด Google API)
 ========================================================= */
@@ -196,19 +225,11 @@ function formatThaiDate(date){
 let vcnLock = false;
 
 async function genVCNSafe() {
-
-  while (vcnLock) {
-    await new Promise(r => setTimeout(r, 50));
-  }
-
-  vcnLock = true;
-
-  try {
+  return await lock("VCN_GENERATE", async () => {
     return await genVCN();
-  } finally {
-    vcnLock = false;
-  }
+  });
 }
+
 async function genVCN() {
 
   const sheets = await getSheets();
@@ -509,7 +530,7 @@ async function createVaccinationAppointments(patient, vaccineCode, dateService, 
   for (const s of schedule) {
 
     if (s.doseNo <= currentDose) continue;
-    if (exists.some(e => Number(e[4]) === s.doseNo)) continue;
+    if (exists.some(e => Number(e.doseNo) === s.doseNo)) continue;
 
     const apid = await genAPID();
     const due = calculateDueDate(dateService, s.intervalType, s.intervalValue);
@@ -565,8 +586,7 @@ async function saveVaccination(data) {
   const patient = await getPatient(cid);
   if (!patient) throw new Error("Patient not found");
 
-  // 🔥 generate ที่เดียว จบ
-  const vcn = await genVCNSafe(); // ✅ กันชน collision
+  const vcn = await genVCNSafe();
 
   const recordRow = [
     vcn,
@@ -580,6 +600,7 @@ async function saveVaccination(data) {
     data.locationType || "",
     data.locationDetail || "",
     data.lotNumber || "",
+    "",
     "COMPLETED",
     new Date().toISOString()
   ];
@@ -600,9 +621,7 @@ async function saveVaccination(data) {
     doseNo
   );
 
-  sendLineVaccine(vcn).catch(err => {
-    console.error("LINE SEND FAILED:", err.message);
-  });
+  // ❌ REMOVE LINE SEND HERE
 
   return {
     success: true,
@@ -610,6 +629,18 @@ async function saveVaccination(data) {
   };
 }
 
+async function sendLineByButton(vcn) {
+
+  const key = `BTN_LINE_${vcn}`;
+
+  if (isDuplicate(key)) {
+    return { success: false, message: "duplicate click blocked" };
+  }
+
+  markDone(key);
+
+  return await sendLineVaccine(vcn);
+}
 
 /* =========================================================
    11 RECORD QUERY
@@ -630,7 +661,7 @@ async function getVaccinationRecords(cid){
   const rows = res.data.values || [];
 
   return rows
-    .filter(r => String(r[1] || "").trim() === String(cid || "").trim())
+    .filter(r => String(r[1]) === String(cid))
     .map(r => {
 
       const code = r[3];
@@ -651,8 +682,9 @@ async function getVaccinationRecords(cid){
         locationType: r[8],
         locationDetail: r[9],
         lotNumber: r[10],
-        status: r[11],
-        createdAt: r[12]
+        nextDueDate: r[11],
+        status: r[12],
+        createdAt: r[13]
       };
 
     });
@@ -725,7 +757,13 @@ async function getAppointments(cid){
     .sort((a,b)=>new Date(a.appointmentDate)-new Date(b.appointmentDate));
 
 }
+function isProcessed(key){
+  return _idempotency.has(key);
+}
 
+function markProcessed(key){
+  _idempotency.add(key);
+}
 async function completeAppointment(cid, vaccineCode, doseNo){
 
   const sheets = await getSheets();
@@ -739,10 +777,10 @@ async function completeAppointment(cid, vaccineCode, doseNo){
   const rows = res.data.values || [];
 
   const index = rows.findIndex(r =>
-    r[1] === cid &&
-    r[3] === vaccineCode &&
+    String(r[1]) === String(cid) &&
+    String(r[3]) === String(vaccineCode) &&
     Number(r[4]) === Number(doseNo) &&
-    r[6] === "PENDING"
+    String(r[6]).trim().toUpperCase() === "PENDING"
   );
 
   if(index === -1) return;
@@ -758,9 +796,7 @@ async function completeAppointment(cid, vaccineCode, doseNo){
     valueInputOption:"USER_ENTERED",
     requestBody:{ values:[rows[index]] }
   });
-
 }
-
 
 /* =========================================================
    14 DELETE RECORD
@@ -817,27 +853,73 @@ async function deleteVaccination(vcn){
 
 }
 
+const Redis = require("ioredis");
+
+const redis = new Redis(process.env.REDIS_URL, {
+  maxRetriesPerRequest: 3,
+  enableReadyCheck: true
+});
+// ================= REDIS LOCK =================
+async function acquireLock(key, ttl = 15000) {
+  const res = await redis.set(key, "1", "PX", ttl, "NX");
+  return res === "OK";
+}
+
+async function releaseLock(key) {
+  await redis.del(key);
+}
+
+// ================= IDEMPOTENCY =================
+async function isExists(key) {
+  return (await redis.exists(key)) === 1;
+}
+
+async function setKey(key, ttl) {
+  await redis.set(key, "1", "PX", ttl);
+}
+
 async function sendLineVaccine(vcn) {
+
+  const lockKey = `lock:line:${vcn}`;
+  const sendingKey = `sending:line:${vcn}`;
+  const sentKey = `sent:line:${vcn}`;
+
+  // 🔒 กันยิงพร้อมกันทุก instance
+  const locked = await acquireLock(lockKey, 15000);
+
+  if (!locked) {
+    logInfo("[SKIP_LOCKED]", { vcn });
+    return { success: true, skipped: "LOCKED" };
+  }
 
   try {
 
     logInfo("[SEND_LINE_VACCINE_START]", { vcn });
 
+    // ✅ เคยส่งแล้ว → ไม่ต้องส่งอีก
+    if (await isExists(sentKey)) {
+      logInfo("[SKIP_DUPLICATE_SENT]", { vcn });
+      return { success: true, skipped: "ALREADY_SENT" };
+    }
+
+    // ⛔ กำลังส่งอยู่ → skip
+    if (await isExists(sendingKey)) {
+      logInfo("[SKIP_SENDING]", { vcn });
+      return { success: true, skipped: "SENDING" };
+    }
+
+    // 🔥 mark ว่ากำลังส่ง
+    await setKey(sendingKey, 30000);
+
     /* ================= GET RECORD ================= */
     const record = await getVaccinationByVCN(vcn);
-
-    if (!record) {
-      throw new Error("Vaccination record not found");
-    }
+    if (!record) throw new Error("Vaccination record not found");
 
     /* ================= GET PATIENT ================= */
     const patient = await getPatient(record.cid);
+    if (!patient) throw new Error("Patient not found");
 
-    if (!patient) {
-      throw new Error("Patient not found");
-    }
-
-    /* ================= LINE UID RESOLVE ================= */
+    /* ================= LINE UID ================= */
     let lineUID = String(patient.lineUID || "").trim();
 
     if (!lineUID) {
@@ -866,6 +948,7 @@ async function sendLineVaccine(vcn) {
     const totalDose = vaccine.totalDose ?? "-";
 
     /* ================= FLEX MESSAGE ================= */
+    // ❗ ใช้ Flex เดิมของคุณ 그대로 (ไม่แก้ ไม่ตัด)
 
     const flex = {
       type: "flex",
@@ -873,7 +956,6 @@ async function sendLineVaccine(vcn) {
       contents: {
         type: "bubble",
         size: "mega",
-
         hero: {
           type: "image",
           url: "https://drive.google.com/uc?export=view&id=1O366lb3XphBKeVv51F5nNHIOEvdEh-jI",
@@ -881,12 +963,10 @@ async function sendLineVaccine(vcn) {
           aspectRatio: "20:13",
           aspectMode: "cover"
         },
-
         body: {
           type: "box",
           layout: "vertical",
           spacing: "lg",
-
           contents: [
             {
               type: "text",
@@ -896,7 +976,6 @@ async function sendLineVaccine(vcn) {
               align: "center",
               color: "#006666"
             },
-
             {
               type: "text",
               text: "VACCINATION RECORD",
@@ -904,9 +983,7 @@ async function sendLineVaccine(vcn) {
               align: "center",
               color: "#9E9E9E"
             },
-
             { type: "separator" },
-
             {
               type: "text",
               text: `${patient.firstName} ${patient.lastName}`,
@@ -915,31 +992,25 @@ async function sendLineVaccine(vcn) {
               align: "center",
               color: "#fba003fd"
             },
-
             { type: "separator" },
-
             {
               type: "text",
               text: "📅 วันที่รับบริการ",
               weight: "bold",
               color: "#0277BD"
             },
-
             {
               type: "text",
               text: record.dateService || "-",
               size: "md"
             },
-
             { type: "separator" },
-
             {
               type: "text",
               text: "📋 รายละเอียดวัคซีน",
               weight: "bold",
               color: "#0277BD"
             },
-
             {
               type: "box",
               layout: "vertical",
@@ -969,7 +1040,6 @@ async function sendLineVaccine(vcn) {
             }
           ]
         },
-
         footer: {
           type: "box",
           layout: "vertical",
@@ -982,7 +1052,7 @@ async function sendLineVaccine(vcn) {
               action: {
                 type: "uri",
                 label: "💉 ประวัติวัคซีน",
-                uri: `https://liff.line.me/2007902507-7OKhdnNW/vaccine-history.html?cid=${record.cid}`
+                uri: `https://liff.line.me/2007902507-SCwT4XsP/vaccine-history.html?cid=${record.cid}`
               }
             }
           ]
@@ -996,63 +1066,47 @@ async function sendLineVaccine(vcn) {
     let lastError = null;
 
     for (let i = 1; i <= 3; i++) {
-
       try {
-
         await lineService.pushMessage(lineUID, flex);
-
         pushSuccess = true;
-
         logInfo("[LINE_PUSH_SUCCESS]", { vcn, lineUID, try: i });
-
         break;
-
       } catch (err) {
-
         lastError = err;
-
-        logError("[LINE_RETRY_FAIL]", {
-          try: i,
-          error: err.message
-        });
-
-        await new Promise(r => setTimeout(r, 300 * i));
-
+        logError("[LINE_RETRY_FAIL]", { try: i, error: err.message });
+        await new Promise(r => setTimeout(r, 500 * i));
       }
-
     }
-
-    /* ================= FINAL RESULT ================= */
 
     if (!pushSuccess) {
-
       logError("[LINE_PUSH_FAILED_FINAL]", lastError?.message);
-
-      return {
-        success: false,
-        error: lastError?.message || "push failed"
-      };
-
+      return { success: false, error: lastError?.message };
     }
+
+    // ✅ mark ว่าส่งสำเร็จแล้ว
+    await setKey(sentKey, 86400000); // 24 ชม.
 
     logInfo("[SEND_LINE_SUCCESS]", { vcn, lineUID });
 
-    return {
-      success: true,
-      lineUID
-    };
+    return { success: true };
 
   } catch (err) {
 
     logError("[SEND_LINE_ERROR]", err.message);
 
-    return {
-      success: false,
-      error: err.message
-    };
+    return { success: false, error: err.message };
+
+  } finally {
+
+    // 🔓 ปล่อย lock เสมอ
+    await releaseLock(lockKey);
+
+    // ❗ ลบ sendingKey เพื่อให้ retry ได้
+    await redis.del(sendingKey);
+
+    logInfo("[SEND_LINE_FINISH]", { vcn });
 
   }
-
 }
 
 async function getVaccinationByVCN(vcn){
@@ -1147,9 +1201,7 @@ async function getLineUIDByCID(cid) {
   }
 
 }
-/* =========================================================
-   15 EXPORT
-========================================================= */
+
 /* =========================================================
    DASHBOARD SUMMARY
 ========================================================= */
@@ -1222,7 +1274,7 @@ async function getDashboardSummary() {
         personMap[CID].vaccines.add(name);
       }
 
-      if (!isNaN(dateService)) {
+      if (!isNaN(dateService?.getTime?.())) {
         if (!personMap[CID].lastDate || dateService > new Date(personMap[CID].lastDate)) {
           personMap[CID].lastDate = dateService;
         }
@@ -1284,7 +1336,25 @@ async function getSchedule(){
 
 }
 
+const sentCache = new Map();
 
+function isSent(key) {
+  const data = sentCache.get(key);
+  if (!data) return false;
+
+  if (Date.now() > data.expire) {
+    sentCache.delete(key);
+    return false;
+  }
+
+  return true;
+}
+
+function markSent(key, ttl = 60000) {
+  sentCache.set(key, {
+    expire: Date.now() + ttl
+  });
+}
 
 
 module.exports = {

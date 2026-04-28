@@ -9,7 +9,7 @@ const lineUIDService = require("../lineUID/lineUID.service");
  *****************************************************************/
 async function getDashboardSummary(req, res) {
   try {
-    const summary = await dashboardService.getDashboardSummaryService();
+    const summary = await dashboardService.getDashboardSummary();
     res.json({ success: true, data: summary });
   } catch (err) {
     console.error("dashboard summary error:", err);

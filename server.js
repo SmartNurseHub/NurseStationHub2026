@@ -6,7 +6,7 @@
  * - ทำหน้าที่ config server, middleware, routes, cron job
  * - แยกโครงสร้างเป็น Module เพื่อให้อ่านง่ายและ scale ได้
  *****************************************************************/
-
+require('module-alias/register');
 require("dotenv").config();
 require("./jobs/reminder.job");
 const express = require("express");
@@ -22,7 +22,7 @@ const PORT = process.env.PORT || 3000;
  *****************************************************************/
 
 const { runReminderJob } =
-  require("./modules/vaccination/vaccination.reminder.service");
+  require("./modules/vaccination/reminder/vaccination.reminder.service");
 
 
 /*****************************************************************

@@ -2,7 +2,7 @@ const {
   readRowsById,
   clearSheetById,
   getSheets
-} = require("../../config/google");
+} = require("@config/google")
 
 const DB = process.env.INVENTORY_SPREADSHEET_ID;
 const SHEET_MASTER = process.env.SHEET_INVENTORY_MASTER;
