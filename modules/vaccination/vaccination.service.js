@@ -878,13 +878,14 @@ async function setKey(key, ttl) {
   await redis.set(key, "1", "PX", ttl);
 }
 
+
 async function sendLineVaccine(vcn) {
 
   const lockKey = `lock:line:${vcn}`;
   const sendingKey = `sending:line:${vcn}`;
   const sentKey = `sent:line:${vcn}`;
 
-  // 🔒 กันยิงพร้อมกันทุก instance
+  // ================= LOCK =================
   const locked = await acquireLock(lockKey, 15000);
 
   if (!locked) {
@@ -896,30 +897,25 @@ async function sendLineVaccine(vcn) {
 
     logInfo("[SEND_LINE_VACCINE_START]", { vcn });
 
-    // ✅ เคยส่งแล้ว → ไม่ต้องส่งอีก
+    // ================= DUP CHECK =================
     if (await isExists(sentKey)) {
-      logInfo("[SKIP_DUPLICATE_SENT]", { vcn });
       return { success: true, skipped: "ALREADY_SENT" };
     }
 
-    // ⛔ กำลังส่งอยู่ → skip
     if (await isExists(sendingKey)) {
-      logInfo("[SKIP_SENDING]", { vcn });
       return { success: true, skipped: "SENDING" };
     }
 
-    // 🔥 mark ว่ากำลังส่ง
     await setKey(sendingKey, 30000);
 
-    /* ================= GET RECORD ================= */
+    // ================= GET DATA =================
     const record = await getVaccinationByVCN(vcn);
     if (!record) throw new Error("Vaccination record not found");
 
-    /* ================= GET PATIENT ================= */
     const patient = await getPatient(record.cid);
     if (!patient) throw new Error("Patient not found");
 
-    /* ================= LINE UID ================= */
+    // ================= LINE UID =================
     let lineUID = String(patient.lineUID || "").trim();
 
     if (!lineUID) {
@@ -928,13 +924,10 @@ async function sendLineVaccine(vcn) {
     }
 
     if (!lineUID) {
-      logError("[LINE_UID_NOT_FOUND]", { cid: record.cid });
-      return { success: false, error: "LINE UID not found" };
+      throw new Error("LINE UID not found");
     }
 
-    logInfo("[LINE_UID_FOUND]", { lineUID });
-
-    /* ================= VACCINE MASTER ================= */
+    // ================= VACCINE MASTER =================
     const vaccines = await getVaccineMaster();
 
     const code = String(record.vaccineCode || "").trim().toUpperCase();
@@ -947,9 +940,10 @@ async function sendLineVaccine(vcn) {
     const vaccineNameEN = vaccine.name || "-";
     const totalDose = vaccine.totalDose ?? "-";
 
-    /* ================= FLEX MESSAGE ================= */
-    // ❗ ใช้ Flex เดิมของคุณ 그대로 (ไม่แก้ ไม่ตัด)
+    const fullName =
+      `${patient.firstName || "-"} ${patient.lastName || "-"}`;
 
+    // ================= FLEX MESSAGE =================
     const flex = {
       type: "flex",
       altText: "Vaccination Record",
@@ -970,73 +964,36 @@ async function sendLineVaccine(vcn) {
           contents: [
             {
               type: "text",
-              text: "บันทึกการได้รับวัคซีน",
-              weight: "bold",
-              size: "xl",
-              align: "center",
-              color: "#006666"
-            },
-            {
-              type: "text",
-              text: "VACCINATION RECORD",
-              size: "sm",
-              align: "center",
-              color: "#9E9E9E"
-            },
-            { type: "separator" },
-            {
-              type: "text",
-              text: `${patient.firstName} ${patient.lastName}`,
+              text: fullName,
               size: "xl",
               weight: "bold",
               align: "center",
               color: "#fba003fd"
             },
-            { type: "separator" },
-            {
-              type: "text",
-              text: "📅 วันที่รับบริการ",
-              weight: "bold",
-              color: "#0277BD"
-            },
             {
               type: "text",
               text: record.dateService || "-",
-              size: "md"
+              size: "md",
+              align: "center"
             },
-            { type: "separator" },
             {
               type: "text",
-              text: "📋 รายละเอียดวัคซีน",
+              text: vaccineNameTH,
               weight: "bold",
-              color: "#0277BD"
+              size: "md",
+              wrap: true
             },
             {
-              type: "box",
-              layout: "vertical",
-              spacing: "sm",
-              margin: "md",
-              contents: [
-                {
-                  type: "text",
-                  text: vaccineNameTH,
-                  weight: "bold",
-                  size: "md",
-                  wrap: true
-                },
-                {
-                  type: "text",
-                  text: `(${vaccineNameEN})`,
-                  size: "xs",
-                  color: "#757575"
-                },
-                {
-                  type: "text",
-                  text: `Lot: ${record.lotNumber || "-"} | Dose ${record.doseNo}/${totalDose}`,
-                  size: "xs",
-                  color: "#757575"
-                }
-              ]
+              type: "text",
+              text: `(${vaccineNameEN})`,
+              size: "xs",
+              color: "#757575"
+            },
+            {
+              type: "text",
+              text: `Lot: ${record.lotNumber || "-"} | Dose ${record.doseNo}/${totalDose}`,
+              size: "xs",
+              color: "#757575"
             }
           ]
         },
@@ -1052,7 +1009,7 @@ async function sendLineVaccine(vcn) {
               action: {
                 type: "uri",
                 label: "💉 ประวัติวัคซีน",
-                uri: `https://liff.line.me/2007902507-SCwT4XsP/vaccine-history.html?cid=${record.cid}`
+                uri: `https://liff.line.me/2007902507-SCwT4XsP?page=vaccine-history&cid=${record.cid}`
               }
             }
           ]
@@ -1060,31 +1017,55 @@ async function sendLineVaccine(vcn) {
       }
     };
 
-    /* ================= PUSH WITH RETRY ================= */
+    // ================= SAFETY CHECK =================
+    const pushFn = lineService?.pushMessage;
 
+    if (typeof pushFn !== "function") {
+      throw new Error("LINE pushMessage not available");
+    }
+
+    if (!lineUID || typeof lineUID !== "string") {
+      throw new Error("Invalid LINE UID");
+    }
+
+    if (!flex?.contents) {
+      throw new Error("Invalid FLEX payload");
+    }
+
+    // ================= PUSH RETRY =================
     let pushSuccess = false;
     let lastError = null;
 
     for (let i = 1; i <= 3; i++) {
       try {
-        await lineService.pushMessage(lineUID, flex);
+
+        await pushFn(lineUID, flex);
+
         pushSuccess = true;
+
         logInfo("[LINE_PUSH_SUCCESS]", { vcn, lineUID, try: i });
+
         break;
+
       } catch (err) {
+
         lastError = err;
-        logError("[LINE_RETRY_FAIL]", { try: i, error: err.message });
+
+        logError("[LINE_PUSH_FAIL]", {
+          try: i,
+          error: err.message
+        });
+
         await new Promise(r => setTimeout(r, 500 * i));
       }
     }
 
     if (!pushSuccess) {
-      logError("[LINE_PUSH_FAILED_FINAL]", lastError?.message);
-      return { success: false, error: lastError?.message };
+      throw lastError || new Error("LINE push failed");
     }
 
-    // ✅ mark ว่าส่งสำเร็จแล้ว
-    await setKey(sentKey, 86400000); // 24 ชม.
+    // ================= MARK SENT =================
+    await setKey(sentKey, 86400000); // 24h
 
     logInfo("[SEND_LINE_SUCCESS]", { vcn, lineUID });
 
@@ -1098,14 +1079,13 @@ async function sendLineVaccine(vcn) {
 
   } finally {
 
-    // 🔓 ปล่อย lock เสมอ
     await releaseLock(lockKey);
 
-    // ❗ ลบ sendingKey เพื่อให้ retry ได้
-    await redis.del(sendingKey);
+    if (redis?.del) {
+      await redis.del(sendingKey);
+    }
 
     logInfo("[SEND_LINE_FINISH]", { vcn });
-
   }
 }
 
@@ -1378,11 +1358,11 @@ module.exports = {
 
   sendLineVaccine,
 
-  // ✅ เพิ่มตรงนี้
+  sendLineByButton,   // 🔥 ADD THIS
+
   getDashboardSummary,
 
-  timeline:getVaccinationTimeline,
-  latest:getLatestVaccines,
-  history:getVaccinationHistory
-
+  timeline: getVaccinationTimeline,
+  latest: getLatestVaccines,
+  history: getVaccinationHistory
 };

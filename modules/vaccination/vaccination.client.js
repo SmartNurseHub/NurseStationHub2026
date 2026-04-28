@@ -625,7 +625,7 @@ async function loadVaccinationTable(cid){
     table.appendChild(tr);
 
     tr.querySelector(".send-line")
-      .addEventListener("click",()=>sendLineVaccine(v.vcn));
+  .addEventListener("click", () => sendLineVaccineClient(v.vcn));
 
     tr.querySelector(".delete-vaccine")
       .addEventListener("click",()=>deleteVaccine(v.vcn));
@@ -696,22 +696,34 @@ async function deleteVaccine(vcn){
   }
 }
 
-async function sendLineVaccine(vcn){
-  if(!confirm("ส่งข้อมูลวัคซีนไป LINE ?")) return;
+async function sendLineVaccineClient(vcn) {
 
-  try{
-    const res = await fetch(`/api/vaccination/send-line/${vcn}`,{method:"POST"});
+  if (!confirm("ส่งข้อมูลวัคซีนไป LINE ?")) return;
+
+  try {
+
+    const res = await fetch(`/api/vaccination/send-line/${vcn}`, {
+      method: "POST"
+    });
+
+    // 🔥 สำคัญ: เช็ค status ก่อน
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(text || `HTTP Error ${res.status}`);
+    }
+
     const result = await res.json();
 
-    if(!result.success){
+    if (!result.success) {
       alert(result.error || "ส่ง LINE ไม่สำเร็จ");
       return;
     }
 
     alert("📲 ส่ง LINE สำเร็จ");
-  }catch(err){
-    console.error(err);
-    alert("Server error");
+
+  } catch (err) {
+    console.error("SEND LINE ERROR:", err);
+    alert(err.message || "Server error");
   }
 }
 
