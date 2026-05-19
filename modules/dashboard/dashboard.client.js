@@ -89,9 +89,6 @@ function renderFollowerTable(data) {
   tbody.innerHTML = "";
 
   data.forEach(row => {
-
-    console.log("ROW DEBUG:", row); // 👈 ใส่บรรทัดนี้
-
     tbody.innerHTML += `
       <tr id="row-${row.rowIndex}">
         <td>${row.cid}</td>

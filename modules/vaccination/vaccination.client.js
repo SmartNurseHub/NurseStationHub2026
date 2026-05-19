@@ -308,36 +308,46 @@ async function openPatientModal(){
  * SELECT PATIENT
  *****************************************************************/
 function selectPatient(p){
-  VaccineState.currentCID = p.CID;
-  VaccineState.currentPatient = p;
+  try{
+    VaccineState.currentCID = p.CID;
+    VaccineState.currentPatient = p;
 
-  const name = getFullName(p);
-  const birth = p.BIRTH;
-  const age = calculateAge(birth);
+    const name = getFullName(p);
+    const birth = p.BIRTH;
+    const age = calculateAge(birth);
 
-  setText("vaccinePatientName","👤 "+name);
-  setText("vaccineCID",p.CID);
-  setText("vaccineBirthDate",birth);
-  setText("vaccineAge",age);
-  setText("vaccinePhone",p.MOBILE);
+    setText("vaccinePatientName","👤 "+name);
+    setText("vaccineCID",p.CID);
+    setText("vaccineBirthDate",birth);
+    setText("vaccineAge",age);
+    setText("vaccinePhone",p.MOBILE);
 
-  setText("p_cid",p.CID);
-  setText("p_name",name);
-  setText("p_birth",birth);
-  setText("p_age",age);
+    setText("p_cid",p.CID);
+    setText("p_name",name);
+    setText("p_birth",birth);
+    setText("p_age",age);
 
-  const cidInput = document.getElementById("vaccineCIDInput");
-  if(cidInput) cidInput.value = p.CID;
+    const cidInput = document.getElementById("vaccineCIDInput");
+    if(cidInput) cidInput.value = p.CID;
 
-  loadTimeline(p.CID);
-  loadVaccinationTable(p.CID);
-  loadLatestVaccines(p.CID);
-  loadAppointments(p.CID);
+    // 🔥 ตัวเสี่ยง
+    loadTimeline(p.CID);
+    loadVaccinationTable(p.CID);
+    loadLatestVaccines(p.CID);
+    loadAppointments(p.CID);
 
-  const modal = bootstrap.Modal.getInstance(document.getElementById("patientSearchModal"));
-  if(modal){
-    document.activeElement.blur();
-    modal.hide();
+  } catch(err){
+    console.error("❌ selectPatient error:", err);
+  } finally {
+    // 🔥 ปิด modal ไม่ว่าเกิดอะไร
+    const el = document.getElementById("patientSearchModal");
+    const modal = bootstrap.Modal.getInstance(el);
+    if(modal){
+      modal.hide();
+    } else if(el){
+      // กันกรณี getInstance ไม่เจอ
+      new bootstrap.Modal(el).hide();
+    }
   }
 }
 
@@ -451,6 +461,48 @@ async function loadTimeline(cid){
 }
 
 /*****************************************************************
+ * HISTORY TABLE
+ *****************************************************************/
+async function loadVaccinationTable(cid){
+  try{
+    const res = await fetch(`/api/vaccination/history/${cid}`);
+    const result = await res.json();
+
+    const table = document.getElementById("vaccinationTableBody"); // ✅ แก้ตรงนี้
+    if(!table) return;
+
+    table.innerHTML = "";
+
+    if(!result.success || !result.data) return;
+
+    result.data.forEach(v=>{
+      const tr = document.createElement("tr");
+
+      tr.innerHTML = `
+<td>${v.vcn || "-"}</td>
+<td>${formatThaiDate(v.dateService)}</td>
+<td>${getVaccineName(v.vaccineCode)}</td>
+<td>${v.doseNo}</td>
+<td>${v.lotNumber || "-"}</td>
+<td>${v.providerName || "-"}</td>
+<td>${v.locationDetail || "-"}</td>
+<td>
+  <button class="btn btn-success btn-sm send-line" data-vcn="${v.vcn}">📲</button>
+  <button class="btn btn-danger btn-sm delete-vaccine" data-id="${v.vcn}">🗑</button>
+</td>
+`;
+
+      table.appendChild(tr);
+    });
+
+  }catch(err){
+    console.error("❌ loadVaccinationTable:", err);
+  }
+}
+
+
+
+/*****************************************************************
  * LATEST VACCINES
  *****************************************************************/
 async function loadLatestVaccines(cid){
@@ -505,15 +557,10 @@ async function loadAppointments(cid){
 <td>${formatThaiDate(date)}</td>
 <td>${statusBadge(status)}</td>
 <td>
-  <button 
-  class="btn-fill-appointment"
-  data-cid="${row.cid || row.CID}"
-  data-vaccine="${row.vaccineCode || row.VaccineCode}"
-  data-dose="${row.doseNo || row.DoseNo}"
-  data-apid="${row.apid || row.APID}"
-  style="background:#198754;color:#fff;border:none;padding:4px 8px;font-size:10px;border-radius:6px;">
-  ฉีดตามนัด
-</button>
+  <button style="background:#198754;color:#fff;border:none;padding:6px 16px;font-size:10px;border-radius:6px;font-weight:500;cursor:pointer;"
+    onclick="fillAppointment('${row.cid}','${row.vaccineCode}','${row.doseNo}','${row.apid}')">
+    ฉีดตามนัด
+  </button>
 </td>
 `;
     table.appendChild(tr);
@@ -572,8 +619,9 @@ async function loadDashboard() {
     <td>${formatThaiDate(r.lastDate)}</td>
     <td>${formatThaiDate(r.nextAppt)}</td>
     <td>
-      <button class="btn btn-sm btn-outline-primary action-view-patient" data-cid="${r.CID}"style="font-size: 11px;">
-  👁 ดูข้อมูล</button>
+      <button class="btn btn-sm btn-info" onclick="openPatientFromDashboard('${r.CID}')">
+        ดู
+      </button>
     </td>
   </tr>
 `).join("");
@@ -586,51 +634,6 @@ async function loadDashboard() {
       </tr>
     `;
   }
-}
-
-async function loadVaccinationTable(cid){
-
-  const res = await fetch(`/api/vaccination/history/${cid}`);
-  const result = await res.json();
-
-  if(!result.success) return;
-
-  const table = document.getElementById("vaccinationHistoryTable");
-
-  if(!table){
-    console.warn("vaccinationHistoryTable missing - check HTML render order");
-    return;
-  }
-
-  table.innerHTML = "";
-
-  result.data.forEach(v=>{
-
-    const tr = document.createElement("tr");
-
-    tr.innerHTML = `
-<td style="font-size:10px;width:15%;">${v.vcn || "-"}</td>
-<td style="font-size:10px;width:10%;">${formatThaiDate(v.dateService)}</td>
-<td style="font-size:10px;width:15%;">${getVaccineName(v.vaccineCode)}</td>
-<td style="font-size:10px;width:5%;">${v.doseNo}</td>
-<td style="font-size:10px;width:10%;">${v.lotNumber || "-"}</td>
-<td style="font-size:10px;width:15%;">${v.providerName || "-"}</td>
-<td style="font-size:10px;width:15%;">${v.locationDetail || "-"}</td>
-<td style="width:10%;">
-  <button class="btn btn-success btn-sm send-line" style="font-size:10px;padding:2px 6px;">📲</button>
-  <button class="btn btn-outline-danger btn-sm delete-vaccine" data-id="${v.vcn}" style="font-size:10px;padding:2px 6px;">🗑</button>
-</td>
-`;
-
-    table.appendChild(tr);
-
-    tr.querySelector(".send-line")
-  .addEventListener("click", () => sendLineVaccineClient(v.vcn));
-
-    tr.querySelector(".delete-vaccine")
-      .addEventListener("click",()=>deleteVaccine(v.vcn));
-
-  });
 }
 
 
@@ -696,70 +699,52 @@ async function deleteVaccine(vcn){
   }
 }
 
-async function sendLineVaccineClient(vcn) {
+async function sendLineVaccine(vcn){
+  if(!confirm("ส่งข้อมูลวัคซีนไป LINE ?")) return;
 
-  if (!confirm("ส่งข้อมูลวัคซีนไป LINE ?")) return;
-
-  try {
-
-    const res = await fetch(`/api/vaccination/send-line/${vcn}`, {
-      method: "POST"
-    });
-
-    // 🔥 สำคัญ: เช็ค status ก่อน
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(text || `HTTP Error ${res.status}`);
-    }
-
+  try{
+    const res = await fetch(`/api/vaccination/send-line/${vcn}`,{method:"POST"});
     const result = await res.json();
 
-    if (!result.success) {
+    if(!result.success){
       alert(result.error || "ส่ง LINE ไม่สำเร็จ");
       return;
     }
 
     alert("📲 ส่ง LINE สำเร็จ");
-
-  } catch (err) {
-    console.error("SEND LINE ERROR:", err);
-    alert(err.message || "Server error");
+  }catch(err){
+    console.error(err);
+    alert("Server error");
   }
 }
 
 document.addEventListener("click", async (e) => {
+  if (!e.target.classList.contains("send-line")) return;
 
-  if (e.target.classList.contains("send-line")) {
+  const vcn = e.target.dataset.vcn;
+  if (!vcn) return alert("No VCN");
 
-    const vcn = e.target.dataset.vcn;
+  const btn = e.target;
+  btn.disabled = true;
 
-    if (!vcn) return alert("No VCN");
+  try {
+    const res = await fetch(`/api/vaccination/send-line/${vcn}`, {
+      method: "POST"
+    });
 
-    e.target.disabled = true;
+    const data = await res.json();
 
-    try {
-
-      const res = await fetch("/api/vaccination/send-line-button", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ vcn })
-      });
-
-      const data = await res.json();
-
-      if (data.success) {
-        alert("ส่ง LINE สำเร็จ");
-      } else {
-        alert(data.message || "ส่งไม่สำเร็จ");
-      }
-
-    } catch (err) {
-      alert("Error sending LINE");
+    if (data.success) {
+      alert("ส่ง LINE สำเร็จ");
+    } else {
+      alert(data.message || "ส่งไม่สำเร็จ");
     }
 
-    e.target.disabled = false;
+  } catch (err) {
+    console.error(err);
+    alert("Error sending LINE");
   }
+
+  btn.disabled = false;
 });
 

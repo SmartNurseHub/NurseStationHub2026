@@ -4,8 +4,7 @@
 
 const { getSheets } = require("../../config/google");
 const lineService = require("../lineOA/lineOA.line.service");
-const pLimitImport = require("p-limit");
-const pLimit = pLimitImport.default || pLimitImport;
+const pLimit = require("p-limit");
 
 const SHEET_REMINDER = "Reminder";
 const TIMEZONE = "Asia/Bangkok";

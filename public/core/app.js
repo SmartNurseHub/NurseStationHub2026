@@ -51,11 +51,17 @@ const VIEW_CONFIG = {
     init: "initReports"
   },
 
-  vaccination: {
-    view: "/modules/vaccination/vaccination.view.html",
-    script: "/modules/vaccination/vaccination.client.js",
-    init: "initVaccination"
-  },
+ vaccination: {
+  view: "/modules/vaccination/vaccination.view.html",
+  scripts: [
+    "/modules/vaccination/vaccination.state.js",   // ✅ STATE
+    "/modules/vaccination/vaccination.api.js",     // ✅ API
+    "/modules/vaccination/vaccination.ui.js",      // 🔥 UI (ตัวที่หาย)
+    "/modules/vaccination/vaccination.events.js",  // ✅ EVENTS
+    "/modules/vaccination/vaccination.client.js"   // ✅ CLIENT
+  ],
+  init: "initVaccination"
+},
   inventory: {
   view: "/modules/inventory/inventory.view.html",
   script: "/modules/inventory/inventory.client.js",
@@ -64,129 +70,58 @@ const VIEW_CONFIG = {
 };
 
 /* ===============================
-   LOAD VIEW (FIXED HARDENED)
+   LOAD VIEW
 ================================ */
 async function loadView(name) {
   const cfg = VIEW_CONFIG[name];
   const container = document.getElementById("view-container");
 
-  if (!cfg) {
-    container.innerHTML = `
-      <div class="alert alert-danger m-3">
-        ❌ ไม่พบหน้า <b>${name}</b>
-      </div>
-    `;
-    return;
-  }
+  if (!cfg) return;
 
   try {
-    console.log("🔄 Load view:", name);
-
-    /* ---------- 1. LOAD HTML ---------- */
-    const res = await fetch(cfg.view, { cache: "no-store" });
-    if (!res.ok) throw new Error("View not found");
-
+    const res = await fetch(cfg.view);
     const html = await res.text();
     container.innerHTML = html;
 
-    /* ---------- 2. LOAD SCRIPT ---------- */
-    if (cfg.script) {
-      let scriptPromise = loadedScripts.get(cfg.script);
+    const scripts = cfg.scripts || (cfg.script ? [cfg.script] : []);
+
+    for (const src of scripts) {
+      let scriptPromise = loadedScripts.get(src);
 
       if (!scriptPromise) {
         scriptPromise = new Promise((resolve, reject) => {
           const s = document.createElement("script");
-
-          // ⭐ FIX สำคัญ: กันโหลดซ้ำ + debug ง่าย
-          s.src = cfg.script + "?v=" + Date.now();
-          s.defer = true;
-
-          s.onload = () => {
-            console.log("📦 Script loaded:", cfg.script);
-            resolve();
-          };
-
-          s.onerror = () => {
-            console.error("❌ Script load failed:", cfg.script);
-            reject();
-          };
-
+          s.src = src;
+          s.onload = resolve;
+          s.onerror = reject;
           document.body.appendChild(s);
         });
 
-        loadedScripts.set(cfg.script, scriptPromise);
+        loadedScripts.set(src, scriptPromise);
       }
 
       await scriptPromise;
+    }
 
-      /* ---------- 3. INIT ---------- */
-      if (cfg.init) {
-        if (typeof window[cfg.init] === "function") {
-          try {
-            await window[cfg.init]();
-            console.log(`✅ Init ${cfg.init}()`);
-          } catch (err) {
-            console.error(`❌ Init error (${cfg.init}):`, err);
-          }
-        } else {
-          console.warn(`⚠️ ไม่พบ function ${cfg.init}`);
-        }
-      }
+    if (cfg.init && window[cfg.init]) {
+      await window[cfg.init]();
     }
 
   } catch (err) {
-    console.error("❌ loadView error:", err);
-
-    container.innerHTML = `
-      <div class="alert alert-danger m-3">
-        ❌ โหลดหน้า <b>${name}</b> ไม่สำเร็จ
-      </div>
-    `;
+    console.error(err);
   }
 }
 
 /* ===============================
-   NAVIGATION (SPA)
+   NAV
 ================================ */
 document.addEventListener("click", e => {
   const nav = e.target.closest("[data-nav]");
   if (!nav) return;
 
   e.preventDefault();
-  const page = nav.dataset.nav;
-
-  loadView(page);
+  loadView(nav.dataset.nav);
 });
-
-/* ===============================
-   GLOBAL NAV HELPERS
-================================ */
-window.openNursingCounselor = function (tab = "general") {
-
-  loadView("nursingCounselor");
-
-  setTimeout(() => {
-    const tabBtn = document.querySelector(
-      `button[data-bs-target="#${tab}"]`
-    );
-
-    if (tabBtn && window.bootstrap) {
-      bootstrap.Tab.getOrCreateInstance(tabBtn).show();
-    }
-
-    const formMap = {
-      general: "generalForm",
-      disease: "diseaseForm",
-      universal: "universalForm"
-    };
-
-    const form = document.getElementById(formMap[tab]);
-    if (form) {
-      form.scrollIntoView({ behavior: "smooth" });
-    }
-
-  }, 300);
-};
 
 /* ===============================
    INIT

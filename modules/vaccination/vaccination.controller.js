@@ -200,11 +200,8 @@ exports.deleteVaccination = async (req, res) => {
 exports.sendLineVaccine = async (req, res) => {
   try {
     const { vcn } = req.params;
-
     const result = await service.sendLineVaccine(vcn);
-
     res.json({ success: true, result });
-
   } catch (err) {
     console.error("sendLineVaccine error:", err);
     res.status(500).json({ success: false, message: err.message });
@@ -272,7 +269,6 @@ exports.getSchedule = async (req, res) => {
 
 exports.sendLineByButton = async (req, res) => {
   try {
-
     const { vcn } = req.params;
 
     if (!vcn) {
@@ -282,15 +278,17 @@ exports.sendLineByButton = async (req, res) => {
       });
     }
 
-    const result = await service.sendLineByButton(vcn);
+    // ✅ เรียก service เท่านั้น
+    const result = await service.sendLineVaccine(vcn);
 
-    res.json(result);
+    return res.json(result);
 
   } catch (err) {
     console.error("sendLineByButton error:", err);
-    res.status(500).json({
+
+    return res.status(500).json({
       success: false,
-      error: err.message
+      message: err.message
     });
   }
 };

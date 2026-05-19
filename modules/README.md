@@ -17,7 +17,7 @@ https://haziness-shush-utilize.ngrok-free.dev/lineOA/webhook
 
 node test.js
 node server.js
-netstat -ano | findstr :3000
+netstat -ano | findstr :5000
 taskkill /PID <PID> /F
 
 git status

@@ -73,7 +73,7 @@ safeUse("/vaccination", "../modules/vaccination/vaccination.routes", "Vaccinatio
 // Satisfaction Survey
 safeUse("/satisfaction-survey", "../modules/satisfactionSurvey/satisfactionSurvey.routes", "SatisfactionSurvey");
 
-safeUse("/inventory", "../modules/inventory/inventory.routes", "Inventory");
+router.use("/inventory", require("../modules/inventory/inventory.routes"));
 /*****************************************************************
  * MODULE: DIRECT IMPORT (SPECIAL CASE)
  * - ใช้ในกรณีต้องการ reference vaccination routes โดยตรง

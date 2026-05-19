@@ -12,7 +12,7 @@ require("./jobs/reminder.job");
 const express = require("express");
 const path = require("path");
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5000;
 
 
 /*****************************************************************
@@ -22,8 +22,7 @@ const PORT = process.env.PORT || 3000;
  *****************************************************************/
 
 const { runReminderJob } =
-  require("./modules/vaccination/reminder/vaccination.reminder.service");
-
+  require("./modules/vaccination/vaccination.reminder.service");
 
 /*****************************************************************
  * MODULE: MIDDLEWARE
@@ -83,6 +82,11 @@ app.use(
   require("./modules/lineOA/lineOA.routes")
 );
 
+app.use(
+  "/api/inventory",
+  require("./modules/inventory/inventory.routes")
+);
+
 
 /*****************************************************************
  * MODULE: TEST / DEBUG ROUTES
@@ -127,7 +131,7 @@ app.get("/test-reminder", async (req, res) => {
  * หน้าที่:
  * - รองรับ Single Page Application (React/Vue/etc.)
  * - ทุก route ที่ไม่ใช่ API จะ redirect ไป index.html
- *****************************************************************/
+ ****************************************************************
 
 app.use((req, res, next) => {
   if (req.originalUrl.startsWith("/api")) {
@@ -137,7 +141,7 @@ app.use((req, res, next) => {
     });
   }
   next();
-});
+});*/
 
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "views/index.html"));

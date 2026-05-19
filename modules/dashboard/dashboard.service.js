@@ -155,6 +155,34 @@ async function deleteLineUID(rowIndex) {
     requestBody: { values: rows }
   });
 }
+
+async function getInventoryMasterMap() {
+  const sheets = await getSheets();
+
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: process.env.INVENTORY_SPREADSHEET_ID,
+    range: `${process.env.SHEET_INVENTORY_MASTER}!A2:E`
+  });
+
+  const rows = res.data.values || [];
+
+  const map = {};
+
+  rows.forEach(r => {
+    const itemId = r[0];
+    const name = r[1];
+
+    if (itemId) {
+      map[itemId] = {
+        name,
+        size: r[2] || "",
+        unit: r[3] || ""
+      };
+    }
+  });
+
+  return map;
+}
 /*****************************************************************
  * EXPORT
  *****************************************************************/
@@ -163,5 +191,6 @@ module.exports = {
   getFollowListService,
   addFollowerService,
   updateFollowService,
-  deleteLineUID // ✅ ใช้ตัวนี้
+  deleteLineUID,
+  getInventoryMasterMap
 };

@@ -1,110 +1,96 @@
 const service = require("./inventory.service");
-
-let isSaving = false;
+const PQueue = require("p-queue").default;
 
 /* ===============================
-   GET MASTER
+   SINGLE GLOBAL QUEUE (SAFE)
+================================ */
+const queue = new PQueue({
+  concurrency: 1,
+  timeout: 50000,
+  throwOnTimeout: true
+});
+
+function safeResponse(res, data) {
+  return res.json({
+    success: true,
+    data,
+    timestamp: new Date().toISOString()
+  });
+}
+
+function safeError(res, err, module = "inventory") {
+  console.error(`[${module}]`, err);
+
+  return res.status(500).json({
+    success: false,
+    module,
+    error: err.message || "Unknown Error"
+  });
+}
+
+/* ===============================
+   MASTER
 ================================ */
 async function getMaster(req, res) {
   try {
     const data = await service.getMaster();
-    res.json(data);
+    console.log("🔥 MASTER DATA OUTPUT:", data); // 👈 ADD THIS
+
+    return safeResponse(res, data);
   } catch (err) {
-    res.status(500).json({ error: "master error" });
+    return safeError(res, err, "getMaster");
+  }
+}
+
+async function saveMaster(req, res) {
+  try {
+    if (!Array.isArray(req.body)) {
+      throw new Error("Invalid payload: expected array");
+    }
+
+    const result = await queue.add(() =>
+      service.saveMaster(req.body)
+    );
+
+    return safeResponse(res, result);
+  } catch (err) {
+    return safeError(res, err, "saveMaster");
   }
 }
 
 /* ===============================
-   SAVE MASTER (FIXED)
+   MOVEMENT
 ================================ */
-async function saveMaster(req, res) {
+async function getMovement(req, res) {
   try {
-
-    if (isSaving) {
-      return res.status(429).json({
-        error: "System busy, please wait"
-      });
-    }
-
-    isSaving = true;
-
-    console.log("📦 BODY:", req.body);
-
-    if (!Array.isArray(req.body)) {
-      return res.status(400).json({
-        error: "payload must be array"
-      });
-    }
-
-    const result = await service.saveMaster(req.body);
-
-    res.json({
-      success: true,
-      result
-    });
-
+    const data = await service.getMovement();
+    return safeResponse(res, data);
   } catch (err) {
-
-    console.error("🔥 INVENTORY ERROR:", err);
-
-    res.status(500).json({
-      error: err.message,
-      stack: err.stack
-    });
-
-  } finally {
-    isSaving = false;
+    return safeError(res, err, "getMovement");
   }
 }
 
-async function getLot(req,res){
-  const data = await service.getLot();
-  res.json(data);
+async function saveMovement(req, res) {
+  try {
+    if (!Array.isArray(req.body)) {
+      throw new Error("Invalid payload: expected array");
+    }
+
+    const result = await queue.add(() =>
+      service.saveMovement(req.body)
+    );
+
+    return safeResponse(res, result);
+  } catch (err) {
+    return safeError(res, err, "saveMovement");
+  }
 }
 
-async function getLot(){
-  const rows = await readRowsById(DB, SHEET_LOT);
 
-  if(!rows || rows.length<=1) return [];
-
-  const [, ...data] = rows;
-
-  return data.map(r=>({
-    Lotid:r[0],
-    Item_id:r[1],
-    lot:r[2],
-    Exp:r[3],
-    Qty:Number(r[4]||0),
-    Status:r[5],
-    QRCode:r[6],
-    providers:r[7]
-  }));
-}
-async function saveLot(req,res){
-  const result = await service.saveLot(req.body);
-  res.json({success:true,result});
-}
-
-async function deleteLot(req,res){
-  const {Lotid} = req.body;
-  const result = await service.deleteLot(Lotid);
-  res.json({success:true,result});
-}
-
-async function getLot(req,res){
-  const data = await service.getLot();
-  res.json(data);
-}
-
-async function saveLot(req,res){
-  const result = await service.saveLot(req.body);
-  res.json(result);
-}
 
 module.exports = {
   getMaster,
   saveMaster,
-  getLot,
-  saveLot,
-  deleteLot
+  getMovement,
+  saveMovement
 };
